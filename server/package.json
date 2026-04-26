@@ -1,0 +1,21 @@
+{
+    "name": "server",
+    "version": "1.0.0",
+    "description": "monster chat server",
+    "license": "ISC",
+    "type": "module",
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "tsx src/server.ts",
+        "build": "tsc"
+    },
+    "dependencies": {
+        "shared": "*",
+        "ws": "^8.20.0"
+    },
+    "devDependencies": {
+        "@types/ws": "^8.5.0",
+        "tsx": "^4.19.0",
+        "typescript": "^5.8.0"
+    }
+}
