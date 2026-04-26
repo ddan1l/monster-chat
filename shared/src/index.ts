@@ -1,52 +1,44 @@
-// Messages sent from client to server
-export interface JoinMessage {
-    type: "join";
-    roomId: string;
-}
-
-export interface OfferMessage {
-    type: "offer";
-    roomId: string;
-    payload: RTCSessionDescriptionInit;
-}
-
-export interface AnswerMessage {
-    type: "answer";
-    roomId: string;
-    payload: RTCSessionDescriptionInit;
-}
-
-export interface IceCandidateMessage {
-    type: "ice-candidate";
-    roomId: string;
-    payload: RTCIceCandidateInit;
-}
-
-export type ClientMessage =
-    | JoinMessage
-    | OfferMessage
-    | AnswerMessage
-    | IceCandidateMessage;
-
 // Messages sent from server to client
-export interface ServerOfferMessage {
-    type: "offer";
-    payload: RTCSessionDescriptionInit;
+export interface ServerMessageDelivery {
+    type: "message";
+    payload: Message;
 }
 
-export interface ServerAnswerMessage {
-    type: "answer";
-    payload: RTCSessionDescriptionInit;
+export interface ServerNotification {
+    type: "notification";
+    payload: Message;
 }
 
-export interface ServerIceCandidateMessage {
-    type: "ice-candidate";
-    payload: RTCIceCandidateInit;
+export interface ServerJoined {
+    type: "joined";
+}
+
+export interface ServerError {
+    type: "error";
+    message: string;
 }
 
 export type ServerMessage =
-    | ServerOfferMessage
-    | ServerAnswerMessage
-    | ServerIceCandidateMessage;
+    | ServerJoined
+    | ServerMessageDelivery
+    | ServerNotification
+    | ServerError;
 
-export type SignalingType = "offer" | "answer" | "ice-candidate";
+export interface Chat {
+    id: string;
+    link: string;
+    createdAt: number;
+}
+
+export interface User {
+    id: string;
+    name: string;
+}
+
+export interface Message {
+    id: string;
+    chatId: string;
+    senderId: string;
+    text: string;
+    timestamp: number;
+}

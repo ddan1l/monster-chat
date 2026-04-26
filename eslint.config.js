@@ -1,13 +1,13 @@
 import js from "@eslint/js";
 import ts from "typescript-eslint";
 import vue from "eslint-plugin-vue";
-import prettier from "eslint-config-prettier";
+import prettierPlugin from "eslint-plugin-prettier/recommended";
 
 export default ts.config(
     js.configs.recommended,
     ...ts.configs.recommended,
     ...vue.configs["flat/recommended"],
-    prettier,
+    prettierPlugin,
     {
         files: ["**/*.vue"],
         languageOptions: {
