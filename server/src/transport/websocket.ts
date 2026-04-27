@@ -22,8 +22,20 @@ export function startServer(port: number) {
 
     wss.on("connection", (ws: Peer) => {
         ws.on("message", (raw) => {
-            const data: ClientMessage = JSON.parse(raw.toString());
-            const handler = handlers[data.type];
+            let data: ClientMessage;
+            try {
+                data = JSON.parse(raw.toString());
+            } catch {
+                ws.close(1003, "Invalid JSON");
+                return;
+            }
+
+            const handler = handlers[data?.type as keyof typeof handlers];
+            if (!handler) {
+                ws.close(1003, "Unknown message type");
+                return;
+            }
+
             handler(ws, data as never);
         });
 

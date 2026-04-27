@@ -1,38 +1,32 @@
-import { ref, onUnmounted } from "vue";
-import type { ServerMessage } from "shared";
+import { ref } from "vue";
 import { useUser } from "./useUser";
+import { useWs } from "./useWs";
 
 const unread = ref<Record<string, number>>({});
 const permissionGranted = ref(Notification.permission === "granted");
 const permissionDenied = ref(Notification.permission === "denied");
 
 export function useNotifications() {
-    const ws = ref<WebSocket | null>(null);
     const { user, load: loadUser } = useUser();
+    const { connect, send } = useWs();
 
     async function init() {
         if (!user.value) await loadUser();
         if (!user.value) return;
 
-        ws.value = new WebSocket("ws://localhost:3000");
+        connect(
+            () => send({ type: "online", userId: user.value!.id }),
+            (msg) => {
+                if (msg.type !== "notification") return;
 
-        ws.value.onopen = () => {
-            ws.value!.send(
-                JSON.stringify({ type: "online", userId: user.value!.id })
-            );
-        };
+                unread.value[msg.payload.chatId] =
+                    (unread.value[msg.payload.chatId] ?? 0) + 1;
 
-        ws.value.onmessage = ({ data }) => {
-            const msg: ServerMessage = JSON.parse(data);
-            if (msg.type !== "notification") return;
-
-            unread.value[msg.payload.chatId] =
-                (unread.value[msg.payload.chatId] ?? 0) + 1;
-
-            if (permissionGranted.value) {
-                new Notification("New message", { body: msg.payload.text });
+                if (permissionGranted.value) {
+                    new Notification("New message", { body: msg.payload.text });
+                }
             }
-        };
+        );
     }
 
     async function requestPermission() {
@@ -48,8 +42,6 @@ export function useNotifications() {
     function clearUnread(chatId: string) {
         delete unread.value[chatId];
     }
-
-    onUnmounted(() => ws.value?.close());
 
     return {
         unread,
