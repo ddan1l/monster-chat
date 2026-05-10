@@ -1,12 +1,27 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, watch } from "vue";
+import { useWs } from "./composables/useWs";
 import { useNotifications } from "./composables/useNotifications";
+import { useCrypto } from "./composables/useCrypto";
+import { useChat } from "./composables/useChat";
 
+const { connect, connected } = useWs();
 const { init } = useNotifications();
+const { init: initCrypto } = useCrypto();
+const { startSync } = useChat();
 
-onMounted(init);
+startSync();
+
+onMounted(async () => {
+    await initCrypto();
+    connect();
+});
+
+watch(connected, (val) => {
+    if (val) init();
+});
 </script>
 
 <template>
-    <RouterView />
+    <RouterView v-if="connected" />
 </template>

@@ -1,41 +1,45 @@
 import { WebSocket } from "ws";
-import type { Message, ServerNotification } from "shared";
+import type { ChatMessage, ServerNotification } from "shared";
 import type { Peer } from "../types.js";
 import { NotificationService } from "./NotificationService.js";
-import { PresenceInMemoryRepository } from "../repositories/PresenceInMemoryRepository.js";
+import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
+import { UserEventInMemoryQueue } from "../repositories/UserEventInMemoryQueue.js";
 
 export class PresenceService {
     constructor(
-        private presenceRepository: PresenceInMemoryRepository,
+        private connectionRepository: ConnectionInMemoryRepository,
+        private userEventQueue: UserEventInMemoryQueue,
         private notificationService: NotificationService
     ) {}
 
-    register(userId: string, peer: Peer): void {
-        peer.userId = userId;
-        this.presenceRepository.add(userId, peer);
+    register(signPubKey: string, peer: Peer): void {
+        peer.signPubKey = signPubKey;
+        this.connectionRepository.set(signPubKey, peer);
+
+        const pending = this.userEventQueue.flush(signPubKey);
+        pending.forEach((event) => this.notificationService.send(peer, event));
     }
 
     unregister(peer: Peer): void {
-        if (peer.userId) this.presenceRepository.remove(peer.userId);
+        if (peer.signPubKey) {
+            this.connectionRepository.delete(peer.signPubKey);
+        }
     }
 
-    notify(payload: Message, participantIds: string[]): void {
-        const recipient = this.presenceRepository
+    notify(payload: ChatMessage, participantIds: string[]): void {
+        const recipient = this.connectionRepository
             .getAll()
             .find(
                 (p) =>
-                    p.userId !== payload.senderId &&
-                    p.userId !== undefined &&
-                    participantIds.includes(p.userId) &&
+                    p.signPubKey !== payload.from &&
+                    p.signPubKey !== undefined &&
+                    participantIds.includes(p.signPubKey) &&
                     p.readyState === WebSocket.OPEN
             );
 
         if (!recipient) return;
 
-        const notification: ServerNotification = {
-            type: "notification",
-            payload,
-        };
+        const notification: ServerNotification = { type: "notification", payload };
         this.notificationService.send(recipient, notification);
     }
 }

@@ -3,13 +3,11 @@ import type { Peer } from "../types.js";
 import { chatService, presenceService } from "../container.js";
 
 export function onMessage(ws: Peer, data: SendMessage) {
-    const { chatId, payload } = data;
+    const { payload } = data;
+    const { chatId } = payload;
 
-    const recipients = chatService.getRecipients(chatId, ws);
-    chatService.deliver(chatId, payload, recipients);
+    chatService.deliver(chatId, payload, ws);
 
-    if (recipients.length === 0) {
-        const participantIds = chatService.getParticipantIds(chatId);
-        presenceService.notify(payload, participantIds);
-    }
+    const participantIds = chatService.getParticipantIds(chatId);
+    presenceService.notify(payload, participantIds);
 }

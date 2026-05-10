@@ -9,8 +9,8 @@ export function useUser() {
     const user = ref<User | null>(null);
     const { read, write } = useIndexedDb(STORES.USER);
 
-    async function init(name: string): Promise<void> {
-        const newUser: User = { id: nanoid(), name };
+    async function init(name: string, avatar: string): Promise<void> {
+        const newUser: User = { id: nanoid(), name, avatar };
         await write(newUser, USER_ID);
         user.value = newUser;
     }

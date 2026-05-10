@@ -1,16 +1,65 @@
+// Messages sent from client to server
+export interface OpenChatMessage {
+    type: "open_chat";
+    payload: { chatId: string; signPubKey: string };
+}
+
+export interface SendMessage {
+    type: "message";
+    payload: ChatMessage;
+}
+
+export interface OnlineMessage {
+    type: "online";
+    payload: { signPubKey: string };
+}
+
+export interface InitChatMessage {
+    type: "init_chat";
+    payload: { chatId: string; hostKey: string };
+}
+
+export interface ApproveChatMessage {
+    type: "approve_chat";
+    payload: { chatId: string; peerInfo: PeerInfo };
+}
+
+export interface KnockChatMessage {
+    type: "knock_chat";
+    payload: {
+        chatId: string;
+        hostKey: string;
+        peerInfo: PeerInfo;
+    };
+}
+
+export interface PeerInfoMessage {
+    type: "peer_info";
+    payload: PeerInfo & { chatId: string };
+}
+
+export type ClientMessage =
+    | OpenChatMessage
+    | SendMessage
+    | OnlineMessage
+    | InitChatMessage
+    | ApproveChatMessage
+    | KnockChatMessage
+    | PeerInfoMessage;
+
 // Messages sent from server to client
 export interface ServerMessageDelivery {
     type: "message";
-    payload: Message;
+    payload: ChatMessage;
 }
 
 export interface ServerNotification {
     type: "notification";
-    payload: Message;
+    payload: ChatMessage;
 }
 
-export interface ServerJoined {
-    type: "joined";
+export interface ServerChatOpened {
+    type: "chat_opened";
 }
 
 export interface ServerError {
@@ -18,27 +67,55 @@ export interface ServerError {
     message: string;
 }
 
+export interface ServerChatCreated {
+    type: "chat_created";
+    payload: { chatId: string };
+}
+
+export interface ServerPeerInfo {
+    type: "peer_info";
+    payload: PeerInfo & { chatId: string };
+}
+
+export interface ServerChatKnock {
+    type: "chat_knock";
+    payload: { chatId: string; peerInfo: PeerInfo };
+}
+
 export type ServerMessage =
-    | ServerJoined
+    | ServerChatOpened
+    | ServerChatCreated
+    | ServerChatKnock
+    | ServerPeerInfo
     | ServerMessageDelivery
     | ServerNotification
     | ServerError;
 
 export interface Chat {
     id: string;
-    link: string;
+    isActive: boolean;
+    joinLink?: string;
     createdAt: number;
 }
 
 export interface User {
     id: string;
     name: string;
+    avatar: string;
 }
 
-export interface Message {
+export interface PeerInfo {
+    signPubKey: string;
+    ecdhPubKey: string;
+    name: string;
+    avatar?: string;
+}
+
+export interface ChatMessage {
     id: string;
     chatId: string;
-    senderId: string;
+    from: string;
+    to: string;
     text: string;
     timestamp: number;
 }

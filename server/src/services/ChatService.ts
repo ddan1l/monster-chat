@@ -1,41 +1,47 @@
 import { WebSocket } from "ws";
 import type {
-    Message,
+    ChatMessage,
+    PeerInfo,
     ServerError,
-    ServerJoined,
+    ServerChatOpened,
+    ServerChatCreated,
+    ServerChatKnock,
+    ServerPeerInfo,
     ServerMessageDelivery,
+    ServerMessage,
 } from "shared";
 import type { Peer } from "../types.js";
 import { NotificationService } from "./NotificationService.js";
 import { ChatInMemoryRepository } from "../repositories/ChatInMemoryRepository.js";
-import { QueueInMemoryRepository } from "../repositories/QueueInMemoryRepository.js";
-import { ParticipantInMemoryRepository } from "../repositories/ParticipantInMemoryRepository.js";
+import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
+import { ChatMessageInMemoryQueue } from "../repositories/ChatMessageInMemoryQueue.js";
+import { PendingChatInMemoryRepository } from "../repositories/PendingChatInMemoryRepository.js";
+import { UserEventInMemoryQueue } from "../repositories/UserEventInMemoryQueue.js";
 
 export class ChatService {
     constructor(
         private chatRepository: ChatInMemoryRepository,
-        private queueRepository: QueueInMemoryRepository,
-        private participantRepository: ParticipantInMemoryRepository,
-        private notificationService: NotificationService
+        private connectionRepository: ConnectionInMemoryRepository,
+        private queueRepository: ChatMessageInMemoryQueue,
+        private pendingChatRepository: PendingChatInMemoryRepository,
+        private notificationService: NotificationService,
+        private userEventQueue: UserEventInMemoryQueue
     ) {}
 
-    join(chatId: string, userId: string, peer: Peer): void {
-        if (this.chatRepository.count(chatId) >= 2) {
+    join(chatId: string, signPubKey: string, peer: Peer): void {
+        if (!this.chatRepository.isAuthorized(chatId, signPubKey)) {
             const error: ServerError = {
                 type: "error",
-                message: "Chat is full. Only 2 participants allowed.",
+                message: "Not authorized to join this chat.",
             };
             this.notificationService.send(peer, error);
             return;
         }
 
-        this.chatRepository.add(chatId, peer);
-        this.participantRepository.add(chatId, userId);
-
         peer.chatId = chatId;
-        peer.userId = userId;
 
-        const pending = this.queueRepository.flush(chatId);
+        // Flush messages queued while this participant was offline
+        const pending = this.queueRepository.flush(`${chatId}:${signPubKey}`);
         pending.forEach((msg) => {
             const delivery: ServerMessageDelivery = {
                 type: "message",
@@ -44,17 +50,12 @@ export class ChatService {
             this.notificationService.send(peer, delivery);
         });
 
-        const joined: ServerJoined = { type: "joined" };
+        const joined: ServerChatOpened = { type: "chat_opened" };
         this.notificationService.send(peer, joined);
     }
 
-    getRecipients(chatId: string, sender: Peer): Peer[] {
-        return this.chatRepository
-            .getPeers(chatId)
-            .filter((p) => p !== sender && p.readyState === WebSocket.OPEN);
-    }
-
-    deliver(chatId: string, payload: Message, recipients: Peer[]): void {
+    deliver(chatId: string, payload: ChatMessage, sender: Peer): void {
+        const recipients = this.getOnlineRecipients(chatId, sender);
         if (recipients.length > 0) {
             const delivery: ServerMessageDelivery = {
                 type: "message",
@@ -64,15 +65,127 @@ export class ChatService {
                 this.notificationService.send(p, delivery)
             );
         } else {
-            this.queueRepository.push(chatId, payload);
+            // Queue for each authorized participant who isn't the sender
+            this.chatRepository
+                .getAuthorizedKeys(chatId)
+                .filter((k) => k !== sender.signPubKey)
+                .forEach((key) =>
+                    this.queueRepository.push(`${chatId}:${key}`, payload)
+                );
+        }
+    }
+
+    initChat(chatId: string, hostKey: string, peer: Peer): void {
+        peer.signPubKey = hostKey;
+        this.pendingChatRepository.add(chatId, hostKey, peer);
+    }
+
+    knockChat(
+        chatId: string,
+        hostKey: string,
+        peerInfo: PeerInfo,
+        knockerPeer: Peer
+    ): void {
+        const pending = this.pendingChatRepository.get(chatId);
+
+        if (!pending || pending.hostKey !== hostKey) {
+            const error: ServerError = {
+                type: "error",
+                message: "Invalid chat or fingerprint.",
+            };
+            this.notificationService.send(knockerPeer, error);
+            return;
+        }
+
+        this.pendingChatRepository.addKnock(
+            chatId,
+            peerInfo.signPubKey,
+            peerInfo,
+            knockerPeer
+        );
+
+        const event: ServerChatKnock = {
+            type: "chat_knock",
+            payload: { chatId, peerInfo },
+        };
+        this.sendOrQueue(pending.peer, event, pending.peer.signPubKey!);
+    }
+
+    approveChat(chatId: string, peerInfo: PeerInfo, peer: Peer): void {
+        const pending = this.pendingChatRepository.get(chatId);
+
+        if (!pending?.knock) {
+            const error: ServerError = {
+                type: "error",
+                message: "No pending knock for this chat.",
+            };
+            this.notificationService.send(peer, error);
+            return;
+        }
+
+        const knock = pending.knock;
+        this.pendingChatRepository.remove(chatId);
+
+        // Register both participants as authorized before any open_chat arrives
+        this.chatRepository.authorize(chatId, pending.hostKey);
+        this.chatRepository.authorize(chatId, knock.knockerKey);
+
+        const chatCreated: ServerChatCreated = {
+            type: "chat_created",
+            payload: { chatId },
+        };
+        this.sendOrQueue(peer, chatCreated, pending.hostKey);
+        this.sendOrQueue(knock.peer, chatCreated, knock.knockerKey);
+
+        // Deliver A's peerInfo directly to B
+        const aPeerInfo: ServerPeerInfo = {
+            type: "peer_info",
+            payload: { ...peerInfo, chatId },
+        };
+        this.sendOrQueue(knock.peer, aPeerInfo, knock.knockerKey);
+    }
+
+    relayPeerInfo(chatId: string, sender: Peer, peerInfo: PeerInfo): void {
+        const event: ServerPeerInfo = {
+            type: "peer_info",
+            payload: { ...peerInfo, chatId },
+        };
+        const recipients = this.getOnlineRecipients(chatId, sender);
+        if (recipients.length > 0) {
+            recipients.forEach((p) => this.notificationService.send(p, event));
+        } else {
+            this.chatRepository
+                .getAuthorizedKeys(chatId)
+                .filter((k) => k !== sender.signPubKey)
+                .forEach((key) => this.userEventQueue.push(key, event));
         }
     }
 
     getParticipantIds(chatId: string): string[] {
-        return this.participantRepository.getIds(chatId);
+        return this.chatRepository.getAuthorizedKeys(chatId);
     }
 
-    leave(peer: Peer): void {
-        if (peer.chatId) this.chatRepository.remove(peer.chatId, peer);
+    private getOnlineRecipients(chatId: string, sender: Peer): Peer[] {
+        return this.chatRepository
+            .getAuthorizedKeys(chatId)
+            .map((key) => this.connectionRepository.get(key))
+            .filter(
+                (p): p is Peer =>
+                    p !== undefined &&
+                    p !== sender &&
+                    p.readyState === WebSocket.OPEN
+            );
+    }
+
+    private sendOrQueue(
+        peer: Peer,
+        event: ServerMessage,
+        signPubKey: string
+    ): void {
+        if (peer.readyState === WebSocket.OPEN) {
+            this.notificationService.send(peer, event);
+        } else {
+            this.userEventQueue.push(signPubKey, event);
+        }
     }
 }

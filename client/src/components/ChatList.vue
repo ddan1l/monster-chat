@@ -17,7 +17,6 @@ async function handleCreateChat() {
 
 <template>
     <div>
-        <button @click="handleCreateChat">New chat</button>
         <ul>
             <li
                 v-for="chat in chats"
@@ -29,5 +28,12 @@ async function handleCreateChat() {
                 Chat: {{ chat.id }}
             </li>
         </ul>
+
+        <button
+            style="margin: 10px; margin-left: 30px"
+            @click="handleCreateChat"
+        >
+            New chat
+        </button>
     </div>
 </template>

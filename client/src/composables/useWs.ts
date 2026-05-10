@@ -1,29 +1,73 @@
-import { ref, onUnmounted } from "vue";
-import type { ServerMessage } from "shared";
+import { ref } from "vue";
+import type { ServerMessage, ClientMessage } from "shared";
+import { useLog } from "./useLog";
 
-export function useWs() {
-    const ws = ref<WebSocket | null>(null);
+type MessageHandler = (msg: ServerMessage) => void;
+type Unsubscribe = () => void;
 
-    function connect(
-        onOpen: () => void,
-        onMessage: (msg: ServerMessage) => void,
-        onClose?: () => void
-    ) {
+interface UseWs {
+    connected: ReturnType<typeof ref<boolean>>;
+    reconnecting: ReturnType<typeof ref<boolean>>;
+    connect: () => void;
+    send: (payload: ClientMessage) => void;
+    subscribe: <T extends ServerMessage["type"]>(
+        type: T,
+        handler: (msg: Extract<ServerMessage, { type: T }>) => void
+    ) => Unsubscribe;
+}
+
+const ws = ref<WebSocket | null>(null);
+const connected = ref(false);
+const reconnecting = ref(false);
+const messageHandlers = new Set<MessageHandler>();
+let retryDelay = 1000;
+
+const log = useLog("useWs");
+
+export function useWs(): UseWs {
+    function connect(): void {
+        if (ws.value) return;
+
+        log.info("connecting...");
         ws.value = new WebSocket("ws://localhost:3000");
-        ws.value.onopen = onOpen;
-        ws.value.onmessage = ({ data }) => onMessage(JSON.parse(data));
-        if (onClose) ws.value.onclose = onClose;
+        ws.value.onopen = () => {
+            log.info("connected");
+            connected.value = true;
+            reconnecting.value = false;
+            retryDelay = 1000;
+        };
+        ws.value.onmessage = ({ data }) => {
+            const msg: ServerMessage = JSON.parse(data);
+            log.info("←", msg.type, msg);
+            messageHandlers.forEach((h) => h(msg));
+        };
+        ws.value.onclose = () => {
+            log.warn(`disconnected, retrying in ${retryDelay}ms`);
+            ws.value = null;
+            connected.value = false;
+            reconnecting.value = true;
+            setTimeout(() => connect(), retryDelay);
+            retryDelay = Math.min(retryDelay * 2, 30_000);
+        };
     }
 
-    function send(payload: unknown) {
+    function subscribe<T extends ServerMessage["type"]>(
+        type: T,
+        handler: (msg: Extract<ServerMessage, { type: T }>) => void
+    ): Unsubscribe {
+        const wrapper: MessageHandler = (msg) => {
+            if (msg.type === type) {
+                handler(msg as Extract<ServerMessage, { type: T }>);
+            }
+        };
+        messageHandlers.add(wrapper);
+        return () => messageHandlers.delete(wrapper);
+    }
+
+    function send(payload: ClientMessage): void {
+        log.info("→", payload.type, payload);
         ws.value?.send(JSON.stringify(payload));
     }
 
-    function close() {
-        ws.value?.close();
-    }
-
-    onUnmounted(() => ws.value?.close());
-
-    return { connect, send, close };
+    return { connected, reconnecting, connect, send, subscribe };
 }

@@ -1,27 +1,19 @@
-import type { Peer } from "../types.js";
-
+// chatId → authorized signPubKeys
+// Represents who is allowed to participate in each chat.
+// Populated on approveChat, persists until server restart.
 export class ChatInMemoryRepository {
-    private chats = new Map<string, Peer[]>();
+    private rooms = new Map<string, Set<string>>();
 
-    add(chatId: string, peer: Peer): void {
-        if (!this.chats.has(chatId)) this.chats.set(chatId, []);
-        this.chats.get(chatId)!.push(peer);
+    authorize(chatId: string, signPubKey: string): void {
+        if (!this.rooms.has(chatId)) this.rooms.set(chatId, new Set());
+        this.rooms.get(chatId)!.add(signPubKey);
     }
 
-    remove(chatId: string, peer: Peer): void {
-        const peers = this.chats.get(chatId);
-        if (!peers) return;
-        this.chats.set(
-            chatId,
-            peers.filter((p) => p !== peer)
-        );
+    isAuthorized(chatId: string, signPubKey: string): boolean {
+        return this.rooms.get(chatId)?.has(signPubKey) ?? false;
     }
 
-    getPeers(chatId: string): Peer[] {
-        return this.chats.get(chatId) ?? [];
-    }
-
-    count(chatId: string): number {
-        return this.getPeers(chatId).length;
+    getAuthorizedKeys(chatId: string): string[] {
+        return [...(this.rooms.get(chatId) ?? [])];
     }
 }

@@ -1,22 +1,25 @@
-import type { Message } from "shared";
-import { useIndexedDb, STORES } from "./useIndexedDb";
+import type { ChatMessage } from "shared";
+import { useIndexedDb, STORES, INDEX_CHAT_ID } from "./useIndexedDb";
 
-const INDEX_CHAT_ID = "by_chatId";
-
-export function useMessages() {
+export function useChatMessages() {
     const { write, readByIndex, remove } = useIndexedDb(STORES.MESSAGES);
 
-    async function saveMessage(message: Message): Promise<void> {
+    async function saveChatMessage(message: ChatMessage): Promise<void> {
         await write(message);
     }
 
-    async function getByChat(chatId: string): Promise<Message[]> {
-        return readByIndex<Message>(INDEX_CHAT_ID, chatId);
+    async function getByChat(chatId: string): Promise<ChatMessage[]> {
+        const range = IDBKeyRange.bound(
+            [chatId, 0],
+            [chatId, Number.MAX_SAFE_INTEGER]
+        );
+
+        return readByIndex<ChatMessage>(INDEX_CHAT_ID, range);
     }
 
-    async function removeMessage(id: string): Promise<void> {
+    async function removeChatMessage(id: string): Promise<void> {
         await remove(id);
     }
 
-    return { saveMessage, getByChat, removeMessage };
+    return { saveChatMessage, getByChat, removeChatMessage };
 }

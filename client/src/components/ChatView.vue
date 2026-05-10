@@ -5,11 +5,11 @@ import { useChat } from "../composables/useChat";
 const props = defineProps<{ chatId: string }>();
 
 const text = ref("");
-const { connected, error, messages, connect, sendMessage } = useChat(
+const { error, messages, chat, peer, connectChat, sendMessage } = useChat(
     props.chatId
 );
 
-onMounted(connect);
+onMounted(connectChat);
 
 function send() {
     if (text.value.trim()) {
@@ -22,21 +22,42 @@ function send() {
 <template>
     <div>
         <p v-if="error">{{ error }}</p>
-        <p v-else-if="!connected">Connecting...</p>
-        <template v-else>
-            Messages:
-            <ul>
-                <li
-                    v-for="msg in messages"
-                    :key="msg.id"
-                    style="margin-bottom: 15px"
+        <template v-else-if="chat">
+            <template v-if="!chat.isActive">
+                <p>Ожидание участника, вот ссылочка:</p>
+                <a v-if="chat.joinLink" :href="chat.joinLink">
+                    {{ chat.joinLink }}</a
                 >
-                    Sender: {{ msg.senderId }} <br />
-                    Message: {{ msg.text }}
-                </li>
-            </ul>
-            <input v-model="text" placeholder="Message" @keydown.enter="send" />
-            <button @click="send">Send</button>
+            </template>
+            <template v-else>
+                <div
+                    v-if="peer"
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        margin-bottom: 12px;
+                    "
+                >
+                    <span style="font-size: 32px">{{ peer.avatar }}</span>
+                    <strong>{{ peer.name }}</strong>
+                </div>
+                <ul>
+                    <li
+                        v-for="msg in messages"
+                        :key="msg.id"
+                        style="margin-bottom: 15px"
+                    >
+                        Message: {{ msg.text }}
+                    </li>
+                </ul>
+                <input
+                    v-model="text"
+                    placeholder="Message"
+                    @keydown.enter="send"
+                />
+                <button @click="send">Send</button>
+            </template>
         </template>
     </div>
 </template>
