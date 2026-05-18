@@ -22,7 +22,7 @@ function send() {
 <template>
     <div>
         <p v-if="error">{{ error }}</p>
-        <template v-else-if="chat">
+        <template v-if="chat">
             <template v-if="!chat.isActive">
                 <p>Ожидание участника, вот ссылочка:</p>
                 <a v-if="chat.joinLink" :href="chat.joinLink">
@@ -54,9 +54,10 @@ function send() {
                 <input
                     v-model="text"
                     placeholder="Message"
+                    :disabled="!!error"
                     @keydown.enter="send"
                 />
-                <button @click="send">Send</button>
+                <button :disabled="!!error" @click="send">Send</button>
             </template>
         </template>
     </div>

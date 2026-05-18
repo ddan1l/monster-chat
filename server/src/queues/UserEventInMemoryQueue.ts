@@ -1,4 +1,5 @@
 import type { ServerMessage } from "shared";
+import type { UserEventQueue } from "./UserEventQueue.js";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PER_USER = 50;
@@ -8,7 +9,7 @@ interface Entry {
     expiresAt: number;
 }
 
-export class UserEventInMemoryQueue {
+export class UserEventInMemoryQueue implements UserEventQueue {
     private queue = new Map<string, Entry[]>();
 
     push(userId: string, event: ServerMessage): void {

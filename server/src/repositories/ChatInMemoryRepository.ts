@@ -1,7 +1,9 @@
+import type { ChatRepository } from "./ChatRepository.js";
+
 // chatId → authorized signPubKeys
 // Represents who is allowed to participate in each chat.
 // Populated on approveChat, persists until server restart.
-export class ChatInMemoryRepository {
+export class ChatInMemoryRepository implements ChatRepository {
     private rooms = new Map<string, Set<string>>();
 
     authorize(chatId: string, signPubKey: string): void {

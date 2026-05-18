@@ -12,20 +12,20 @@ import type {
 } from "shared";
 import type { Peer } from "../types.js";
 import { NotificationService } from "./NotificationService.js";
-import { ChatInMemoryRepository } from "../repositories/ChatInMemoryRepository.js";
+import type { ChatRepository } from "../repositories/ChatRepository.js";
+import type { ChatMessageQueue } from "../queues/ChatMessageQueue.js";
+import type { UserEventQueue } from "../queues/UserEventQueue.js";
 import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
-import { ChatMessageInMemoryQueue } from "../repositories/ChatMessageInMemoryQueue.js";
 import { PendingChatInMemoryRepository } from "../repositories/PendingChatInMemoryRepository.js";
-import { UserEventInMemoryQueue } from "../repositories/UserEventInMemoryQueue.js";
 
 export class ChatService {
     constructor(
-        private chatRepository: ChatInMemoryRepository,
+        private chatRepository: ChatRepository,
         private connectionRepository: ConnectionInMemoryRepository,
-        private queueRepository: ChatMessageInMemoryQueue,
+        private queueRepository: ChatMessageQueue,
         private pendingChatRepository: PendingChatInMemoryRepository,
         private notificationService: NotificationService,
-        private userEventQueue: UserEventInMemoryQueue
+        private userEventQueue: UserEventQueue
     ) {}
 
     join(chatId: string, signPubKey: string, peer: Peer): void {

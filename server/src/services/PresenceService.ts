@@ -3,12 +3,12 @@ import type { ChatMessage, ServerNotification } from "shared";
 import type { Peer } from "../types.js";
 import { NotificationService } from "./NotificationService.js";
 import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
-import { UserEventInMemoryQueue } from "../repositories/UserEventInMemoryQueue.js";
+import type { UserEventQueue } from "../queues/UserEventQueue.js";
 
 export class PresenceService {
     constructor(
         private connectionRepository: ConnectionInMemoryRepository,
-        private userEventQueue: UserEventInMemoryQueue,
+        private userEventQueue: UserEventQueue,
         private notificationService: NotificationService
     ) {}
 
