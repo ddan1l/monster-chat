@@ -1,5 +1,5 @@
 const DB_NAME = "monster-chat";
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 export const STORES = {
     KEYS: "keys",
@@ -40,15 +40,13 @@ export async function openDb(): Promise<IDBDatabase> {
                 db.createObjectStore(STORES.PENDING_KNOCKS);
             }
 
-            if (!db.objectStoreNames.contains(STORES.MESSAGES)) {
-                const messageStore = db.createObjectStore(STORES.MESSAGES, {
-                    keyPath: "id",
-                });
-                messageStore.createIndex(INDEX_CHAT_ID, [
-                    "chatId",
-                    "timestamp",
-                ]);
+            if (db.objectStoreNames.contains(STORES.MESSAGES)) {
+                db.deleteObjectStore(STORES.MESSAGES);
             }
+            const messageStore = db.createObjectStore(STORES.MESSAGES, {
+                keyPath: "nonce",
+            });
+            messageStore.createIndex(INDEX_CHAT_ID, ["chatId", "timestamp"]);
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);

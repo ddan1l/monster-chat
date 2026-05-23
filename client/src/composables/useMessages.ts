@@ -17,8 +17,8 @@ export function useChatMessages() {
         return readByIndex<ChatMessage>(INDEX_CHAT_ID, range);
     }
 
-    async function removeChatMessage(id: string): Promise<void> {
-        await remove(id);
+    async function removeChatMessage(nonce: string): Promise<void> {
+        await remove(nonce);
     }
 
     return { saveChatMessage, getByChat, removeChatMessage };

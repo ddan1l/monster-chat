@@ -138,7 +138,7 @@ export function useCrypto() {
     // =========================
     // SIGN / VERIFY
     // =========================
-    async function sign(data: ArrayBuffer): Promise<ArrayBuffer> {
+    async function sign(data: BufferSource): Promise<ArrayBuffer> {
         return crypto.subtle.sign(
             {
                 name: "ECDSA",
@@ -150,9 +150,9 @@ export function useCrypto() {
     }
 
     async function verify(
-        publicKeyRaw: ArrayBuffer,
-        data: ArrayBuffer,
-        signature: ArrayBuffer
+        publicKeyRaw: BufferSource,
+        data: BufferSource,
+        signature: BufferSource
     ): Promise<boolean> {
         const publicKey = await crypto.subtle.importKey(
             "raw",
@@ -200,5 +200,16 @@ export function useCrypto() {
 
         sign,
         verify,
+
+        toBase64,
+        fromBase64,
     };
+}
+
+export function toBase64(buf: ArrayBuffer | Uint8Array): string {
+    return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+
+export function fromBase64(s: string): ArrayBuffer {
+    return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer;
 }

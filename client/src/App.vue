@@ -3,12 +3,12 @@ import { onMounted, watch } from "vue";
 import { useWs } from "./composables/useWs";
 import { useNotifications } from "./composables/useNotifications";
 import { useCrypto } from "./composables/useCrypto";
-import { useChat } from "./composables/useChat";
+import { useChats } from "./composables/useChats";
 
 const { connect, connected } = useWs();
 const { init } = useNotifications();
 const { init: initCrypto } = useCrypto();
-const { startSync } = useChat();
+const { startSync } = useChats();
 
 startSync();
 

@@ -111,11 +111,21 @@ export interface PeerInfo {
     avatar?: string;
 }
 
-export interface ChatMessage {
-    id: string;
+export interface MessageContent {
+    text: string;
+    files?: string[]; // base64[]
+}
+
+export interface ChatEnvelope {
     chatId: string;
     from: string;
     to: string;
-    text: string;
+    nonce: string;
+    iv: string;       // base64
+    payload: string;  // base64, encrypted MessageContent
     timestamp: number;
+}
+
+export interface ChatMessage extends ChatEnvelope {
+    signature: string; // base64
 }

@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useChat } from "../composables/useChat";
+import { useChatSession } from "../composables/useChatSession";
 
 const props = defineProps<{ chatId: string }>();
 
 const text = ref("");
-const { error, messages, chat, peer, connectChat, sendMessage } = useChat(
+const { error, messages, chat, peer, connect, sendMessage } = useChatSession(
     props.chatId
 );
 
-onMounted(connectChat);
+onMounted(connect);
 
 function send() {
     if (text.value.trim()) {
@@ -44,8 +44,8 @@ function send() {
                 </div>
                 <ul>
                     <li
-                        v-for="msg in messages"
-                        :key="msg.id"
+                        v-for="(msg, i) in messages"
+                        :key="i"
                         style="margin-bottom: 15px"
                     >
                         Message: {{ msg.text }}

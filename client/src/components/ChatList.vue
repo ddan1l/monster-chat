@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { useChat } from "../composables/useChat";
+import { useChats } from "../composables/useChats";
 
 const router = useRouter();
 const route = useRoute();
-const { chats, loadChats, createChat } = useChat();
+const { chats, loadChats, createChat } = useChats();
 
 onMounted(loadChats);
 

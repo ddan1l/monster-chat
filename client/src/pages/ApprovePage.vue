@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, watch, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useChat } from "../composables/useChat";
+import { useChats } from "../composables/useChats";
 
 const route = useRoute();
 const router = useRouter();
-const { knockChat, chats } = useChat();
+const { knockChat, chats } = useChats();
 
 const chatId = route.params.chatId as string;
 const hostKey = computed(() => window.location.hash.slice(5));

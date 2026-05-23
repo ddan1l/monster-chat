@@ -4,13 +4,13 @@ import { useRoute } from "vue-router";
 import ChatList from "../components/ChatList.vue";
 import ChatView from "../components/ChatView.vue";
 import { useNotifications } from "../composables/useNotifications";
-import { useChat } from "../composables/useChat";
+import { useChats } from "../composables/useChats";
 
 const route = useRoute();
 const chatId = computed(() => route.params.chatId as string | undefined);
 const { permissionGranted, permissionDenied, requestPermission } =
     useNotifications();
-const { pendingKnocks, approveChat } = useChat();
+const { pendingKnocks, approveChat } = useChats();
 </script>
 
 <template>
