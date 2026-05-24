@@ -2,7 +2,7 @@ import { ref } from "vue";
 import type { OnlineMessage, PeerInfo } from "shared";
 import { useWs } from "../infrastructure/useWs";
 import { useUser } from "../user/useUser";
-import { useCrypto } from "../infrastructure/useCrypto";
+import { useCrypto } from "../crypto/useCrypto";
 import { useIndexedDb, STORES } from "../infrastructure/useIndexedDb";
 import { useNotifications } from "../infrastructure/useNotifications";
 import { activeChatId } from "./useChats";
@@ -48,11 +48,12 @@ if (import.meta.hot) {
 export function useChatNotification() {
     const { user, load: loadUser } = useUser();
     const { send } = useWs();
-    const { exportSignPublicKey } = useCrypto();
+    const { exportSignPublicKey, signKeyPair } = useCrypto();
 
     async function init() {
         if (!user.value) await loadUser();
         if (!user.value) return;
+        if (!signKeyPair.value) return;
 
         const signPubKey = await exportSignPublicKey();
         send({

@@ -1,56 +1,33 @@
 import { ref } from "vue";
-import { useIndexedDb, STORES } from "./useIndexedDb";
 
 const encryptionKeyPair = ref<CryptoKeyPair | null>(null);
 const signKeyPair = ref<CryptoKeyPair | null>(null);
 
 export function useCrypto() {
-    const { read, write } = useIndexedDb(STORES.KEYS);
-
-    // =========================
-    // INIT
-    // =========================
-    async function init() {
-        // 1. ECDH keypair (encryption identity)
-        let existingECDH = await read<CryptoKeyPair>("ecdh_key");
-
-        if (!existingECDH) {
-            existingECDH = await crypto.subtle.generateKey(
-                {
-                    name: "ECDH",
-                    namedCurve: "P-256",
-                },
-                false,
+    async function generateKeyPairs(): Promise<{
+        ecdh: CryptoKeyPair;
+        sign: CryptoKeyPair;
+    }> {
+        const [ecdh, sign] = await Promise.all([
+            crypto.subtle.generateKey(
+                { name: "ECDH", namedCurve: "P-256" },
+                true,
                 ["deriveKey"]
-            );
-
-            await write(existingECDH, "ecdh_key");
-        }
-
-        encryptionKeyPair.value = existingECDH;
-
-        // 2. ECDSA keypair (signature identity)
-        let existingSign = await read<CryptoKeyPair>("sign_key");
-
-        if (!existingSign) {
-            existingSign = await crypto.subtle.generateKey(
-                {
-                    name: "ECDSA",
-                    namedCurve: "P-256",
-                },
-                false,
+            ),
+            crypto.subtle.generateKey(
+                { name: "ECDSA", namedCurve: "P-256" },
+                true,
                 ["sign", "verify"]
-            );
-
-            await write(existingSign, "sign_key");
-        }
-
-        signKeyPair.value = existingSign;
+            ),
+        ]);
+        return { ecdh, sign };
     }
 
-    // =========================
-    // IDENTITY EXPORT
-    // =========================
+    function setKeys(ecdh: CryptoKeyPair, sign: CryptoKeyPair): void {
+        encryptionKeyPair.value = ecdh;
+        signKeyPair.value = sign;
+    }
+
     async function exportEncryptionPublicKey(): Promise<string> {
         const raw = await crypto.subtle.exportKey(
             "raw",
@@ -67,54 +44,35 @@ export function useCrypto() {
         return btoa(String.fromCharCode(...new Uint8Array(raw)));
     }
 
-    // =========================
-    // ECDH → SHARED KEY
-    // =========================
-    async function deriveSharedKey(theirPublicKeyRaw: ArrayBuffer) {
+    async function deriveSharedKey(
+        theirPublicKeyRaw: ArrayBuffer
+    ): Promise<CryptoKey> {
         const theirPublicKey = await crypto.subtle.importKey(
             "raw",
             theirPublicKeyRaw,
-            {
-                name: "ECDH",
-                namedCurve: "P-256",
-            },
+            { name: "ECDH", namedCurve: "P-256" },
             false,
             []
         );
-
         return crypto.subtle.deriveKey(
-            {
-                name: "ECDH",
-                public: theirPublicKey,
-            },
+            { name: "ECDH", public: theirPublicKey },
             encryptionKeyPair.value!.privateKey,
-            {
-                name: "AES-GCM",
-                length: 256,
-            },
+            { name: "AES-GCM", length: 256 },
             false,
             ["encrypt", "decrypt"]
         );
     }
 
-    // =========================
-    // ENCRYPT / DECRYPT
-    // =========================
     async function encrypt(
         key: CryptoKey,
         data: string
     ): Promise<{ payload: ArrayBuffer; iv: Uint8Array }> {
         const iv = crypto.getRandomValues(new Uint8Array(12));
-
         const payload = await crypto.subtle.encrypt(
-            {
-                name: "AES-GCM",
-                iv,
-            },
+            { name: "AES-GCM", iv },
             key,
             new TextEncoder().encode(data)
         );
-
         return { payload, iv };
     }
 
@@ -124,26 +82,70 @@ export function useCrypto() {
         iv: Uint8Array<ArrayBuffer>
     ): Promise<string> {
         const decrypted = await crypto.subtle.decrypt(
-            {
-                name: "AES-GCM",
-                iv,
-            },
+            { name: "AES-GCM", iv },
             key,
             payload
         );
-
         return new TextDecoder().decode(decrypted);
     }
 
-    // =========================
-    // SIGN / VERIFY
-    // =========================
+    async function computeSafetyNumber(
+        theirSignPubKeyBase64: string
+    ): Promise<string> {
+        const myRaw = await crypto.subtle.exportKey(
+            "raw",
+            signKeyPair.value!.publicKey
+        );
+        const theirRaw = fromBase64(theirSignPubKeyBase64);
+
+        const my = new Uint8Array(myRaw);
+        const their = new Uint8Array(theirRaw);
+
+        // Sort deterministically so both sides compute the same number
+        let first: Uint8Array, second: Uint8Array;
+        let decided = false;
+        for (let i = 0; i < Math.min(my.length, their.length); i++) {
+            if (my[i] < their[i]) {
+                first = my;
+                second = their;
+                decided = true;
+                break;
+            }
+            if (my[i] > their[i]) {
+                first = their;
+                second = my;
+                decided = true;
+                break;
+            }
+        }
+        if (!decided) {
+            first = my;
+            second = their;
+        }
+
+        const combined = new Uint8Array(first!.length + second!.length);
+        combined.set(first!);
+        combined.set(second!, first!.length);
+
+        const hash = new Uint8Array(
+            await crypto.subtle.digest("SHA-256", combined)
+        );
+
+        // Convert to 12 groups of 5 decimal digits (like Signal)
+        let n = 0n;
+        for (const byte of hash) n = (n << 8n) | BigInt(byte);
+
+        const groups: string[] = [];
+        for (let i = 0; i < 12; i++) {
+            groups.unshift(String(n % 100000n).padStart(5, "0"));
+            n /= 100000n;
+        }
+        return groups.join(" ");
+    }
+
     async function sign(data: BufferSource): Promise<ArrayBuffer> {
         return crypto.subtle.sign(
-            {
-                name: "ECDSA",
-                hash: "SHA-256",
-            },
+            { name: "ECDSA", hash: "SHA-256" },
             signKeyPair.value!.privateKey,
             data
         );
@@ -157,50 +159,31 @@ export function useCrypto() {
         const publicKey = await crypto.subtle.importKey(
             "raw",
             publicKeyRaw,
-            {
-                name: "ECDSA",
-                namedCurve: "P-256",
-            },
+            { name: "ECDSA", namedCurve: "P-256" },
             false,
             ["verify"]
         );
-
         return crypto.subtle.verify(
-            {
-                name: "ECDSA",
-                hash: "SHA-256",
-            },
+            { name: "ECDSA", hash: "SHA-256" },
             publicKey,
             signature,
             data
         );
     }
 
-    // =========================
-    // UTILS
-    // =========================
-    async function hasKeys(): Promise<boolean> {
-        return (await read("ecdh_key")) !== null;
-    }
-
     return {
         encryptionKeyPair,
         signKeyPair,
-
-        init,
-        hasKeys,
-
+        generateKeyPairs,
+        setKeys,
         exportEncryptionPublicKey,
         exportSignPublicKey,
-
         deriveSharedKey,
-
         encrypt,
         decrypt,
-
+        computeSafetyNumber,
         sign,
         verify,
-
         toBase64,
         fromBase64,
     };

@@ -2,7 +2,7 @@ import { ref, toRaw } from "vue";
 import { nanoid } from "nanoid";
 import type { Chat, PeerInfo } from "shared";
 import { useIndexedDb, STORES } from "../infrastructure/useIndexedDb";
-import { useCrypto } from "../infrastructure/useCrypto";
+import { useCrypto } from "../crypto/useCrypto";
 import { useUser } from "../user/useUser";
 import { useWs } from "../infrastructure/useWs";
 

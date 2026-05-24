@@ -7,7 +7,7 @@ import type {
     PeerInfo,
 } from "shared";
 import { useIndexedDb, STORES } from "../infrastructure/useIndexedDb";
-import { useCrypto, fromBase64, toBase64 } from "../infrastructure/useCrypto";
+import { useCrypto, fromBase64, toBase64 } from "../crypto/useCrypto";
 import { useChatMessages } from "./useMessages";
 import { useUser } from "../user/useUser";
 import { useWs } from "../infrastructure/useWs";
