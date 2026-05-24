@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted } from "vue";
+import { ref, watch, onUnmounted, toRaw } from "vue";
 import type {
     Chat,
     ChatEnvelope,
@@ -6,14 +6,17 @@ import type {
     MessageContent,
     PeerInfo,
 } from "shared";
-import { useIndexedDb, STORES } from "./useIndexedDb";
-import { useCrypto, fromBase64, toBase64 } from "./useCrypto";
+import { useIndexedDb, STORES } from "../infrastructure/useIndexedDb";
+import { useCrypto, fromBase64, toBase64 } from "../infrastructure/useCrypto";
 import { useChatMessages } from "./useMessages";
-import { useUser } from "./useUser";
-import { useWs } from "./useWs";
+import { useUser } from "../user/useUser";
+import { useWs } from "../infrastructure/useWs";
 import { chats } from "./useChats";
 
-export interface DecryptedMessage extends ChatMessage, MessageContent {}
+export interface DecryptedMessage extends ChatMessage, MessageContent {
+    editedAt?: number;
+    isRead?: boolean;
+}
 
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
@@ -70,7 +73,7 @@ export function useChatSession(chatId: string) {
         );
 
         if (!valid) {
-            return { ...msg, text: "Invalid message signature" };
+            return { ...msg, text: "<i>Invalid message signature</i>" };
         }
         if (!sharedKey) {
             throw new Error("Shared key not initialized");
@@ -83,7 +86,16 @@ export function useChatSession(chatId: string) {
         );
 
         const content: MessageContent = JSON.parse(decrypted);
-        return { ...msg, ...content };
+        const stored = msg as DecryptedMessage;
+        return {
+            ...msg,
+            ...content,
+            // Restore persisted metadata when loading from IDB
+            ...(stored.editedAt !== undefined
+                ? { editedAt: stored.editedAt, text: stored.text }
+                : {}),
+            ...(stored.isRead !== undefined ? { isRead: stored.isRead } : {}),
+        };
     }
 
     function addMessage(msg: DecryptedMessage): void {
@@ -91,12 +103,32 @@ export function useChatSession(chatId: string) {
         messages.value.push(msg);
     }
 
-    async function sendMessage(text: string, files?: string[]): Promise<void> {
+    function applyEdit(edit: DecryptedMessage): void {
+        if (!edit.originalNonce) return;
+        const idx = messages.value.findIndex(
+            (m) => m.nonce === edit.originalNonce
+        );
+        if (idx === -1) return;
+        const updated: DecryptedMessage = {
+            ...toRaw(messages.value[idx]),
+            text: edit.text,
+            editedAt: edit.timestamp,
+        };
+        messages.value[idx] = updated;
+        saveChatMessage(updated);
+    }
+
+    async function sendMessage(
+        text: string,
+        files?: string[],
+        originalNonce?: string
+    ): Promise<void> {
         if (!user.value || !peer.value || !sharedKey) return;
 
         const content: MessageContent = {
             text,
             ...(files?.length ? { files } : {}),
+            ...(originalNonce ? { originalNonce } : {}),
         };
         const nonce = crypto.randomUUID();
         const { payload, iv } = await encrypt(
@@ -126,7 +158,34 @@ export function useChatSession(chatId: string) {
         };
 
         wsSend({ type: "message", payload: msg });
-        addMessage({ ...msg, ...content });
+        if (!originalNonce) {
+            addMessage({ ...msg, ...content });
+        }
+    }
+
+    async function editMessage(nonce: string, newText: string): Promise<void> {
+        await sendMessage(newText, undefined, nonce);
+        const idx = messages.value.findIndex((m) => m.nonce === nonce);
+        if (idx === -1) return;
+        const updated: DecryptedMessage = {
+            ...toRaw(messages.value[idx]),
+            text: newText,
+            editedAt: Date.now(),
+        };
+        messages.value[idx] = updated;
+        saveChatMessage(updated);
+    }
+
+    async function markAsRead(nonce: string): Promise<void> {
+        wsSend({ type: "read_receipt", payload: { chatId, nonce } });
+        const idx = messages.value.findIndex((m) => m.nonce === nonce);
+        if (idx === -1) return;
+        const updated: DecryptedMessage = {
+            ...toRaw(messages.value[idx]),
+            isRead: true,
+        };
+        messages.value[idx] = updated;
+        saveChatMessage(updated);
     }
 
     async function connect(): Promise<void> {
@@ -135,7 +194,24 @@ export function useChatSession(chatId: string) {
         });
 
         on("message", async (msg) => {
-            addMessage(await decryptMessage(msg.payload));
+            const decrypted = await decryptMessage(msg.payload);
+            if (decrypted.originalNonce) {
+                applyEdit(decrypted);
+            } else {
+                addMessage(decrypted);
+            }
+        });
+
+        on("read_receipt", (msg) => {
+            const { nonce } = msg.payload;
+            const idx = messages.value.findIndex((m) => m.nonce === nonce);
+            if (idx === -1) return;
+            const updated: DecryptedMessage = {
+                ...toRaw(messages.value[idx]),
+                isRead: true,
+            };
+            messages.value[idx] = updated;
+            saveChatMessage(updated);
         });
 
         on("peer_info", async (msg) => {
@@ -199,5 +275,7 @@ export function useChatSession(chatId: string) {
         error,
         connect,
         sendMessage,
+        editMessage,
+        markAsRead,
     };
 }

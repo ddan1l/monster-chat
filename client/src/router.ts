@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { useCrypto } from "./composables/useCrypto";
-import { useUser } from "./composables/useUser";
+import { useCrypto } from "./composables/infrastructure/useCrypto";
+import { useUser } from "./composables/user/useUser";
 
 import InboxPage from "./pages/InboxPage.vue";
 import SetupPage from "./pages/SetupPage.vue";

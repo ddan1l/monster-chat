@@ -8,6 +8,7 @@ import type {
     ServerChatKnock,
     ServerPeerInfo,
     ServerMessageDelivery,
+    ServerReadReceipt,
     ServerMessage,
 } from "shared";
 import type { Peer } from "../types.js";
@@ -55,24 +56,22 @@ export class ChatService {
     }
 
     deliver(chatId: string, payload: ChatMessage, sender: Peer): void {
-        const recipients = this.getOnlineRecipients(chatId, sender);
-        if (recipients.length > 0) {
-            const delivery: ServerMessageDelivery = {
-                type: "message",
-                payload,
-            };
-            recipients.forEach((p) =>
-                this.notificationService.send(p, delivery)
-            );
-        } else {
-            // Queue for each authorized participant who isn't the sender
-            this.chatRepository
-                .getAuthorizedKeys(chatId)
-                .filter((k) => k !== sender.signPubKey)
-                .forEach((key) =>
-                    this.queueRepository.push(`${chatId}:${key}`, payload)
-                );
-        }
+        const delivery: ServerMessageDelivery = { type: "message", payload };
+
+        this.chatRepository
+            .getAuthorizedKeys(chatId)
+            .filter((k) => k !== sender.signPubKey)
+            .forEach((key) => {
+                const peer = this.connectionRepository.get(key);
+                if (
+                    peer?.readyState === WebSocket.OPEN &&
+                    peer.chatId === chatId
+                ) {
+                    this.notificationService.send(peer, delivery);
+                } else {
+                    this.queueRepository.push(`${chatId}:${key}`, payload);
+                }
+            });
     }
 
     initChat(chatId: string, hostKey: string, peer: Peer): void {
@@ -143,6 +142,15 @@ export class ChatService {
             payload: { ...peerInfo, chatId },
         };
         this.sendOrQueue(knock.peer, aPeerInfo, knock.knockerKey);
+    }
+
+    relayReadReceipt(chatId: string, nonce: string, sender: Peer): void {
+        const event: ServerReadReceipt = {
+            type: "read_receipt",
+            payload: { chatId, nonce },
+        };
+        const recipients = this.getOnlineRecipients(chatId, sender);
+        recipients.forEach((p) => this.notificationService.send(p, event));
     }
 
     relayPeerInfo(chatId: string, sender: Peer, peerInfo: PeerInfo): void {

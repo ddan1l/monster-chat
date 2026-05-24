@@ -38,6 +38,11 @@ export interface PeerInfoMessage {
     payload: PeerInfo & { chatId: string };
 }
 
+export interface ReadReceiptMessage {
+    type: "read_receipt";
+    payload: { chatId: string; nonce: string };
+}
+
 export type ClientMessage =
     | OpenChatMessage
     | SendMessage
@@ -45,7 +50,8 @@ export type ClientMessage =
     | InitChatMessage
     | ApproveChatMessage
     | KnockChatMessage
-    | PeerInfoMessage;
+    | PeerInfoMessage
+    | ReadReceiptMessage;
 
 // Messages sent from server to client
 export interface ServerMessageDelivery {
@@ -82,6 +88,11 @@ export interface ServerChatKnock {
     payload: { chatId: string; peerInfo: PeerInfo };
 }
 
+export interface ServerReadReceipt {
+    type: "read_receipt";
+    payload: { chatId: string; nonce: string };
+}
+
 export type ServerMessage =
     | ServerChatOpened
     | ServerChatCreated
@@ -89,7 +100,8 @@ export type ServerMessage =
     | ServerPeerInfo
     | ServerMessageDelivery
     | ServerNotification
-    | ServerError;
+    | ServerError
+    | ServerReadReceipt;
 
 export interface Chat {
     id: string;
@@ -114,6 +126,7 @@ export interface PeerInfo {
 export interface MessageContent {
     text: string;
     files?: string[]; // base64[]
+    originalNonce?: string;
 }
 
 export interface ChatEnvelope {
@@ -121,8 +134,8 @@ export interface ChatEnvelope {
     from: string;
     to: string;
     nonce: string;
-    iv: string;       // base64
-    payload: string;  // base64, encrypted MessageContent
+    iv: string; // base64
+    payload: string; // base64, encrypted MessageContent
     timestamp: number;
 }
 

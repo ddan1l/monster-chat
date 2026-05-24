@@ -1,5 +1,5 @@
 import type { ChatMessage } from "shared";
-import { useIndexedDb, STORES, INDEX_CHAT_ID } from "./useIndexedDb";
+import { useIndexedDb, STORES, INDEX_CHAT_ID } from "../infrastructure/useIndexedDb";
 
 export function useChatMessages() {
     const { write, readByIndex, remove } = useIndexedDb(STORES.MESSAGES);

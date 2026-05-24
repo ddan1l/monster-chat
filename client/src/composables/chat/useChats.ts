@@ -1,10 +1,10 @@
-import { ref } from "vue";
+import { ref, toRaw } from "vue";
 import { nanoid } from "nanoid";
 import type { Chat, PeerInfo } from "shared";
-import { useIndexedDb, STORES } from "./useIndexedDb";
-import { useCrypto } from "./useCrypto";
-import { useUser } from "./useUser";
-import { useWs } from "./useWs";
+import { useIndexedDb, STORES } from "../infrastructure/useIndexedDb";
+import { useCrypto } from "../infrastructure/useCrypto";
+import { useUser } from "../user/useUser";
+import { useWs } from "../infrastructure/useWs";
 
 export interface PendingKnock {
     chatId: string;
@@ -13,6 +13,7 @@ export interface PendingKnock {
 
 export const chats = ref<Chat[]>([]);
 export const pendingKnocks = ref<PendingKnock[]>([]);
+export const activeChatId = ref<string | null>(null);
 
 export function useChats() {
     const { readAll, write: saveChat, read } = useIndexedDb(STORES.CHATS);
@@ -114,7 +115,7 @@ export function useChats() {
     async function approveChat(chatId: string): Promise<void> {
         const knock = pendingKnocks.value.find((k) => k.chatId === chatId);
         if (knock) {
-            await savePeer(knock.peerInfo, chatId);
+            await savePeer(toRaw(knock.peerInfo), chatId);
         }
         if (!user.value) await loadUser();
         const [signPubKey, ecdhPubKey] = await Promise.all([

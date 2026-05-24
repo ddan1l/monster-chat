@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onMounted, watch } from "vue";
-import { useWs } from "./composables/useWs";
-import { useNotifications } from "./composables/useNotifications";
-import { useCrypto } from "./composables/useCrypto";
-import { useChats } from "./composables/useChats";
+import { useWs } from "./composables/infrastructure/useWs";
+import { useChatNotification } from "./composables/chat/useChatNotification";
+import { useCrypto } from "./composables/infrastructure/useCrypto";
+import { useChats } from "./composables/chat/useChats";
 
 const { connect, connected } = useWs();
-const { init } = useNotifications();
+const { init } = useChatNotification();
 const { init: initCrypto } = useCrypto();
 const { startSync } = useChats();
 

@@ -1,25 +1,24 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import ChatList from "../components/ChatList.vue";
-import ChatView from "../components/ChatView.vue";
-import { useNotifications } from "../composables/useNotifications";
-import { useChats } from "../composables/useChats";
+import ChatList from "../components/chat/ChatList.vue";
+import ChatView from "../components/chat/ChatView.vue";
+import { useChats } from "../composables/chat/useChats";
+import { usePermissions } from "../composables/infrastructure/usePermissions";
 
 const route = useRoute();
 const chatId = computed(() => route.params.chatId as string | undefined);
-const { permissionGranted, permissionDenied, requestPermission } =
-    useNotifications();
+const { status: notifStatus, isGranted: notifGranted, request: requestNotifications } = usePermissions("notifications");
 const { pendingKnocks, approveChat } = useChats();
 </script>
 
 <template>
     <div>
-        <template v-if="!permissionGranted">
-            <p v-if="permissionDenied">
+        <template v-if="!notifGranted">
+            <p v-if="notifStatus === 'denied'">
                 Notifications blocked. Enable them in browser settings.
             </p>
-            <button v-else @click="requestPermission">
+            <button v-else @click="requestNotifications">
                 Enable notifications
             </button>
         </template>

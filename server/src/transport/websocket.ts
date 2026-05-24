@@ -8,6 +8,7 @@ import { onApproveChat } from "../handlers/onApproveChat.js";
 import { onKnockChat } from "../handlers/onKnockChat.js";
 import { onPeerInfo } from "../handlers/onPeerInfo.js";
 import { onMessage } from "../handlers/onMessage.js";
+import { onReadReceipt } from "../handlers/onReadReceipt.js";
 import { onClose } from "../handlers/onClose.js";
 
 const handlers = {
@@ -18,6 +19,7 @@ const handlers = {
     knock_chat: onKnockChat,
     peer_info: onPeerInfo,
     message: onMessage,
+    read_receipt: onReadReceipt,
 } satisfies {
     [K in ClientMessage["type"]]: (
         ws: Peer,

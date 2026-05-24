@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useCrypto } from "../composables/useCrypto";
-import { useUser } from "../composables/useUser";
+import { useCrypto } from "../composables/infrastructure/useCrypto";
+import { useUser } from "../composables/user/useUser";
 
 const AVATARS = [
     "🦴",

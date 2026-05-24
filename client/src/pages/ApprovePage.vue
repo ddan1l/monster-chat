@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useChats } from "../composables/useChats";
+import { useChats } from "../composables/chat/useChats";
 
 const route = useRoute();
 const router = useRouter();
