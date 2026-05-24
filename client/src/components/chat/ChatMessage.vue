@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import type { PeerInfo } from "shared";
 import type { DecryptedMessage } from "../../composables/chat/useChatSession";
 
@@ -12,11 +13,13 @@ const emit = defineEmits<{
     editStart: [nonce: string, text: string];
 }>();
 
+const hovered = ref(false);
 const isMine = () => props.msg.from !== props.peer?.signPubKey;
 </script>
 
 <template>
     <li
+        :id="msg.nonce"
         :data-nonce="msg.nonce"
         :style="{
             display: 'flex',
@@ -25,6 +28,8 @@ const isMine = () => props.msg.from !== props.peer?.signPubKey;
             marginBottom: '8px',
             opacity: editingNonce === msg.nonce ? 0.6 : 1,
         }"
+        @mouseenter="hovered = true"
+        @mouseleave="hovered = false"
     >
         <div
             style="
@@ -37,7 +42,8 @@ const isMine = () => props.msg.from !== props.peer?.signPubKey;
                 max-width: 70%;
             "
         >
-            <span>{{ msg.text }}</span>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <span v-html="msg.text"></span>
             <span v-if="msg.editedAt" style="font-size: 11px; color: #888"
                 >изм.</span
             >

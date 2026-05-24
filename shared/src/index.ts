@@ -93,6 +93,16 @@ export interface ServerReadReceipt {
     payload: { chatId: string; nonce: string };
 }
 
+export interface ServerPeerOnline {
+    type: "peer_online";
+    payload: { chatId: string };
+}
+
+export interface ServerPeerOffline {
+    type: "peer_offline";
+    payload: { chatId: string };
+}
+
 export type ServerMessage =
     | ServerChatOpened
     | ServerChatCreated
@@ -101,7 +111,9 @@ export type ServerMessage =
     | ServerMessageDelivery
     | ServerNotification
     | ServerError
-    | ServerReadReceipt;
+    | ServerReadReceipt
+    | ServerPeerOnline
+    | ServerPeerOffline;
 
 export interface Chat {
     id: string;
@@ -141,4 +153,5 @@ export interface ChatEnvelope {
 
 export interface ChatMessage extends ChatEnvelope {
     signature: string; // base64
+    isEdit?: boolean;
 }

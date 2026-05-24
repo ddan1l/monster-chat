@@ -18,6 +18,24 @@ const emit = defineEmits<{
 const listEl = ref<HTMLElement | null>(null);
 const observedNonces = new Set<string>();
 let observer: IntersectionObserver | null = null;
+let initialScrollDone = false;
+
+function scrollToBottom(smooth = false) {
+    if (!listEl.value) return;
+    if (smooth) {
+        listEl.value.scrollTo({
+            top: listEl.value.scrollHeight,
+        });
+    } else {
+        listEl.value.scrollTop = listEl.value.scrollHeight;
+    }
+}
+
+function isNearBottom() {
+    if (!listEl.value) return true;
+    const { scrollTop, scrollHeight, clientHeight } = listEl.value;
+    return scrollHeight - scrollTop - clientHeight < 100;
+}
 
 function observePendingMessages() {
     if (!observer || !props.peer || !listEl.value) return;
@@ -53,9 +71,15 @@ onUnmounted(() => observer?.disconnect());
 
 watch(
     () => props.messages.length,
-    async () => {
+    async (newLen, oldLen) => {
         await nextTick();
         observePendingMessages();
+        if (!initialScrollDone && newLen > 0) {
+            initialScrollDone = true;
+            requestAnimationFrame(() => scrollToBottom());
+        } else if (newLen > (oldLen ?? 0) && isNearBottom()) {
+            scrollToBottom(true);
+        }
     }
 );
 

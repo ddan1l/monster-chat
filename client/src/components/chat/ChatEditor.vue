@@ -16,9 +16,13 @@ const emit = defineEmits<{
 const text = ref("");
 const localEditText = ref("");
 
-watch(() => props.editingText, (val) => {
-    localEditText.value = val;
-}, { immediate: true });
+watch(
+    () => props.editingText,
+    (val) => {
+        localEditText.value = val;
+    },
+    { immediate: true }
+);
 
 function send() {
     if (text.value.trim()) {
@@ -39,7 +43,7 @@ function submitEdit() {
 </script>
 
 <template>
-    <div style="display: flex; gap: 8px; margin-top: 8px">
+    <div style="display: flex; gap: 8px; margin-top: 8px; padding: 20px 0">
         <template v-if="editingNonce">
             <input
                 v-model="localEditText"

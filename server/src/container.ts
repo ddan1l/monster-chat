@@ -45,6 +45,7 @@ export const chatService = new ChatService(
 );
 export const presenceService = new PresenceService(
     connectionRepository,
+    chatRepository,
     userEventQueue,
     notificationService
 );

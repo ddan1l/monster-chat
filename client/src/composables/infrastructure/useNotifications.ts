@@ -5,9 +5,19 @@ const { isGranted } = usePermissions("notifications");
 const { isVisible } = useVisibility();
 
 export function useNotifications() {
-    function notify(title: string) {
+    function notify(
+        title: string,
+        options?: NotificationOptions & { url?: string; renotify?: boolean }
+    ) {
         if (isGranted.value && !isVisible.value) {
-            new Notification(title);
+            const { url, ...notifOptions } = options ?? {};
+            const n = new Notification(title, notifOptions);
+            if (url) {
+                n.onclick = () => {
+                    window.focus();
+                    window.location.href = url;
+                };
+            }
         }
     }
 

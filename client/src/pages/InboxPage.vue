@@ -8,13 +8,25 @@ import { usePermissions } from "../composables/infrastructure/usePermissions";
 
 const route = useRoute();
 const chatId = computed(() => route.params.chatId as string | undefined);
-const { status: notifStatus, isGranted: notifGranted, request: requestNotifications } = usePermissions("notifications");
+const {
+    status: notifStatus,
+    ready: notifReady,
+    isGranted: notifGranted,
+    request: requestNotifications,
+} = usePermissions("notifications");
 const { pendingKnocks, approveChat } = useChats();
 </script>
 
 <template>
-    <div>
-        <template v-if="!notifGranted">
+    <div
+        style="
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        "
+    >
+        <template v-if="notifReady && !notifGranted">
             <p v-if="notifStatus === 'denied'">
                 Notifications blocked. Enable them in browser settings.
             </p>
@@ -24,7 +36,7 @@ const { pendingKnocks, approveChat } = useChats();
         </template>
         <div
             v-if="pendingKnocks.length > 0"
-            style="padding: 12px; background: #fff3cd; margin-bottom: 12px"
+            style="padding: 12px; background: #fff3cd"
         >
             <p style="margin: 0 0 8px; font-weight: bold">Входящие запросы</p>
             <div
@@ -46,12 +58,14 @@ const { pendingKnocks, approveChat } = useChats();
         </div>
         <div
             style="
+                flex: 1;
+                min-height: 0;
                 display: grid;
                 grid-gap: 20px;
                 grid-template-columns: 300px 1fr;
             "
         >
-            <ChatList style="background-color: #eee" />
+            <ChatList style="background-color: #eee; overflow-y: auto" />
             <ChatView v-if="chatId" :key="chatId" :chat-id="chatId" />
         </div>
     </div>

@@ -1,13 +1,15 @@
 import { WebSocket } from "ws";
-import type { ChatMessage, ServerNotification } from "shared";
+import type { ChatMessage, ServerNotification, ServerPeerOffline, ServerPeerOnline } from "shared";
 import type { Peer } from "../types.js";
 import { NotificationService } from "./NotificationService.js";
 import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
 import type { UserEventQueue } from "../queues/UserEventQueue.js";
+import type { ChatRepository } from "../repositories/ChatRepository.js";
 
 export class PresenceService {
     constructor(
         private connectionRepository: ConnectionInMemoryRepository,
+        private chatRepository: ChatRepository,
         private userEventQueue: UserEventQueue,
         private notificationService: NotificationService
     ) {}
@@ -18,11 +20,29 @@ export class PresenceService {
 
         const pending = this.userEventQueue.flush(signPubKey);
         pending.forEach((event) => this.notificationService.send(peer, event));
+
+        this.broadcastStatus(signPubKey, "peer_online");
     }
 
     unregister(peer: Peer): void {
-        if (peer.signPubKey) {
-            this.connectionRepository.delete(peer.signPubKey);
+        if (!peer.signPubKey) return;
+        this.broadcastStatus(peer.signPubKey, "peer_offline");
+        this.connectionRepository.delete(peer.signPubKey);
+    }
+
+    private broadcastStatus(signPubKey: string, type: "peer_online" | "peer_offline"): void {
+        const chatIds = this.chatRepository.getChatsForUser(signPubKey);
+        for (const chatId of chatIds) {
+            const event: ServerPeerOnline | ServerPeerOffline = { type, payload: { chatId } };
+            this.chatRepository
+                .getAuthorizedKeys(chatId)
+                .filter((k) => k !== signPubKey)
+                .forEach((key) => {
+                    const peerConn = this.connectionRepository.get(key);
+                    if (peerConn?.readyState === WebSocket.OPEN) {
+                        this.notificationService.send(peerConn, event);
+                    }
+                });
         }
     }
 

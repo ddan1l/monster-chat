@@ -9,6 +9,7 @@ import type {
     ServerPeerInfo,
     ServerMessageDelivery,
     ServerReadReceipt,
+    ServerPeerOnline,
     ServerMessage,
 } from "shared";
 import type { Peer } from "../types.js";
@@ -53,6 +54,16 @@ export class ChatService {
 
         const joined: ServerChatOpened = { type: "chat_opened" };
         this.notificationService.send(peer, joined);
+
+        const isPeerOnline = this.chatRepository
+            .getAuthorizedKeys(chatId)
+            .filter((k) => k !== signPubKey)
+            .some((k) => this.connectionRepository.get(k)?.readyState === WebSocket.OPEN);
+
+        if (isPeerOnline) {
+            const online: ServerPeerOnline = { type: "peer_online", payload: { chatId } };
+            this.notificationService.send(peer, online);
+        }
     }
 
     deliver(chatId: string, payload: ChatMessage, sender: Peer): void {

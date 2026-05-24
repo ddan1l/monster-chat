@@ -37,6 +37,7 @@ export function useChatSession(chatId: string) {
     const peer = ref<PeerInfo | null>(null);
     const messages = ref<DecryptedMessage[]>([]);
     const error = ref<string | null>(null);
+    const isPeerOnline = ref(false);
     let sharedKey: CryptoKey | null = null;
 
     const unsubs: (() => void)[] = [];
@@ -155,6 +156,7 @@ export function useChatSession(chatId: string) {
         const msg: ChatMessage = {
             ...envelope,
             signature: toBase64(signature),
+            ...(originalNonce ? { isEdit: true } : {}),
         };
 
         wsSend({ type: "message", payload: msg });
@@ -214,6 +216,14 @@ export function useChatSession(chatId: string) {
             saveChatMessage(updated);
         });
 
+        on("peer_online", (msg) => {
+            if (msg.payload.chatId === chatId) isPeerOnline.value = true;
+        });
+
+        on("peer_offline", (msg) => {
+            if (msg.payload.chatId === chatId) isPeerOnline.value = false;
+        });
+
         on("peer_info", async (msg) => {
             const { chatId: msgChatId, ...peerInfo } = msg.payload;
             if (msgChatId === chatId) {
@@ -271,6 +281,7 @@ export function useChatSession(chatId: string) {
     return {
         chat,
         peer,
+        isPeerOnline,
         messages,
         error,
         connect,

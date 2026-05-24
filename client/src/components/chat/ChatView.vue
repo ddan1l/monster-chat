@@ -18,6 +18,7 @@ const {
     messages,
     chat,
     peer,
+    isPeerOnline,
     connect,
     sendMessage,
     editMessage,
@@ -52,14 +53,14 @@ async function handleEditSubmit(nonce: string, newText: string) {
 </script>
 
 <template>
-    <div style="display: flex; flex-direction: column; height: 100%">
+    <div style="display: flex; flex-direction: column; min-height: 0; height: 100%">
         <p v-if="error" style="color: red">{{ error }}</p>
 
         <template v-if="chat">
             <ChatPending v-if="!chat.isActive" :chat="chat" />
 
             <template v-else-if="chat.isActive">
-                <ChatHeader v-if="peer" :peer="peer" />
+                <ChatHeader v-if="peer" :peer="peer" :is-online="isPeerOnline" />
 
                 <ChatMessages
                     :messages="messages"

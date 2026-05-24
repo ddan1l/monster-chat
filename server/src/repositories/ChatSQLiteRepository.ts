@@ -37,4 +37,13 @@ export class ChatSQLiteRepository implements ChatRepository {
             .all(chatId) as { sign_pub_key: string }[];
         return rows.map((r) => r.sign_pub_key);
     }
+
+    getChatsForUser(signPubKey: string): string[] {
+        const rows = this.db
+            .prepare(
+                `SELECT chat_id FROM chat_authorizations WHERE sign_pub_key = ?`
+            )
+            .all(signPubKey) as { chat_id: string }[];
+        return rows.map((r) => r.chat_id);
+    }
 }

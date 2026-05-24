@@ -8,6 +8,8 @@ export function onMessage(ws: Peer, data: SendMessage) {
 
     chatService.deliver(chatId, payload, ws);
 
-    const participantIds = chatService.getParticipantIds(chatId);
-    presenceService.notify(payload, participantIds);
+    if (!payload.isEdit) {
+        const participantIds = chatService.getParticipantIds(chatId);
+        presenceService.notify(payload, participantIds);
+    }
 }

@@ -3,7 +3,10 @@ import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import type { PeerInfo } from "shared";
 import { useChats, chats } from "../../composables/chat/useChats";
-import { useIndexedDb, STORES } from "../../composables/infrastructure/useIndexedDb";
+import {
+    useIndexedDb,
+    STORES,
+} from "../../composables/infrastructure/useIndexedDb";
 import { useChatNotification } from "../../composables/chat/useChatNotification";
 
 const router = useRouter();
@@ -13,6 +16,7 @@ const { unread } = useChatNotification();
 const { read: readPeer } = useIndexedDb(STORES.PEERS);
 
 const peers = ref<Record<string, PeerInfo>>({});
+const loaded = ref(false);
 
 onMounted(async () => {
     await loadChats();
@@ -25,6 +29,7 @@ onMounted(async () => {
     for (const [id, peer] of entries) {
         if (peer) peers.value[id] = peer;
     }
+    loaded.value = true;
 });
 
 async function handleCreateChat() {
@@ -34,7 +39,7 @@ async function handleCreateChat() {
 </script>
 
 <template>
-    <div>
+    <div v-if="loaded">
         <ul>
             <li
                 v-for="chat in chats"
@@ -62,7 +67,10 @@ async function handleCreateChat() {
             </li>
         </ul>
 
-        <button style="margin: 10px; margin-left: 30px" @click="handleCreateChat">
+        <button
+            style="margin: 10px; margin-left: 30px"
+            @click="handleCreateChat"
+        >
             New chat
         </button>
     </div>
