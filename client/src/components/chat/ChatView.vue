@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useChatSession } from "../../composables/chat/useChatSession";
+import { useSafetyNumbers } from "../../composables/crypto/useSafetyNumbers";
 import { activeChatId } from "../../composables/chat/useChats";
 import { useChatNotification } from "../../composables/chat/useChatNotification";
 import ChatPending from "./ChatPending.vue";
 import ChatHeader from "./ChatHeader.vue";
+import ChatSafetyNumbers from "./ui/ChatSafetyNumbers.vue";
 import ChatMessages from "./ChatMessages.vue";
 import ChatEditor from "./ChatEditor.vue";
 
@@ -12,6 +14,7 @@ const props = defineProps<{ chatId: string }>();
 
 const editingNonce = ref<string | null>(null);
 const editingText = ref("");
+const safetyPanelOpen = ref(false);
 
 const {
     error,
@@ -19,11 +22,18 @@ const {
     chat,
     peer,
     isPeerOnline,
+    peerLastSeen,
     connect,
     sendMessage,
     editMessage,
     markAsRead,
 } = useChatSession(props.chatId);
+
+const { safetyNumber, verified, keyChanged, load: loadSafety, markVerified, removeVerification } =
+    useSafetyNumbers(props.chatId);
+
+watch(peer, (p) => { if (p) loadSafety(p); }, { immediate: true });
+
 const { clearUnread } = useChatNotification();
 
 onMounted(async () => {
@@ -71,7 +81,20 @@ async function handleEditSubmit(nonce: string, newText: string) {
                     v-if="peer"
                     :peer="peer"
                     :is-online="isPeerOnline"
-                    :chat-id="props.chatId"
+                    :last-seen="peerLastSeen"
+                    :verified="verified"
+                    :key-changed="keyChanged"
+                    @open-panel="safetyPanelOpen = true"
+                />
+
+                <ChatSafetyNumbers
+                    v-if="safetyPanelOpen && peer"
+                    :verified="verified"
+                    :safety-number="safetyNumber"
+                    :peer-name="peer.name"
+                    @mark-verified="markVerified(); safetyPanelOpen = false"
+                    @remove-verification="removeVerification"
+                    @close="safetyPanelOpen = false"
                 />
 
                 <ChatMessages
@@ -82,8 +105,21 @@ async function handleEditSubmit(nonce: string, newText: string) {
                     @read="markAsRead"
                 />
 
+                <div v-if="!verified" style="
+                    padding: 10px 0 4px;
+                    font-size: 13px;
+                    color: #888;
+                    text-align: center;
+                ">
+                    Верифицируйте секретные числа, прежде чем писать сообщения —
+                    <button
+                        style="background: none; border: none; color: #a78bfa; cursor: pointer; padding: 0; font-size: 13px; text-decoration: underline"
+                        @click="safetyPanelOpen = true"
+                    >Верифицировать</button>
+                </div>
+
                 <ChatEditor
-                    :disabled="!!error"
+                    :disabled="!!error || !verified"
                     :editing-nonce="editingNonce"
                     :editing-text="editingText"
                     @send="sendMessage"

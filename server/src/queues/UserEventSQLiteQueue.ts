@@ -23,7 +23,9 @@ export class UserEventSQLiteQueue implements UserEventQueue {
     push(userId: string, event: ServerMessage): void {
         const count = (
             this.db
-                .prepare(`SELECT COUNT(*) AS c FROM user_event_queue WHERE user_id = ?`)
+                .prepare(
+                    `SELECT COUNT(*) AS c FROM user_event_queue WHERE user_id = ?`
+                )
                 .get(userId) as { c: number }
         ).c;
 

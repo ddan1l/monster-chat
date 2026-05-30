@@ -20,7 +20,7 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
 
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
-    const { read: readPeer } = useIndexedDb(STORES.PEERS);
+    const { read: readPeer, write: writePeer } = useIndexedDb(STORES.PEERS);
     const { saveChatMessage, getByChat } = useChatMessages();
     const { user, load: loadUser } = useUser();
     const { send: wsSend, subscribe } = useWs();
@@ -38,6 +38,7 @@ export function useChatSession(chatId: string) {
     const messages = ref<DecryptedMessage[]>([]);
     const error = ref<string | null>(null);
     const isPeerOnline = ref(false);
+    const peerLastSeen = ref<number | null>(null);
     let sharedKey: CryptoKey | null = null;
 
     const unsubs: (() => void)[] = [];
@@ -217,19 +218,37 @@ export function useChatSession(chatId: string) {
         });
 
         on("peer_online", (msg) => {
-            if (msg.payload.chatId === chatId) isPeerOnline.value = true;
+            if (msg.payload.chatId === chatId) {
+                isPeerOnline.value = true;
+                peerLastSeen.value = null;
+            }
         });
 
         on("peer_offline", (msg) => {
-            if (msg.payload.chatId === chatId) isPeerOnline.value = false;
+            if (msg.payload.chatId === chatId) {
+                isPeerOnline.value = false;
+                peerLastSeen.value = Date.now();
+            }
         });
 
         on("peer_info", async (msg) => {
             const { chatId: msgChatId, ...peerInfo } = msg.payload;
-            if (msgChatId === chatId) {
-                peer.value = peerInfo;
-                await initSharedKey(peerInfo.ecdhPubKey);
+            if (msgChatId !== chatId) return;
+
+            const stored = await readPeer<{
+                signPubKey: string;
+                verified?: boolean;
+                keyChanged?: boolean;
+            }>(chatId);
+            if (stored && stored.signPubKey !== peerInfo.signPubKey) {
+                await writePeer(
+                    { ...peerInfo, verified: false, keyChanged: true },
+                    chatId
+                );
             }
+
+            peer.value = peerInfo;
+            await initSharedKey(peerInfo.ecdhPubKey);
         });
 
         if (!user.value) await loadUser();
@@ -282,6 +301,7 @@ export function useChatSession(chatId: string) {
         chat,
         peer,
         isPeerOnline,
+        peerLastSeen,
         messages,
         error,
         connect,

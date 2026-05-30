@@ -5,6 +5,7 @@ import { useCrypto } from "./useCrypto";
 
 interface StoredPeer extends PeerInfo {
     verified?: boolean;
+    keyChanged?: boolean;
 }
 
 export function useSafetyNumbers(chatId: string) {
@@ -13,18 +14,24 @@ export function useSafetyNumbers(chatId: string) {
 
     const safetyNumber = ref<string | null>(null);
     const verified = ref(false);
+    const keyChanged = ref(false);
 
     async function load(peer: PeerInfo) {
         const stored = await read<StoredPeer>(chatId);
         verified.value = stored?.verified ?? false;
+        keyChanged.value = stored?.keyChanged ?? false;
         safetyNumber.value = await computeSafetyNumber(peer.signPubKey);
     }
 
     async function markVerified() {
         const stored = await read<StoredPeer>(chatId);
         if (stored) {
-            await write({ ...stored, verified: true }, chatId);
+            await write(
+                { ...stored, verified: true, keyChanged: false },
+                chatId
+            );
             verified.value = true;
+            keyChanged.value = false;
         }
     }
 
@@ -36,5 +43,12 @@ export function useSafetyNumbers(chatId: string) {
         }
     }
 
-    return { safetyNumber, verified, load, markVerified, removeVerification };
+    return {
+        safetyNumber,
+        verified,
+        keyChanged,
+        load,
+        markVerified,
+        removeVerification,
+    };
 }
