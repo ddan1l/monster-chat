@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import ChatList from "../components/chat/ChatList.vue";
-import ChatView from "../components/chat/ChatView.vue";
-import { useChats } from "../composables/chat/useChats";
-import { usePermissions } from "../composables/infrastructure/usePermissions";
+import ChatList from "@widgets/ChatList/ChatList.vue";
+import ChatView from "@widgets/ChatView/ChatView.vue";
+import { useChats } from "@entities/chat/useChats";
+import { usePermissions } from "@shared/lib/usePermissions";
 
 const route = useRoute();
 const chatId = computed(() => route.params.chatId as string | undefined);

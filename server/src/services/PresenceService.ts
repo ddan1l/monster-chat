@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import type { ChatMessage, ServerNotification, ServerPeerOffline, ServerPeerOnline } from "shared";
+import type { ChatMessage, ServerNotification, ServerPeerOffline, ServerPeerOnline, ServerPeerTyping, ServerPeerStopTyping } from "shared";
 import type { Peer } from "../types.js";
 import { NotificationService } from "./NotificationService.js";
 import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
@@ -44,6 +44,19 @@ export class PresenceService {
                     }
                 });
         }
+    }
+
+    broadcastTyping(chatId: string, senderKey: string, type: "peer_typing" | "peer_stop_typing"): void {
+        const event: ServerPeerTyping | ServerPeerStopTyping = { type, payload: { chatId } };
+        this.chatRepository
+            .getAuthorizedKeys(chatId)
+            .filter((k) => k !== senderKey)
+            .forEach((key) => {
+                const conn = this.connectionRepository.get(key);
+                if (conn?.readyState === WebSocket.OPEN) {
+                    this.notificationService.send(conn, event);
+                }
+            });
     }
 
     notify(payload: ChatMessage, participantIds: string[]): void {

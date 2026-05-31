@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "../composables/crypto/useAuth";
-import { useUser } from "../composables/user/useUser";
+import { useAuth } from "@features/auth/useAuth";
+import { useUser } from "@entities/user/useUser";
 
 const AVATARS = [
     "🦴",

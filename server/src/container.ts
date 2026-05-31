@@ -13,6 +13,8 @@ import type { UserEventQueue } from "./queues/UserEventQueue.js";
 import { NotificationService } from "./services/NotificationService.js";
 import { ChatService } from "./services/ChatService.js";
 import { PresenceService } from "./services/PresenceService.js";
+import { LocalFileStorage } from "./storage/LocalFileStorage.js";
+import { FileService } from "./services/FileService.js";
 
 const driver = process.env.STORAGE_DRIVER ?? "memory";
 
@@ -33,6 +35,14 @@ if (driver === "sqlite") {
 
 const connectionRepository = new ConnectionInMemoryRepository();
 const pendingChatRepository = new PendingChatInMemoryRepository();
+
+export { chatRepository };
+
+const fileStorage = new LocalFileStorage(
+    process.env.UPLOADS_DIR ?? "./uploads"
+);
+
+export const fileService = new FileService(chatRepository, fileStorage);
 
 export const notificationService = new NotificationService();
 export const chatService = new ChatService(

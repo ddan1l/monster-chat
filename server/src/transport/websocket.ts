@@ -1,4 +1,5 @@
 import { WebSocketServer } from "ws";
+import type { Server } from "http";
 import type { ClientMessage } from "../types.js";
 import type { Peer } from "../types.js";
 import { onOnline } from "../handlers/onOnline.js";
@@ -9,6 +10,7 @@ import { onKnockChat } from "../handlers/onKnockChat.js";
 import { onPeerInfo } from "../handlers/onPeerInfo.js";
 import { onMessage } from "../handlers/onMessage.js";
 import { onReadReceipt } from "../handlers/onReadReceipt.js";
+import { onTyping } from "../handlers/onTyping.js";
 import { onClose } from "../handlers/onClose.js";
 
 const handlers = {
@@ -20,6 +22,8 @@ const handlers = {
     peer_info: onPeerInfo,
     message: onMessage,
     read_receipt: onReadReceipt,
+    typing: onTyping,
+    stop_typing: onTyping,
 } satisfies {
     [K in ClientMessage["type"]]: (
         ws: Peer,
@@ -27,8 +31,8 @@ const handlers = {
     ) => void;
 };
 
-export function startServer(port: number) {
-    const wss = new WebSocketServer({ port });
+export function attachWebSocket(server: Server) {
+    const wss = new WebSocketServer({ server });
 
     wss.on("connection", (ws: Peer) => {
         ws.on("message", (raw) => {
@@ -53,5 +57,5 @@ export function startServer(port: number) {
         ws.on("close", () => onClose(ws));
     });
 
-    console.log(`Signaling server running on ws://localhost:${port}`);
+    console.log("WebSocket server attached");
 }

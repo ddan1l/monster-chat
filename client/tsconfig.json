@@ -7,7 +7,15 @@
         "jsx": "preserve",
         "lib": ["ES2020", "DOM", "DOM.Iterable"],
         "skipLibCheck": true,
-        "noEmit": true
+        "noEmit": true,
+        "paths": {
+            "@shared/*": ["./src/shared/*"],
+            "@entities/*": ["./src/entities/*"],
+            "@features/*": ["./src/features/*"],
+            "@widgets/*": ["./src/widgets/*"],
+            "@pages/*": ["./src/pages/*"],
+            "@app/*": ["./src/app/*"]
+        }
     },
     "include": ["src/**/*", "env.d.ts"]
 }

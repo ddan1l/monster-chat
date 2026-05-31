@@ -3,3 +3,5 @@ package-lock.json
 .claude
 .vscode
 data.db
+uploads
+.env

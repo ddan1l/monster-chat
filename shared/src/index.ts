@@ -43,6 +43,21 @@ export interface ReadReceiptMessage {
     payload: { chatId: string; nonce: string };
 }
 
+export interface TypingMessage {
+    type: "typing";
+    payload: { chatId: string; from: string };
+}
+
+export interface StopTypingMessage {
+    type: "stop_typing";
+    payload: { chatId: string; from: string };
+}
+
+export interface DeleteChatMessage {
+    type: "delete_chat";
+    payload: { chatId: string };
+}
+
 export type ClientMessage =
     | OpenChatMessage
     | SendMessage
@@ -51,7 +66,10 @@ export type ClientMessage =
     | ApproveChatMessage
     | KnockChatMessage
     | PeerInfoMessage
-    | ReadReceiptMessage;
+    | ReadReceiptMessage
+    | TypingMessage
+    | StopTypingMessage
+    | DeleteChatMessage;
 
 // Messages sent from server to client
 export interface ServerMessageDelivery {
@@ -103,6 +121,16 @@ export interface ServerPeerOffline {
     payload: { chatId: string };
 }
 
+export interface ServerPeerTyping {
+    type: "peer_typing";
+    payload: { chatId: string };
+}
+
+export interface ServerPeerStopTyping {
+    type: "peer_stop_typing";
+    payload: { chatId: string };
+}
+
 export type ServerMessage =
     | ServerChatOpened
     | ServerChatCreated
@@ -113,7 +141,9 @@ export type ServerMessage =
     | ServerError
     | ServerReadReceipt
     | ServerPeerOnline
-    | ServerPeerOffline;
+    | ServerPeerOffline
+    | ServerPeerTyping
+    | ServerPeerStopTyping;
 
 export interface Chat {
     id: string;
@@ -135,10 +165,22 @@ export interface PeerInfo {
     avatar?: string;
 }
 
+export interface FileAttachment {
+    url: string;
+    key: string; // base64 AES-256-GCM key
+    iv: string; // base64 IV
+    name: string;
+    size: number;
+    mimeType: string;
+}
+
+export type MessageAction = "edit_message" | "delete_message" | "delete_chat";
+
 export interface MessageContent {
-    text: string;
-    files?: string[]; // base64[]
-    originalNonce?: string;
+    text?: string;
+    files?: FileAttachment[];
+    action?: MessageAction;
+    targetNonce?: string;
 }
 
 export interface ChatEnvelope {
@@ -153,5 +195,5 @@ export interface ChatEnvelope {
 
 export interface ChatMessage extends ChatEnvelope {
     signature: string; // base64
-    isEdit?: boolean;
+    isAction?: boolean;
 }

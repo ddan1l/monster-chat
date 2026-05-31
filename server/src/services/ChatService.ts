@@ -58,10 +58,17 @@ export class ChatService {
         const isPeerOnline = this.chatRepository
             .getAuthorizedKeys(chatId)
             .filter((k) => k !== signPubKey)
-            .some((k) => this.connectionRepository.get(k)?.readyState === WebSocket.OPEN);
+            .some(
+                (k) =>
+                    this.connectionRepository.get(k)?.readyState ===
+                    WebSocket.OPEN
+            );
 
         if (isPeerOnline) {
-            const online: ServerPeerOnline = { type: "peer_online", payload: { chatId } };
+            const online: ServerPeerOnline = {
+                type: "peer_online",
+                payload: { chatId },
+            };
             this.notificationService.send(peer, online);
         }
     }
@@ -182,6 +189,25 @@ export class ChatService {
 
     getParticipantIds(chatId: string): string[] {
         return this.chatRepository.getAuthorizedKeys(chatId);
+    }
+
+    broadcastWithQueue(
+        chatId: string,
+        sender: Peer,
+        event: ServerMessage
+    ): void {
+        const keys = this.chatRepository
+            .getAuthorizedKeys(chatId)
+            .filter((k) => k !== sender.signPubKey);
+
+        for (const key of keys) {
+            const peer = this.connectionRepository.get(key);
+            if (peer?.readyState === WebSocket.OPEN) {
+                this.notificationService.send(peer, event);
+            } else {
+                this.userEventQueue.push(key, event);
+            }
+        }
     }
 
     private getOnlineRecipients(chatId: string, sender: Peer): Peer[] {
