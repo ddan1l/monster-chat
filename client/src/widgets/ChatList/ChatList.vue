@@ -20,6 +20,7 @@ import AppModal from "@shared/ui/components/AppModal.vue";
 import IconPlus from "@shared/ui/icons/IconPlus.vue";
 import UserCard from "@entities/user/ui/UserCard.vue";
 import AppAlert from "@shared/ui/components/AppAlert.vue";
+import IconAlert from "@shared/ui/icons/IconAlert.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -317,16 +318,16 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
                 </h1>
 
                 <div>
-                    <p class="label">Одноразовая ссылка-приглашение</p>
+                    <p class="label">Одноразовая ссылка-приглашение.</p>
 
-                    <code>{{ newChatLink }}</code>
+                    <p class="label">
+                        Отправьте ссылку собеседнику через удобный для вас канал
+                        связи. Оставьте это окно открытым, пока он не
+                        присоединится к беседе.
+                    </p>
                 </div>
 
-                <AppAlert>
-                    Отправьте ссылку собеседнику через удобный для вас канал
-                    связи. Оставьте это окно открытым, пока он не присоединится
-                    к беседе.
-                </AppAlert>
+                <code>{{ newChatLink }}</code>
             </template>
         </div>
     </AppModal>
@@ -347,6 +348,6 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
 .mc-new-chat {
     display: flex;
     flex-direction: column;
-    gap: 25px;
+    gap: 24px;
 }
 </style>
