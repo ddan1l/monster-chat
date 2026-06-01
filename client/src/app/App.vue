@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, watch } from "vue";
+import AppHeader from "@widgets/AppHeader/AppHeader.vue";
 import { useWs } from "@shared/api/useWs";
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useCrypto } from "@shared/crypto/useCrypto";
@@ -22,5 +23,25 @@ watch([connected, signKeyPair], ([isConnected, keys]) => {
 </script>
 
 <template>
-    <RouterView v-if="connected" />
+    <div class="mc-app">
+        <div class="mc-app-container">
+            <AppHeader />
+            <RouterView v-if="connected" />
+        </div>
+    </div>
 </template>
+
+<style lang="scss" scoped>
+.mc-app {
+    padding: 20px;
+    height: 100vh;
+    overflow: hidden;
+}
+.mc-app-container {
+    border: 1px solid var(--mc-line-hard);
+    background-color: var(--mc-bg-window);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+</style>

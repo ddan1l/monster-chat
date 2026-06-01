@@ -30,6 +30,7 @@ export interface KnockChatMessage {
         chatId: string;
         hostKey: string;
         peerInfo: PeerInfo;
+        timezone?: string;
     };
 }
 
@@ -58,6 +59,11 @@ export interface DeleteChatMessage {
     payload: { chatId: string };
 }
 
+export interface CancelChatMessage {
+    type: "cancel_chat";
+    payload: { chatId: string };
+}
+
 export type ClientMessage =
     | OpenChatMessage
     | SendMessage
@@ -69,7 +75,8 @@ export type ClientMessage =
     | ReadReceiptMessage
     | TypingMessage
     | StopTypingMessage
-    | DeleteChatMessage;
+    | DeleteChatMessage
+    | CancelChatMessage;
 
 // Messages sent from server to client
 export interface ServerMessageDelivery {
@@ -103,7 +110,7 @@ export interface ServerPeerInfo {
 
 export interface ServerChatKnock {
     type: "chat_knock";
-    payload: { chatId: string; peerInfo: PeerInfo };
+    payload: { chatId: string; peerInfo: PeerInfo; ip?: string; region?: string; timezone?: string };
 }
 
 export interface ServerReadReceipt {

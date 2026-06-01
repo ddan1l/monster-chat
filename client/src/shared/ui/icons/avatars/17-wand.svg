@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<rect x="58" y="58" width="120" height="14" fill="currentColor" transform="rotate(45 100 100)"></rect>
+        <rect x="32" y="32" width="36" height="36" fill="currentColor"></rect>
+        <circle cx="50" cy="50" r="6" fill="var(--mc-acid)"></circle>
+        <polygon points="148,28 156,52 180,52 160,68 168,92 148,76 128,92 136,68 116,52 140,52" fill="currentColor"></polygon>
+</svg>

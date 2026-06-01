@@ -1,15 +1,26 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import svgLoader from "vite-svg-loader";
 import { fileURLToPath, URL } from "node:url";
+import { version } from "./package.json";
 
 export default defineConfig({
-    plugins: [vue()],
+    define: {
+        __APP_VERSION__: JSON.stringify(version),
+    },
+    plugins: [vue(), svgLoader()],
     resolve: {
         alias: {
             "@shared": fileURLToPath(new URL("./src/shared", import.meta.url)),
-            "@entities": fileURLToPath(new URL("./src/entities", import.meta.url)),
-            "@features": fileURLToPath(new URL("./src/features", import.meta.url)),
-            "@widgets": fileURLToPath(new URL("./src/widgets", import.meta.url)),
+            "@entities": fileURLToPath(
+                new URL("./src/entities", import.meta.url)
+            ),
+            "@features": fileURLToPath(
+                new URL("./src/features", import.meta.url)
+            ),
+            "@widgets": fileURLToPath(
+                new URL("./src/widgets", import.meta.url)
+            ),
             "@pages": fileURLToPath(new URL("./src/pages", import.meta.url)),
             "@app": fileURLToPath(new URL("./src/app", import.meta.url)),
         },

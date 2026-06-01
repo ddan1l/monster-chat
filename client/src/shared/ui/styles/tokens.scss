@@ -1,0 +1,78 @@
+:root {
+  /* ── BACKGROUNDS ──────────────────────────────────────────────────────── */
+  --mc-bg-app:        #050706;
+  --mc-bg-window:     #0a0c0a;
+  --mc-bg-rail:       #070908;
+  --mc-bg-list:       #0c0f0c;
+  --mc-bg-chat:       #0a0d0a;
+  --mc-bg-input:      #0d100d;
+  --mc-bg-card:       #11151180;
+  --mc-bg-sel:        #1a201a;
+  --mc-bg-bubble-in:  #14181480;
+  --mc-bg-hover:      #14181400;
+
+  /* ── ACCENT (acid green) ──────────────────────────────────────────────── */
+  --mc-acid:       #c6ff3a;
+  --mc-acid-dim:   #8fb82a;
+  --mc-acid-deep:  #5b7a15;
+  --mc-acid-glow:  rgba(198, 255, 58, 0.18);
+
+  /* ── LINES / BORDERS ──────────────────────────────────────────────────── */
+  --mc-line:        #1c211c;
+  --mc-line-soft:   #14181480;
+  --mc-line-hard:   #2a312a;
+
+  /* ── FOREGROUND (text) ────────────────────────────────────────────────── */
+  --mc-fg:        #e8efe6;
+  --mc-fg-mute:   #7f8a7c;
+  --mc-fg-dim:    #545d52;
+  --mc-fg-faint:  #353a33;
+
+  /* ── SEMANTIC ─────────────────────────────────────────────────────────── */
+  --mc-danger:    #ff5f57;
+
+   /* ── FONTS ───────────────────────────────────────────────────────────── */
+  --mc-serif: "Space Grotesk", sans-serif;
+  --mc-mono: "Geist Mono", monospace;
+}
+
+/* ── THEME PRESETS ────────────────────────────────────────────────────────
+   Kyber blue:
+     --mc-acid:      #38bdf8;
+     --mc-acid-dim:  #0ea5e9;
+     --mc-acid-deep: #075985;
+     --mc-acid-glow: rgba(56, 189, 248, 0.18);
+
+   Hot magenta:
+     --mc-acid:      #ff2bd6;
+     --mc-acid-dim:  #d11aa8;
+     --mc-acid-deep: #6b0a55;
+     --mc-acid-glow: rgba(255, 43, 214, 0.18);
+
+   Amber:
+     --mc-acid:      #ffb020;
+     --mc-acid-dim:  #c48a18;
+     --mc-acid-deep: #5e420a;
+     --mc-acid-glow: rgba(255, 176, 32, 0.18);
+*/
+
+[data-theme="kyber-blue"] {
+  --mc-acid:      #38bdf8;
+  --mc-acid-dim:  #0ea5e9;
+  --mc-acid-deep: #075985;
+  --mc-acid-glow: rgba(56, 189, 248, 0.18);
+}
+
+[data-theme="hot-magenta"] {
+  --mc-acid:      #ff2bd6;
+  --mc-acid-dim:  #d11aa8;
+  --mc-acid-deep: #6b0a55;
+  --mc-acid-glow: rgba(255, 43, 214, 0.18);
+}
+
+[data-theme="amber"] {
+  --mc-acid:      #ffb020;
+  --mc-acid-dim:  #c48a18;
+  --mc-acid-deep: #5e420a;
+  --mc-acid-glow: rgba(255, 176, 32, 0.18);
+}

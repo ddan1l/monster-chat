@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { formatMessageTime } from "@shared/lib/formatDate";
 import { useRouter, useRoute } from "vue-router";
 import type { PeerInfo } from "shared";
-import { useChats, chats, activeChatId } from "@entities/chat/useChats";
+import {
+    useChats,
+    chats,
+    activeChatId,
+    pendingKnocks,
+} from "@entities/chat/useChats";
 import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
 import {
     useChatMessages,
@@ -11,10 +16,14 @@ import {
 } from "@entities/message/useMessages";
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useWs } from "@shared/api/useWs";
+import AppModal from "@shared/ui/components/AppModal.vue";
+import IconPlus from "@shared/ui/icons/IconPlus.vue";
+import UserCard from "@entities/user/ui/UserCard.vue";
+import AppAlert from "@shared/ui/components/AppAlert.vue";
 
 const router = useRouter();
 const route = useRoute();
-const { loadChats, createChat } = useChats();
+const { loadChats, createChat, approveChat, cancelPendingChat } = useChats();
 const { unread } = useChatNotification();
 const { read: readPeer } = useIndexedDb(STORES.PEERS);
 const { getLastMessage } = useChatMessages();
@@ -99,17 +108,57 @@ onUnmounted(() => {
     Object.values(typingTimers).forEach(clearTimeout);
 });
 
+const showNewChat = ref(false);
+const newChatLink = ref("");
+const newChatId = ref("");
+
 async function handleCreateChat() {
     const chat = await createChat();
-    router.push(`/chat/${chat.id}`);
+    newChatId.value = chat.id;
+    newChatLink.value = chat.joinLink ?? "";
+    showNewChat.value = true;
 }
+
+async function handleCloseNewChat() {
+    const chat = chats.value.find((c) => c.id === newChatId.value);
+    if (chat && !chat.isActive) await cancelPendingChat(newChatId.value);
+    showNewChat.value = false;
+}
+
+// const newChatKnock = computed(() =>
+//     pendingKnocks.value.find((k) => k.chatId === newChatId.value)
+// );
+
+const newChatKnock = {
+    chatId: "IhOd5Zia",
+    peerInfo: {
+        signPubKey:
+            "BDuCIfX9k2I+V23PKC6279yhL35UWlRKS3DeK1aZ7q/gzCWxffzn7cPrtRjKGE7k4D3hN/zEmpczvtkKfLl4LRU=",
+        ecdhPubKey:
+            "BD+A/4PqK6J1U/BKX5I0bfropNdt2slUh4fzHvBqGDE7mIZOn7uwEFhn3BR1MUMAT1KdEqzIUdndgKGTgZggMe4=",
+        name: "Tester",
+        avatar: "/src/shared/ui/icons/avatars/37-robot.svg",
+    },
+    ip: "::ffff:127.0.0.1",
+    region: "Ярославль",
+    timezone: "Europe/Moscow",
+};
+const activeChats = computed(() => chats.value.filter((c) => c.isActive));
 </script>
 
 <template>
-    <div v-if="loaded">
+    <div v-if="loaded" class="mc-chat-list">
+        <div class="mc-chat-list-header">
+            <h2>ЧАТЫ<span class="color-accent">/</span></h2>
+
+            <button class="button-sm" @click="handleCreateChat">
+                <IconPlus />
+            </button>
+        </div>
+
         <ul style="list-style: none; padding: 0; margin: 0">
             <li
-                v-for="chat in chats"
+                v-for="chat in activeChats"
                 :key="chat.id"
                 :style="{
                     display: 'flex',
@@ -131,7 +180,7 @@ async function handleCreateChat() {
                         {{ peers[chat.id]?.avatar ?? "💬" }}
                     </span>
                     <span
-                        v-if="chat.isActive"
+                        v-if="onlineStatus[chat.id]"
                         :style="{
                             position: 'absolute',
                             bottom: 0,
@@ -233,12 +282,71 @@ async function handleCreateChat() {
                 </div>
             </li>
         </ul>
-
-        <button
-            style="margin: 12px; margin-left: 16px"
-            @click="handleCreateChat"
-        >
-            New chat
-        </button>
     </div>
+
+    <AppModal :open="showNewChat" title="Новый чат" @close="handleCloseNewChat">
+        <div class="mc-new-chat">
+            <div v-if="!newChatKnock" class="mc-new-chat__knock">
+                <code>
+                    <UserCard :peer="newChatKnock.peerInfo" />
+                </code>
+                <div class="mc-new-chat__knock-info">
+                    <span class="mc-new-chat__knock-name">
+                        {{ newChatKnock.peerInfo.name }} хочет присоединиться
+                    </span>
+                    <span
+                        v-if="newChatKnock.ip"
+                        class="mc-new-chat__knock-meta"
+                    >
+                        {{ newChatKnock.ip }}
+                        <template v-if="newChatKnock.region">
+                            · {{ newChatKnock.region }}</template
+                        >
+                        <template v-if="newChatKnock.timezone">
+                            · {{ newChatKnock.timezone }}</template
+                        >
+                    </span>
+                </div>
+                <button @click="approveChat(newChatId)">Принять</button>
+            </div>
+
+            <template v-else>
+                <h1>
+                    ПРИГЛАСИТЬ <br />
+                    В ЧАТ
+                </h1>
+
+                <div>
+                    <p class="label">Одноразовая ссылка-приглашение</p>
+
+                    <code>{{ newChatLink }}</code>
+                </div>
+
+                <AppAlert>
+                    Отправьте ссылку собеседнику через удобный для вас канал
+                    связи. Оставьте это окно открытым, пока он не присоединится
+                    к беседе.
+                </AppAlert>
+            </template>
+        </div>
+    </AppModal>
 </template>
+
+<style lang="scss" scoped>
+.mc-chat-list {
+    background-color: var(--mc-bg-list);
+    border-right: 1px solid var(--mc-line-hard);
+}
+.mc-chat-list-header {
+    padding: 20px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mc-new-chat {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+</style>

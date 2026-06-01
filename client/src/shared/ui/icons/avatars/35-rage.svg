@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<polygon points="34,80 54,30 70,72" fill="currentColor"></polygon>
+        <polygon points="166,80 146,30 130,72" fill="currentColor"></polygon>
+        <circle cx="100" cy="110" r="64" fill="currentColor"></circle>
+        <polygon points="64,96 90,106 64,116" fill="var(--mc-acid)"></polygon>
+        <polygon points="136,96 110,106 136,116" fill="var(--mc-acid)"></polygon>
+        <path d="M 60 150 Q 100 124 140 150" stroke="var(--mc-acid)" stroke-width="6" fill="none" stroke-linecap="round"></path>
+</svg>

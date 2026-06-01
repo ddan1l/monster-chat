@@ -1,5 +1,5 @@
 import { WebSocketServer } from "ws";
-import type { Server } from "http";
+import type { Server, IncomingMessage } from "http";
 import type { ClientMessage } from "../types.js";
 import type { Peer } from "../types.js";
 import { onOnline } from "../handlers/onOnline.js";
@@ -11,6 +11,7 @@ import { onPeerInfo } from "../handlers/onPeerInfo.js";
 import { onMessage } from "../handlers/onMessage.js";
 import { onReadReceipt } from "../handlers/onReadReceipt.js";
 import { onTyping } from "../handlers/onTyping.js";
+import { onCancelChat } from "../handlers/onCancelChat.js";
 import { onClose } from "../handlers/onClose.js";
 
 const handlers = {
@@ -24,6 +25,7 @@ const handlers = {
     read_receipt: onReadReceipt,
     typing: onTyping,
     stop_typing: onTyping,
+    cancel_chat: onCancelChat,
 } satisfies {
     [K in ClientMessage["type"]]: (
         ws: Peer,
@@ -34,7 +36,10 @@ const handlers = {
 export function attachWebSocket(server: Server) {
     const wss = new WebSocketServer({ server });
 
-    wss.on("connection", (ws: Peer) => {
+    wss.on("connection", (ws: Peer, req: IncomingMessage) => {
+        ws.ip =
+            (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ??
+            req.socket.remoteAddress;
         ws.on("message", (raw) => {
             let data: ClientMessage;
             try {

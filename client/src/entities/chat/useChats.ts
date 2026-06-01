@@ -11,6 +11,9 @@ import { useRouter } from "vue-router";
 export interface PendingKnock {
     chatId: string;
     peerInfo: PeerInfo;
+    ip?: string;
+    region?: string;
+    timezone?: string;
 }
 
 export const chats = ref<Chat[]>([]);
@@ -68,12 +71,18 @@ export function useChats() {
         });
 
         subscribe("chat_knock", async (msg) => {
-            const { chatId, peerInfo } = msg.payload;
+            const { chatId, peerInfo, ip, region, timezone } = msg.payload;
             const alreadyKnocking = pendingKnocks.value.some(
                 (k) => k.chatId === chatId
             );
             if (!alreadyKnocking) {
-                const knock: PendingKnock = { chatId, peerInfo };
+                const knock: PendingKnock = {
+                    chatId,
+                    peerInfo,
+                    ip,
+                    region,
+                    timezone,
+                };
                 await saveKnock(knock, chatId);
                 pendingKnocks.value.push(knock);
             }
@@ -106,12 +115,21 @@ export function useChats() {
             exportSignPublicKey(),
             exportEncryptionPublicKey(),
         ]);
-        return { signPubKey, ecdhPubKey, name: user.value!.name, avatar: user.value!.avatar };
+        return {
+            signPubKey,
+            ecdhPubKey,
+            name: user.value!.name,
+            avatar: user.value!.avatar,
+        };
     }
 
     async function knockChat(chatId: string, hostKey: string): Promise<void> {
         const peerInfo = await exportMyKeys();
-        wsSend({ type: "knock_chat", payload: { chatId, hostKey, peerInfo } });
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        wsSend({
+            type: "knock_chat",
+            payload: { chatId, hostKey, peerInfo, timezone },
+        });
     }
 
     async function approveChat(chatId: string): Promise<void> {
@@ -140,6 +158,11 @@ export function useChats() {
         }
     }
 
+    async function cancelPendingChat(chatId: string): Promise<void> {
+        wsSend({ type: "cancel_chat", payload: { chatId } });
+        await cleanupChat(chatId);
+    }
+
     async function deleteChatForAll(chatId: string): Promise<void> {
         wsSend({ type: "delete_chat", payload: { chatId } });
         await cleanupChat(chatId);
@@ -155,5 +178,6 @@ export function useChats() {
         approveChat,
         deleteChatForMe: cleanupChat,
         deleteChatForAll,
+        cancelPendingChat,
     };
 }

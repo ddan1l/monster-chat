@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<path d="M 30 90 Q 30 50 100 50 Q 170 50 170 90 L 170 140 Q 100 180 30 140 Z" fill="currentColor"></path>
+        <polygon points="28,52 18,30 50,40" fill="currentColor"></polygon>
+        <polygon points="172,52 182,30 150,40" fill="currentColor"></polygon>
+        <ellipse cx="76" cy="92" rx="10" ry="14" fill="var(--mc-acid)"></ellipse>
+        <ellipse cx="124" cy="92" rx="10" ry="14" fill="var(--mc-acid)"></ellipse>
+        <circle cx="76" cy="92" r="4" fill="currentColor"></circle>
+        <circle cx="124" cy="92" r="4" fill="currentColor"></circle>
+        <path d="M 60 144 L 70 132 L 80 144 L 90 132 L 100 144 L 110 132 L 120 144 L 130 132 L 140 144" stroke="var(--mc-acid)" stroke-width="4" fill="none" stroke-linejoin="bevel"></path>
+        
+        <circle cx="92" cy="128" r="3" fill="var(--mc-acid)"></circle>
+        <circle cx="108" cy="128" r="3" fill="var(--mc-acid)"></circle>
+</svg>

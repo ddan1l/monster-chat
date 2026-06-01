@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<polygon points="40,46 50,84 78,70" fill="currentColor"></polygon>
+        <polygon points="160,46 150,84 122,70" fill="currentColor"></polygon>
+        <path d="M 50 80 Q 60 60 100 60 Q 140 60 150 80 Q 160 110 130 130 L 116 160 L 100 140 L 84 160 L 70 130 Q 40 110 50 80 Z" fill="currentColor"></path>
+        <polygon points="64,92 84,92 74,108" fill="var(--mc-acid)"></polygon>
+        <polygon points="116,92 136,92 126,108" fill="var(--mc-acid)"></polygon>
+        <ellipse cx="100" cy="130" rx="10" ry="6" fill="var(--mc-acid)"></ellipse>
+</svg>

@@ -1,0 +1,65 @@
+body {
+  background-color: var(--mc-bg-app);
+  color: var(--mc-fg);
+  font-family: var(--mc-serif);
+  letter-spacing: 0.01em;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+h1 { font-size: 2em;    font-weight: 600; letter-spacing:  0em; line-height: 1.1; }
+h2 { font-size: 1.5em;   font-weight: 600; letter-spacing:  0em; }
+h3 { font-size: 1.125em;  font-weight: 600; letter-spacing:  0.11em; }
+h4 { font-size: 1em;      font-weight: 600; letter-spacing:  0.11em; }
+h5 { font-size: 0.875em;  font-weight: 600; letter-spacing:  0.11em; }
+
+p    { font-size: 0.875em; line-height: 1.6; }
+code { font-size: 0.8125em; font-family: var(--mc-mono); }
+
+button {
+  letter-spacing: 0.01em;
+}
+
+.color-accent {
+  color: var(--mc-acid)
+}
+
+code {
+  display: block; 
+  font-family: var(--mc-mono);
+  font-size: 0.825em;
+  color: var(--mc-fg);
+  background: var(--mc-bg-input);
+  border: 1px solid var(--mc-line);
+  padding: 10px 12px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.button-sm {
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: .1s;
+  color: var(--mc-fg-dim);
+  &:hover {
+    color: var(--mc-acid);
+    background-color: var(--mc-bg-sel);
+  }
+}
+.label {
+  font-size: 0.625em;
+  color: var(--mc-fg-dim);
+  font-family: var(--mc-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.label + code {
+  margin-top: 8px;
+}

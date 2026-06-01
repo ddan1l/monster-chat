@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<ellipse cx="100" cy="120" rx="32" ry="22" fill="currentColor"></ellipse>
+        
+        <path d="M 80 110 L 40 90 L 30 110 L 50 116 Z" fill="currentColor"></path>
+        <path d="M 120 110 L 160 90 L 170 110 L 150 116 Z" fill="currentColor"></path>
+        
+        <line x1="80" y1="120" x2="50" y2="140" stroke="currentColor" stroke-width="6" stroke-linecap="round"></line>
+        <line x1="80" y1="125" x2="48" y2="158" stroke="currentColor" stroke-width="6" stroke-linecap="round"></line>
+        <line x1="120" y1="120" x2="150" y2="140" stroke="currentColor" stroke-width="6" stroke-linecap="round"></line>
+        <line x1="120" y1="125" x2="152" y2="158" stroke="currentColor" stroke-width="6" stroke-linecap="round"></line>
+        
+        <path d="M 100 140 Q 110 160 130 162 Q 152 160 152 138 Q 152 124 138 124" stroke="currentColor" stroke-width="10" fill="none" stroke-linecap="round"></path>
+        <polygon points="132,116 148,116 140,100" fill="currentColor"></polygon>
+</svg>

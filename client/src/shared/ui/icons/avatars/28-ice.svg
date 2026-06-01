@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<polygon points="100,30 170,68 170,148 100,180 30,148 30,68" fill="currentColor"></polygon>
+        <polygon points="100,30 170,68 100,90 30,68" fill="currentColor" stroke="var(--mc-acid)" stroke-width="3"></polygon>
+        <line x1="100" y1="90" x2="100" y2="180" stroke="var(--mc-acid)" stroke-width="3"></line>
+        <line x1="100" y1="90" x2="30" y2="68" stroke="var(--mc-acid)" stroke-width="3"></line>
+        <line x1="100" y1="90" x2="170" y2="68" stroke="var(--mc-acid)" stroke-width="3"></line>
+</svg>

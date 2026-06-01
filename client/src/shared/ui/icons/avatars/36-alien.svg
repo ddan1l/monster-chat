@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<path d="M 40 70 Q 40 30 100 30 Q 160 30 160 70 Q 160 100 145 120 Q 130 140 115 158 Q 100 174 85 158 Q 70 140 55 120 Q 40 100 40 70 Z" fill="currentColor"></path>
+        <ellipse cx="74" cy="98" rx="14" ry="20" fill="var(--mc-acid)" transform="rotate(-18 74 98)"></ellipse>
+        <ellipse cx="126" cy="98" rx="14" ry="20" fill="var(--mc-acid)" transform="rotate(18 126 98)"></ellipse>
+</svg>

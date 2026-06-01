@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<path d="M 28 130 Q 28 100 60 90 Q 70 60 100 60 Q 130 60 138 90 L 178 70 L 168 100 L 144 108 L 144 130 L 170 130 L 170 142 L 130 142 L 130 158 L 90 158 L 90 142 L 64 142 Q 60 156 50 156 Q 36 156 36 144 Z" fill="currentColor"></path>
+        <circle cx="108" cy="82" r="4" fill="var(--mc-acid)"></circle>
+        
+        <rect x="78" y="116" width="14" height="6" fill="var(--mc-acid)"></rect>
+        
+        <polygon points="148,98 152,108 156,98" fill="var(--mc-acid)"></polygon>
+        <polygon points="158,98 162,108 166,98" fill="var(--mc-acid)"></polygon>
+</svg>

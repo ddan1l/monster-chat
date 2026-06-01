@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { useSettings, type Theme, type Language } from "@entities/settings/useSettings";
+import {
+    useSettings,
+    type Theme,
+    type Language,
+} from "@entities/settings/useSettings";
 
 const { settings, setTheme, setLanguage, setNotifications } = useSettings();
 
@@ -17,7 +21,15 @@ const languages: { value: Language; label: string }[] = [
 </script>
 
 <template>
-    <div style="max-width: 480px; padding: 32px; display: flex; flex-direction: column; gap: 32px">
+    <div
+        style="
+            max-width: 480px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        "
+    >
         <h1 style="margin: 0">Настройки</h1>
 
         <!-- Theme -->
@@ -30,9 +42,15 @@ const languages: { value: Language; label: string }[] = [
                     :style="{
                         padding: '8px 16px',
                         borderRadius: '8px',
-                        border: settings.theme === t.value ? '2px solid var(--acid)' : '2px solid var(--line)',
-                        background: settings.theme === t.value ? 'var(--bg-sel)' : 'var(--bg-card)',
-                        color: 'var(--fg)',
+                        border:
+                            settings.theme === t.value
+                                ? '2px solid var(--mc-acid)'
+                                : '2px solid var(--mc-line)',
+                        background:
+                            settings.theme === t.value
+                                ? 'var(--mc-bg-sel)'
+                                : 'var(--mc-bg-card)',
+                        color: 'var(--mc-fg)',
                         cursor: 'pointer',
                         fontSize: '13px',
                     }"
@@ -53,9 +71,15 @@ const languages: { value: Language; label: string }[] = [
                     :style="{
                         padding: '8px 16px',
                         borderRadius: '8px',
-                        border: settings.language === l.value ? '2px solid var(--acid)' : '2px solid var(--line)',
-                        background: settings.language === l.value ? 'var(--bg-sel)' : 'var(--bg-card)',
-                        color: 'var(--fg)',
+                        border:
+                            settings.language === l.value
+                                ? '2px solid var(--mc-acid)'
+                                : '2px solid var(--mc-line)',
+                        background:
+                            settings.language === l.value
+                                ? 'var(--mc-bg-sel)'
+                                : 'var(--mc-bg-card)',
+                        color: 'var(--mc-fg)',
                         cursor: 'pointer',
                         fontSize: '13px',
                     }"
@@ -69,13 +93,26 @@ const languages: { value: Language; label: string }[] = [
         <!-- Notifications -->
         <section style="display: flex; flex-direction: column; gap: 12px">
             <h2 style="margin: 0; font-size: 15px">Уведомления</h2>
-            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer">
+            <label
+                style="
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    cursor: pointer;
+                "
+            >
                 <input
                     type="checkbox"
                     :checked="settings.notifications"
-                    @change="setNotifications(($event.target as HTMLInputElement).checked)"
+                    @change="
+                        setNotifications(
+                            ($event.target as HTMLInputElement).checked
+                        )
+                    "
                 />
-                <span style="font-size: 14px; color: var(--fg)">Показывать уведомления</span>
+                <span style="font-size: 14px; color: var(--mc-fg)"
+                    >Показывать уведомления</span
+                >
             </label>
         </section>
     </div>

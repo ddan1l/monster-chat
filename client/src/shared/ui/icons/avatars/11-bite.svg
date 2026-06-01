@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<path d="M 30 90 Q 50 60 100 70 Q 150 60 170 90 Q 150 78 130 80 Q 115 84 100 80 Q 85 84 70 80 Q 50 78 30 90 Z" fill="currentColor"></path>
+        <rect x="92" y="78" width="16" height="20" fill="currentColor"></rect>
+        <polygon points="92,98 108,98 100,114" fill="var(--mc-acid)"></polygon>
+        <path d="M 30 100 Q 50 138 100 132 Q 150 138 170 100 Q 100 112 30 100 Z" fill="currentColor"></path>
+</svg>

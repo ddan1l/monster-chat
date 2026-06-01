@@ -52,7 +52,6 @@ const emit = defineEmits<{
             style="
                 font-family: monospace;
                 font-size: 15px;
-                letter-spacing: 0.05em;
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
                 gap: 6px;

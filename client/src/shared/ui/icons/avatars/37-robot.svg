@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<rect x="92" y="22" width="16" height="20" fill="currentColor"></rect>
+        <circle cx="100" cy="20" r="8" fill="currentColor"></circle>
+        <rect x="38" y="46" width="124" height="120" fill="currentColor"></rect>
+        <rect x="62" y="76" width="32" height="22" fill="var(--mc-acid)"></rect>
+        <rect x="106" y="76" width="32" height="22" fill="var(--mc-acid)"></rect>
+        <rect x="74" y="83" width="8" height="8" fill="currentColor"></rect>
+        <rect x="118" y="83" width="8" height="8" fill="currentColor"></rect>
+        <rect x="68" y="124" width="64" height="10" fill="var(--mc-acid)"></rect>
+        <line x1="78" y1="124" x2="78" y2="134" stroke="currentColor" stroke-width="3"></line>
+        <line x1="94" y1="124" x2="94" y2="134" stroke="currentColor" stroke-width="3"></line>
+        <line x1="110" y1="124" x2="110" y2="134" stroke="currentColor" stroke-width="3"></line>
+        <rect x="20" y="80" width="14" height="40" fill="currentColor"></rect>
+        <rect x="166" y="80" width="14" height="40" fill="currentColor"></rect>
+</svg>

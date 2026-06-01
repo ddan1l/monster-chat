@@ -4,7 +4,6 @@ import { useChatSession } from "@features/send-message/useChatSession";
 import { useSafetyNumbers } from "@features/verify-identity/useSafetyNumbers";
 import { activeChatId, useChats } from "@entities/chat/useChats";
 import { useChatNotification } from "@entities/chat/useChatNotification";
-import ChatPending from "./ChatPending.vue";
 import ChatHeader from "./ChatHeader.vue";
 import SafetyNumbers from "@features/verify-identity/SafetyNumbers.vue";
 import ChatMessages from "./ChatMessages.vue";
@@ -94,87 +93,83 @@ async function handleEditSubmit(nonce: string, newText: string) {
     >
         <p v-if="error" style="color: red">{{ error }}</p>
 
-        <template v-if="chat">
-            <ChatPending v-if="!chat.isActive" :chat="chat" />
+        <template v-if="chat?.isActive">
+            <ChatHeader
+                v-if="peer"
+                :peer="peer"
+                :is-online="isPeerOnline"
+                :last-seen="peerLastSeen"
+                :verified="verified"
+                :key-changed="keyChanged"
+                @open-panel="safetyPanelOpen = true"
+                @delete-chat-for-me="deleteChatForMe(props.chatId)"
+                @delete-chat-for-all="
+                    sendDeleteChatForAll();
+                    cleanupAndDeleteChatForAll(props.chatId);
+                "
+            />
 
-            <template v-else-if="chat.isActive">
-                <ChatHeader
-                    v-if="peer"
-                    :peer="peer"
-                    :is-online="isPeerOnline"
-                    :last-seen="peerLastSeen"
-                    :verified="verified"
-                    :key-changed="keyChanged"
-                    @open-panel="safetyPanelOpen = true"
-                    @delete-chat-for-me="deleteChatForMe(props.chatId)"
-                    @delete-chat-for-all="
-                        sendDeleteChatForAll();
-                        cleanupAndDeleteChatForAll(props.chatId);
-                    "
-                />
+            <SafetyNumbers
+                v-if="safetyPanelOpen && peer"
+                :verified="verified"
+                :safety-number="safetyNumber"
+                :peer-name="peer.name"
+                @mark-verified="
+                    markVerified();
+                    safetyPanelOpen = false;
+                "
+                @remove-verification="removeVerification"
+                @close="safetyPanelOpen = false"
+            />
 
-                <SafetyNumbers
-                    v-if="safetyPanelOpen && peer"
-                    :verified="verified"
-                    :safety-number="safetyNumber"
-                    :peer-name="peer.name"
-                    @mark-verified="
-                        markVerified();
-                        safetyPanelOpen = false;
-                    "
-                    @remove-verification="removeVerification"
-                    @close="safetyPanelOpen = false"
-                />
+            <ChatMessages
+                :messages="messages"
+                :peer="peer"
+                :is-peer-typing="isPeerTyping"
+                :editing-nonce="editingNonce"
+                @edit-start="handleEditStart"
+                @delete-for-me="deleteMessageForMe"
+                @delete-for-all="deleteMessageForAll"
+                @read="markAsRead"
+            />
 
-                <ChatMessages
-                    :messages="messages"
-                    :peer="peer"
-                    :is-peer-typing="isPeerTyping"
-                    :editing-nonce="editingNonce"
-                    @edit-start="handleEditStart"
-                    @delete-for-me="deleteMessageForMe"
-                    @delete-for-all="deleteMessageForAll"
-                    @read="markAsRead"
-                />
-
-                <div
-                    v-if="verified === false"
+            <div
+                v-if="verified === false"
+                style="
+                    padding: 10px 0 4px;
+                    font-size: 13px;
+                    color: #888;
+                    text-align: center;
+                "
+            >
+                Верифицируйте секретные числа, прежде чем писать сообщения —
+                <button
                     style="
-                        padding: 10px 0 4px;
+                        background: none;
+                        border: none;
+                        color: #a78bfa;
+                        cursor: pointer;
+                        padding: 0;
                         font-size: 13px;
-                        color: #888;
-                        text-align: center;
+                        text-decoration: underline;
                     "
+                    @click="safetyPanelOpen = true"
                 >
-                    Верифицируйте секретные числа, прежде чем писать сообщения —
-                    <button
-                        style="
-                            background: none;
-                            border: none;
-                            color: #a78bfa;
-                            cursor: pointer;
-                            padding: 0;
-                            font-size: 13px;
-                            text-decoration: underline;
-                        "
-                        @click="safetyPanelOpen = true"
-                    >
-                        Верифицировать
-                    </button>
-                </div>
+                    Верифицировать
+                </button>
+            </div>
 
-                <ChatEditor
-                    :disabled="!!error || verified !== true"
-                    :chat-id="props.chatId"
-                    :editing-nonce="editingNonce"
-                    :editing-text="editingText"
-                    @send="sendMessage"
-                    @edit-submit="handleEditSubmit"
-                    @edit-cancel="handleEditCancel"
-                    @typing="sendTyping"
-                    @stop-typing="sendStopTyping"
-                />
-            </template>
+            <ChatEditor
+                :disabled="!!error || verified !== true"
+                :chat-id="props.chatId"
+                :editing-nonce="editingNonce"
+                :editing-text="editingText"
+                @send="sendMessage"
+                @edit-submit="handleEditSubmit"
+                @edit-cancel="handleEditCancel"
+                @typing="sendTyping"
+                @stop-typing="sendStopTyping"
+            />
         </template>
     </div>
 </template>

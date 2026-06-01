@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<path d="M 40 80 Q 40 28 100 28 Q 160 28 160 80&#xA;                 L 160 170&#xA;                 Q 145 158 130 170&#xA;                 Q 115 158 100 170&#xA;                 Q 85 158 70 170&#xA;                 Q 55 158 40 170 Z" fill="currentColor"></path>
+        <ellipse cx="78" cy="86" rx="10" ry="14" fill="var(--mc-acid)"></ellipse>
+        <ellipse cx="122" cy="86" rx="10" ry="14" fill="var(--mc-acid)"></ellipse>
+        <ellipse cx="100" cy="120" rx="14" ry="10" fill="var(--mc-acid)"></ellipse>
+</svg>

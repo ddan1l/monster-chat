@@ -1,4 +1,5 @@
 import { WebSocket } from "ws";
+import geoip from "geoip-lite";
 import type {
     ChatMessage,
     PeerInfo,
@@ -97,11 +98,16 @@ export class ChatService {
         this.pendingChatRepository.add(chatId, hostKey, peer);
     }
 
+    cancelChat(chatId: string): void {
+        this.pendingChatRepository.remove(chatId);
+    }
+
     knockChat(
         chatId: string,
         hostKey: string,
         peerInfo: PeerInfo,
-        knockerPeer: Peer
+        knockerPeer: Peer,
+        timezone?: string
     ): void {
         const pending = this.pendingChatRepository.get(chatId);
 
@@ -121,9 +127,15 @@ export class ChatService {
             knockerPeer
         );
 
+        const ip = knockerPeer.ip;
+        const geo = ip ? geoip.lookup(ip) : null;
+        const region = geo
+            ? [geo.city, geo.country].filter(Boolean).join(", ")
+            : undefined;
+
         const event: ServerChatKnock = {
             type: "chat_knock",
-            payload: { chatId, peerInfo },
+            payload: { chatId, peerInfo, ip, region, timezone },
         };
         this.sendOrQueue(pending.peer, event, pending.peer.signPubKey!);
     }

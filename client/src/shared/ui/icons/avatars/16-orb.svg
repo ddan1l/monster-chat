@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<circle cx="100" cy="92" r="58" fill="currentColor"></circle>
+        <circle cx="80" cy="76" r="14" fill="var(--mc-acid)"></circle>
+        <polygon points="34,150 166,150 150,178 50,178" fill="currentColor"></polygon>
+</svg>

@@ -3,59 +3,11 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@features/auth/useAuth";
 import { useUser } from "@entities/user/useUser";
+import UserAvatar from "@entities/user/ui/UserAvatar.vue";
 
-const AVATARS = [
-    "🦴",
-    "🦷",
-    "👂",
-    "🫀",
-    "🫁",
-    "🧠",
-    "👁️",
-    "👀",
-    "👄",
-    "👅",
-    "🫦",
-    "🕳️",
-    "🩻",
-    "🧬",
-    "⚡",
-    "🔮",
-    "🪄",
-    "🗝️",
-    "🪬",
-    "🧨",
-    "🌘",
-    "🌑",
-    "🌚",
-    "🌫️",
-    "🌪️",
-    "🌊",
-    "🌋",
-    "🧊",
-    "🧟",
-    "👹",
-    "👺",
-    "👻",
-    "👾",
-    "😈",
-    "👿",
-    "👽",
-    "🤖",
-    "🧌",
-    "🦇",
-    "🐍",
-    "🦂",
-    "🐉",
-    "🐲",
-    "🐺",
-    "🦖",
-    "🦕",
-    "🐙",
-    "🪼",
-    "🕷️",
-    "🕸️",
-];
+const AVATARS = Object.keys(
+    import.meta.glob("/src/shared/ui/icons/avatars/*.svg")
+).sort();
 
 const router = useRouter();
 const { registerPrf, registerPassword, addPasswordFallback } = useAuth();
@@ -203,34 +155,27 @@ async function setupWithPassword() {
 </script>
 
 <template>
-    <div style="max-width: 480px; padding: 32px">
+    <div style="overflow: auto; padding: 20px">
         <template v-if="step === 'identity'">
-            <h1>Welcome to Monster Chat</h1>
-            <h2>Your name</h2>
-            <input v-model="name" placeholder="Your name" />
+            <h1 style="margin-bottom: 20px">Welcome to Monster Chat</h1>
+
+            <input
+                v-model="name"
+                style="margin-bottom: 20px"
+                placeholder="Your name"
+            />
             <h2>Your avatar</h2>
             <div
                 style="display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0"
             >
-                <button
-                    v-for="emoji in AVATARS"
-                    :key="emoji"
-                    style="
-                        font-size: 24px;
-                        padding: 4px;
-                        cursor: pointer;
-                        border-radius: 6px;
-                    "
-                    :style="{
-                        outline:
-                            avatar === emoji
-                                ? '2px solid currentColor'
-                                : 'none',
-                    }"
-                    @click="avatar = emoji"
-                >
-                    {{ emoji }}
-                </button>
+                <UserAvatar
+                    v-for="key in AVATARS"
+                    :key="key"
+                    :avatar-key="key"
+                    selectable
+                    :selected="avatar === key"
+                    @select="avatar = $event"
+                />
             </div>
             <button :disabled="!name.trim()" @click="goToAuth">
                 Get started

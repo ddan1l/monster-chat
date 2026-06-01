@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+<path d="M 30 150 Q 60 100 100 130 Q 140 160 170 110 Q 174 80 154 70 Q 138 70 138 86 Q 138 100 122 100 Q 110 96 110 80" stroke="currentColor" stroke-width="18" fill="none" stroke-linecap="round"></path>
+        
+        <polygon points="60,118 70,108 80,118" fill="currentColor"></polygon>
+        <polygon points="90,130 100,118 110,130" fill="currentColor"></polygon>
+        <polygon points="120,148 130,138 140,148" fill="currentColor"></polygon>
+        <polygon points="150,120 160,108 168,120" fill="currentColor"></polygon>
+        
+        <circle cx="154" cy="70" r="3" fill="var(--mc-acid)"></circle>
+</svg>

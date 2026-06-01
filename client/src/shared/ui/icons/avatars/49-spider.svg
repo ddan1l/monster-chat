@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="256" height="256" fill="currentColor">
+
+        <path d="M 80 100 L 30 70 L 24 86" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 80 110 L 26 110 L 22 124" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 82 120 L 32 150 L 38 166" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 84 130 L 60 178 L 76 178" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 120 100 L 170 70 L 176 86" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 120 110 L 174 110 L 178 124" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 118 120 L 168 150 L 162 166" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        <path d="M 116 130 L 140 178 L 124 178" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
+        
+        <ellipse cx="100" cy="118" rx="40" ry="34" fill="currentColor"></ellipse>
+        <circle cx="100" cy="84" r="20" fill="currentColor"></circle>
+        <circle cx="90" cy="82" r="5" fill="var(--mc-acid)"></circle>
+        <circle cx="110" cy="82" r="5" fill="var(--mc-acid)"></circle>
+</svg>
