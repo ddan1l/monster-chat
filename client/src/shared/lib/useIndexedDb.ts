@@ -125,7 +125,8 @@ export function useIndexedDb(storeName: StoreName) {
                 .index(indexName)
                 .openCursor(value, "prev");
 
-            req.onsuccess = () => resolve(req.result ? (req.result.value as T) : null);
+            req.onsuccess = () =>
+                resolve(req.result ? (req.result.value as T) : null);
             req.onerror = () => reject(req.error);
         });
     }

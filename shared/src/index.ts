@@ -110,7 +110,13 @@ export interface ServerPeerInfo {
 
 export interface ServerChatKnock {
     type: "chat_knock";
-    payload: { chatId: string; peerInfo: PeerInfo; ip?: string; region?: string; timezone?: string };
+    payload: {
+        chatId: string;
+        peerInfo: PeerInfo;
+        ip?: string;
+        region?: string;
+        timezone?: string;
+    };
 }
 
 export interface ServerReadReceipt {
@@ -170,6 +176,14 @@ export interface PeerInfo {
     ecdhPubKey: string;
     name: string;
     avatar?: string;
+}
+
+export interface PendingKnockInfo {
+    chatId: string;
+    peerInfo: PeerInfo;
+    ip?: string;
+    region?: string;
+    timezone?: string;
 }
 
 export interface FileAttachment {

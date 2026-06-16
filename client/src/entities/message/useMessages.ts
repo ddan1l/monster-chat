@@ -1,6 +1,8 @@
 import { ref } from "vue";
-import type { ChatMessage, MessageContent } from "shared";
+
 import { useIndexedDb, STORES, INDEX_CHAT_ID } from "@shared/lib/useIndexedDb";
+
+import type { ChatMessage, MessageContent } from "shared";
 
 export interface DecryptedMessage extends ChatMessage, MessageContent {
     editedAt?: number;

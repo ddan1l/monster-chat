@@ -1,35 +1,32 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
-import { formatMessageTime } from "@shared/lib/formatDate";
+
 import { useRouter, useRoute } from "vue-router";
-import type { PeerInfo } from "shared";
-import {
-    useChats,
-    chats,
-    activeChatId,
-    pendingKnocks,
-} from "@entities/chat/useChats";
+
+import { useWs } from "@shared/api/useWs";
+import { useDate } from "@shared/lib/useDate";
 import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import IconPlus from "@shared/ui/icons/IconPlus.vue";
+
+import { useChatNotification } from "@entities/chat/useChatNotification";
+import { useChats, chats, activeChatId } from "@entities/chat/useChats";
 import {
     useChatMessages,
     lastMessageByChat,
 } from "@entities/message/useMessages";
-import { useChatNotification } from "@entities/chat/useChatNotification";
-import { useWs } from "@shared/api/useWs";
-import AppModal from "@shared/ui/components/AppModal.vue";
-import IconPlus from "@shared/ui/icons/IconPlus.vue";
-import UserCard from "@entities/user/ui/UserCard.vue";
-import AppAlert from "@shared/ui/components/AppAlert.vue";
-import IconAlert from "@shared/ui/icons/IconAlert.vue";
+
+import ChatKnockModal from "@widgets/ChatKnock/ChatKnockModal.vue";
+
+import type { PeerInfo } from "shared";
 
 const router = useRouter();
 const route = useRoute();
-const { loadChats, createChat, approveChat, cancelPendingChat } = useChats();
+const { loadChats } = useChats();
 const { unread } = useChatNotification();
 const { read: readPeer } = useIndexedDb(STORES.PEERS);
 const { getLastMessage } = useChatMessages();
 const { subscribe } = useWs();
-
+const { formatMessageTime } = useDate();
 const peers = ref<Record<string, PeerInfo>>({});
 const onlineStatus = ref<Record<string, boolean>>({});
 const typingStatus = ref<Record<string, boolean>>({});
@@ -110,40 +107,6 @@ onUnmounted(() => {
 });
 
 const showNewChat = ref(false);
-const newChatLink = ref("");
-const newChatId = ref("");
-
-async function handleCreateChat() {
-    const chat = await createChat();
-    newChatId.value = chat.id;
-    newChatLink.value = chat.joinLink ?? "";
-    showNewChat.value = true;
-}
-
-async function handleCloseNewChat() {
-    const chat = chats.value.find((c) => c.id === newChatId.value);
-    if (chat && !chat.isActive) await cancelPendingChat(newChatId.value);
-    showNewChat.value = false;
-}
-
-// const newChatKnock = computed(() =>
-//     pendingKnocks.value.find((k) => k.chatId === newChatId.value)
-// );
-
-const newChatKnock = {
-    chatId: "IhOd5Zia",
-    peerInfo: {
-        signPubKey:
-            "BDuCIfX9k2I+V23PKC6279yhL35UWlRKS3DeK1aZ7q/gzCWxffzn7cPrtRjKGE7k4D3hN/zEmpczvtkKfLl4LRU=",
-        ecdhPubKey:
-            "BD+A/4PqK6J1U/BKX5I0bfropNdt2slUh4fzHvBqGDE7mIZOn7uwEFhn3BR1MUMAT1KdEqzIUdndgKGTgZggMe4=",
-        name: "Tester",
-        avatar: "/src/shared/ui/icons/avatars/37-robot.svg",
-    },
-    ip: "::ffff:127.0.0.1",
-    region: "Ярославль",
-    timezone: "Europe/Moscow",
-};
 const activeChats = computed(() => chats.value.filter((c) => c.isActive));
 </script>
 
@@ -152,7 +115,7 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
         <div class="mc-chat-list-header">
             <h2>ЧАТЫ<span class="color-accent">/</span></h2>
 
-            <button class="button-sm" @click="handleCreateChat">
+            <button class="button-sm" @click="showNewChat = true">
                 <IconPlus />
             </button>
         </div>
@@ -285,52 +248,7 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
         </ul>
     </div>
 
-    <AppModal :open="showNewChat" title="Новый чат" @close="handleCloseNewChat">
-        <div class="mc-new-chat">
-            <div v-if="!newChatKnock" class="mc-new-chat__knock">
-                <code>
-                    <UserCard :peer="newChatKnock.peerInfo" />
-                </code>
-                <div class="mc-new-chat__knock-info">
-                    <span class="mc-new-chat__knock-name">
-                        {{ newChatKnock.peerInfo.name }} хочет присоединиться
-                    </span>
-                    <span
-                        v-if="newChatKnock.ip"
-                        class="mc-new-chat__knock-meta"
-                    >
-                        {{ newChatKnock.ip }}
-                        <template v-if="newChatKnock.region">
-                            · {{ newChatKnock.region }}</template
-                        >
-                        <template v-if="newChatKnock.timezone">
-                            · {{ newChatKnock.timezone }}</template
-                        >
-                    </span>
-                </div>
-                <button @click="approveChat(newChatId)">Принять</button>
-            </div>
-
-            <template v-else>
-                <h1>
-                    ПРИГЛАСИТЬ <br />
-                    В ЧАТ
-                </h1>
-
-                <div>
-                    <p class="label">Одноразовая ссылка-приглашение.</p>
-
-                    <p class="label">
-                        Отправьте ссылку собеседнику через удобный для вас канал
-                        связи. Оставьте это окно открытым, пока он не
-                        присоединится к беседе.
-                    </p>
-                </div>
-
-                <code>{{ newChatLink }}</code>
-            </template>
-        </div>
-    </AppModal>
+    <ChatKnockModal v-if="showNewChat" @close="showNewChat = false" />
 </template>
 
 <style lang="scss" scoped>
@@ -343,11 +261,5 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.mc-new-chat {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
 }
 </style>

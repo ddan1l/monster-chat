@@ -1,4 +1,20 @@
 import { ref, watch, onUnmounted, toRaw } from "vue";
+
+import { useWs } from "@shared/api/useWs";
+import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
+import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+
+import { chats } from "@entities/chat/useChats";
+import {
+    useChatMessages,
+    type DecryptedMessage,
+} from "@entities/message/useMessages";
+import { usePeerPresence } from "@entities/peer/usePeerPresence";
+import { peers } from "@entities/peer/usePeers";
+import { useUser } from "@entities/user/useUser";
+
+import { useTypingIndicator } from "./useTypingIndicator";
+
 import type {
     Chat,
     ChatEnvelope,
@@ -9,18 +25,12 @@ import type {
     PeerInfo,
     ServerMessage,
 } from "shared";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
-import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
-import { useChatMessages, type DecryptedMessage } from "@entities/message/useMessages";
-import { useUser } from "@entities/user/useUser";
-import { useWs } from "@shared/api/useWs";
-import { chats } from "@entities/chat/useChats";
 
 export type { DecryptedMessage };
 
 export function useChatSession(chatId: string, onChatDeleted?: () => void) {
     const { read } = useIndexedDb(STORES.CHATS);
-    const { read: readPeer, write: writePeer } = useIndexedDb(STORES.PEERS);
+    const { read: readPeer } = useIndexedDb(STORES.PEERS);
     const { saveChatMessage, getByChat, removeChatMessage } = useChatMessages();
     const { user, load: loadUser } = useUser();
     const { send: wsSend, subscribe } = useWs();
@@ -33,18 +43,23 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         verify,
     } = useCrypto();
 
+    const {
+        isPeerTyping,
+        sendTyping,
+        sendStopTyping,
+        onPeerTyping,
+        onPeerStopTyping,
+    } = useTypingIndicator(chatId);
+
+    const { isPeerOnline, peerLastSeen, onPeerOnline, onPeerOffline } =
+        usePeerPresence();
+
     const chat = ref<Chat | null>(null);
     const peer = ref<PeerInfo | null>(null);
     const messages = ref<DecryptedMessage[]>([]);
     const error = ref<string | null>(null);
-    const isPeerOnline = ref(false);
-    const peerLastSeen = ref<number | null>(null);
-    const isPeerTyping = ref(false);
 
     let sharedKey: CryptoKey | null = null;
-    let typingTimer: ReturnType<typeof setTimeout> | null = null;
-    let peerTypingTimer: ReturnType<typeof setTimeout> | null = null;
-    let isTypingSent = false;
 
     const unsubs: (() => void)[] = [];
     function on<T extends ServerMessage["type"]>(
@@ -113,10 +128,16 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         messages.value.push(msg);
     }
 
-    function updateMessage(nonce: string, updates: Partial<DecryptedMessage>): void {
+    function updateMessage(
+        nonce: string,
+        updates: Partial<DecryptedMessage>
+    ): void {
         const idx = messages.value.findIndex((m) => m.nonce === nonce);
         if (idx === -1) return;
-        const updated: DecryptedMessage = { ...toRaw(messages.value[idx]), ...updates };
+        const updated: DecryptedMessage = {
+            ...toRaw(messages.value[idx]),
+            ...updates,
+        };
         messages.value[idx] = updated;
         saveChatMessage(updated);
     }
@@ -136,6 +157,36 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         saveChatMessage(updated);
     }
 
+    async function buildSignedMessage(
+        content: MessageContent,
+        isAction?: boolean
+    ): Promise<ChatMessage> {
+        const nonce = crypto.randomUUID();
+        const { payload, iv } = await encrypt(
+            sharedKey!,
+            JSON.stringify(content)
+        );
+        const from = await exportSignPublicKey();
+        const envelope: ChatEnvelope = {
+            chatId,
+            from,
+            to: peer.value!.signPubKey,
+            nonce,
+            iv: toBase64(iv),
+            payload: toBase64(payload),
+            timestamp: Date.now(),
+        };
+        const envelopeBytes = new TextEncoder().encode(
+            JSON.stringify(envelope)
+        );
+        const signature = await sign(envelopeBytes);
+        return {
+            ...envelope,
+            signature: toBase64(signature),
+            ...(isAction ? { isAction: true } : {}),
+        };
+    }
+
     async function sendMessage(
         text: string,
         files?: FileAttachment[],
@@ -150,34 +201,7 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
                 ? { action: "edit_message", targetNonce: originalNonce }
                 : {}),
         };
-        const nonce = crypto.randomUUID();
-        const { payload, iv } = await encrypt(
-            sharedKey,
-            JSON.stringify(content)
-        );
-        const from = await exportSignPublicKey();
-
-        const envelope: ChatEnvelope = {
-            chatId,
-            from,
-            to: peer.value.signPubKey,
-            nonce,
-            iv: toBase64(iv),
-            payload: toBase64(payload),
-            timestamp: Date.now(),
-        };
-
-        const envelopeBytes = new TextEncoder().encode(
-            JSON.stringify(envelope)
-        );
-        const signature = await sign(envelopeBytes);
-
-        const msg: ChatMessage = {
-            ...envelope,
-            signature: toBase64(signature),
-            ...(originalNonce ? { isAction: true } : {}),
-        };
-
+        const msg = await buildSignedMessage(content, !!originalNonce);
         wsSend({ type: "message", payload: msg });
         if (!content.action) {
             addMessage({ ...msg, ...content });
@@ -213,64 +237,14 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
             action,
             ...(targetNonce ? { targetNonce } : {}),
         };
-        const nonce = crypto.randomUUID();
-        const { payload, iv } = await encrypt(
-            sharedKey,
-            JSON.stringify(content)
-        );
-        const from = await exportSignPublicKey();
-        const envelope: ChatEnvelope = {
-            chatId,
-            from,
-            to: peer.value.signPubKey,
-            nonce,
-            iv: toBase64(iv),
-            payload: toBase64(payload),
-            timestamp: Date.now(),
-        };
-        const envelopeBytes = new TextEncoder().encode(
-            JSON.stringify(envelope)
-        );
-        const signature = await sign(envelopeBytes);
-        wsSend({
-            type: "message",
-            payload: {
-                ...envelope,
-                signature: toBase64(signature),
-                isAction: true,
-            },
-        });
+        const msg = await buildSignedMessage(content, true);
+        wsSend({ type: "message", payload: msg });
     }
 
     async function deleteMessageForAll(nonce: string): Promise<void> {
         await sendAction("delete_message", nonce);
         await removeChatMessage(nonce);
         removeMessageFromUI(nonce);
-    }
-
-    async function sendTyping(): Promise<void> {
-        const from = await exportSignPublicKey();
-        if (!isTypingSent) {
-            wsSend({ type: "typing", payload: { chatId, from } });
-            isTypingSent = true;
-        }
-        if (typingTimer) clearTimeout(typingTimer);
-        typingTimer = setTimeout(async () => {
-            wsSend({ type: "stop_typing", payload: { chatId, from } });
-            isTypingSent = false;
-            typingTimer = null;
-        }, 2000);
-    }
-
-    async function sendStopTyping(): Promise<void> {
-        if (!isTypingSent) return;
-        const from = await exportSignPublicKey();
-        wsSend({ type: "stop_typing", payload: { chatId, from } });
-        isTypingSent = false;
-        if (typingTimer) {
-            clearTimeout(typingTimer);
-            typingTimer = null;
-        }
     }
 
     async function connect(): Promise<void> {
@@ -301,55 +275,36 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
 
         on("peer_typing", (msg) => {
             if (msg.payload.chatId !== chatId) return;
-            isPeerTyping.value = true;
-            if (peerTypingTimer) clearTimeout(peerTypingTimer);
-            peerTypingTimer = setTimeout(() => {
-                isPeerTyping.value = false;
-            }, 3000);
+            onPeerTyping();
         });
 
         on("peer_stop_typing", (msg) => {
             if (msg.payload.chatId !== chatId) return;
-            isPeerTyping.value = false;
-            if (peerTypingTimer) {
-                clearTimeout(peerTypingTimer);
-                peerTypingTimer = null;
-            }
+            onPeerStopTyping();
         });
 
         on("peer_online", (msg) => {
             if (msg.payload.chatId === chatId) {
-                isPeerOnline.value = true;
-                peerLastSeen.value = null;
+                onPeerOnline();
             }
         });
 
         on("peer_offline", (msg) => {
             if (msg.payload.chatId === chatId) {
-                isPeerOnline.value = false;
-                peerLastSeen.value = Date.now();
+                onPeerOffline();
             }
         });
 
-        on("peer_info", async (msg) => {
-            const { chatId: msgChatId, ...peerInfo } = msg.payload;
-            if (msgChatId !== chatId) return;
-
-            const stored = await readPeer<{
-                signPubKey: string;
-                verified?: boolean;
-                keyChanged?: boolean;
-            }>(chatId);
-            if (stored && stored.signPubKey !== peerInfo.signPubKey) {
-                await writePeer(
-                    { ...peerInfo, verified: false, keyChanged: true },
-                    chatId
-                );
-            }
-
-            peer.value = peerInfo;
-            await initSharedKey(peerInfo.ecdhPubKey);
-        });
+        unsubs.push(
+            watch(
+                () => peers.value[chatId],
+                async (peerInfo) => {
+                    if (!peerInfo) return;
+                    peer.value = peerInfo;
+                    await initSharedKey(peerInfo.ecdhPubKey);
+                }
+            )
+        );
 
         if (!user.value) await loadUser();
 
@@ -357,7 +312,6 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
             read<Chat>(chatId),
             readPeer<PeerInfo>(chatId),
         ]);
-
         chat.value = loadedChat;
         peer.value = loadedPeer;
 
@@ -376,7 +330,6 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
                         getByChat(chatId),
                         readPeer<PeerInfo>(chatId),
                     ]);
-
                     chat.value =
                         chats.value.find((c) => c.id === chatId) ?? null;
                     peer.value = activePeer;

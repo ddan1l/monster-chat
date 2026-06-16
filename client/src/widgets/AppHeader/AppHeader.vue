@@ -14,7 +14,7 @@ const open = ref(false);
         <button @click="open = true">{{ name }} · v{{ version }}</button>
     </header>
 
-    <AppModal :open="open" :title="name" @close="open = false">
+    <AppModal v-if="open" :title="name" @close="open = false">
         <div class="mc-about">
             <div class="mc-about__row">
                 <span class="mc-about__label">Версия</span>

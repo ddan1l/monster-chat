@@ -1,7 +1,7 @@
 body {
   background-color: var(--mc-bg-app);
   color: var(--mc-fg);
-  font-family: var(--mc-serif);
+  font-family: var(--mc-sans);
   letter-spacing: 0.01em;
 }
 
@@ -30,10 +30,11 @@ code {
   display: block; 
   font-family: var(--mc-mono);
   font-size: 0.825em;
-  line-height: 1.6;
+  font-weight: 600;
   color: var(--mc-fg);
-  background: var(--mc-bg-input);
+  background: var(--mc-bg-rail);
   border: 1px solid var(--mc-line);
+  line-height: 1.7;
   padding: 13px 15px;
   word-break: break-all;
   user-select: all;
@@ -54,13 +55,13 @@ code {
   }
 }
 .label {
-  font-size: 0.725em;
+  font-size: 0.625em;
   color: var(--mc-fg-dim);
   font-family: var(--mc-mono);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   &:not(&:last-child) {
-    margin-bottom: 8px;
+     margin-bottom: 8px;
   }
 }

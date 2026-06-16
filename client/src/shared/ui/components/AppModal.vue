@@ -1,36 +1,64 @@
 <script setup lang="ts">
-import { onUnmounted, watch } from "vue";
+import { watch, ref, onBeforeUnmount } from "vue";
 import IconClose from "@shared/ui/icons/IconClose.vue";
+import IconDot from "../icons/IconDot.vue";
 
 const props = defineProps<{
-    open: boolean;
     title?: string;
     maxWidth?: number;
+    isVisible?: boolean;
 }>();
+
 const emit = defineEmits<{ close: [] }>();
 
-function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") emit("close");
-}
+const localVisible = ref(false);
+const ANIMATION_DURATION = 150;
+
+const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+        closeModal();
+    }
+};
 
 watch(
-    () => props.open,
-    (val) => {
-        if (val) document.addEventListener("keydown", onKey);
-        else document.removeEventListener("keydown", onKey);
-    }
+    () => props.isVisible,
+    (newVal) => {
+        if (newVal) {
+            localVisible.value = true;
+            document.addEventListener("keydown", onKey);
+        } else {
+            closeModal();
+        }
+    },
+    { immediate: true }
 );
 
-onUnmounted(() => document.removeEventListener("keydown", onKey));
+const close = () => {
+    if (!localVisible.value) return;
+    closeModal();
+};
+
+const closeModal = () => {
+    localVisible.value = false;
+    document.removeEventListener("keydown", onKey);
+
+    setTimeout(() => {
+        emit("close");
+    }, ANIMATION_DURATION);
+};
+
+onBeforeUnmount(() => {
+    document.removeEventListener("keydown", onKey);
+});
 </script>
 
 <template>
     <Teleport to="body">
-        <Transition name="mc-modal">
+        <Transition appear name="mc-modal">
             <div
-                v-if="open"
+                v-if="localVisible"
                 class="mc-modal-overlay"
-                @click.self="emit('close')"
+                @click.self="close"
             >
                 <div
                     class="mc-modal"
@@ -41,15 +69,16 @@ onUnmounted(() => document.removeEventListener("keydown", onKey));
                 >
                     <div class="mc-modal__header">
                         <h5 v-if="title" class="mc-modal__title">
+                            <IconDot />
                             {{ title }}
                         </h5>
                         <span v-else />
-                        <button class="button-sm" @click="emit('close')">
+                        <button class="button-sm" @click="close">
                             <IconClose />
                         </button>
                     </div>
                     <div class="mc-modal__body">
-                        <slot />
+                        <slot :close-modal="closeModal" />
                     </div>
                 </div>
             </div>
@@ -79,6 +108,9 @@ onUnmounted(() => document.removeEventListener("keydown", onKey));
 
     &__title {
         text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 10px;
         font-family: var(--mc-mono);
     }
 
@@ -93,7 +125,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKey));
     }
 
     &__body {
-        padding: 20px 16px;
+        padding: 22px var(--mc-modal-padding);
         overflow-y: auto;
         flex: 1;
         min-height: 0;

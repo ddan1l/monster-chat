@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PeerInfo } from "shared";
 import { ref, computed } from "vue";
-import { formatLastSeen } from "@shared/lib/formatDate";
+import { useDate } from "@shared/lib/useDate";
 
 const props = defineProps<{
     peer: PeerInfo;
@@ -10,6 +10,8 @@ const props = defineProps<{
     verified: boolean | null;
     keyChanged: boolean;
 }>();
+
+const { formatLastSeen } = useDate();
 
 const statusText = computed(() => {
     if (props.isOnline) return "онлайн";

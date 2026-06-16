@@ -1,5 +1,4 @@
 import { WebSocket } from "ws";
-import geoip from "geoip-lite";
 import type {
     ChatMessage,
     PeerInfo,
@@ -128,14 +127,10 @@ export class ChatService {
         );
 
         const ip = knockerPeer.ip;
-        const geo = ip ? geoip.lookup(ip) : null;
-        const region = geo
-            ? [geo.city, geo.country].filter(Boolean).join(", ")
-            : undefined;
 
         const event: ServerChatKnock = {
             type: "chat_knock",
-            payload: { chatId, peerInfo, ip, region, timezone },
+            payload: { chatId, peerInfo, ip, timezone },
         };
         this.sendOrQueue(pending.peer, event, pending.peer.signPubKey!);
     }

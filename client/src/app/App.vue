@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { onMounted, watch } from "vue";
-import AppHeader from "@widgets/AppHeader/AppHeader.vue";
+
 import { useWs } from "@shared/api/useWs";
-import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useCrypto } from "@shared/crypto/useCrypto";
+
+import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useChats } from "@entities/chat/useChats";
+import { useKnocks } from "@entities/chat/usePendingKnocks";
+import { usePeers } from "@entities/peer/usePeers";
+
+import AppHeader from "@widgets/AppHeader/AppHeader.vue";
 
 const { connect, connected } = useWs();
 const { init } = useChatNotification();
 const { signKeyPair } = useCrypto();
-const { startSync } = useChats();
 
-startSync();
+useChats().startSync();
+useKnocks().startSync();
+usePeers().startSync();
 
 onMounted(() => {
     connect();

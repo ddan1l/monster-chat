@@ -1,25 +1,39 @@
 <script setup lang="ts">
 import type { PeerInfo } from "shared";
 import UserAvatar from "./UserAvatar.vue";
+import UserVerifiedTag from "./UserVerifiedTag.vue";
 
 defineProps<{
     peer: PeerInfo;
     online?: boolean;
+    variant: "large" | "normal" | "small";
+    verified?: boolean;
 }>();
+
+const useAvatarSize = {
+    large: 56,
+    normal: 42,
+    small: 32,
+};
 </script>
 
 <template>
     <div class="mc-user-card">
         <div class="mc-user-card__avatar">
-            <UserAvatar :avatar-key="peer.avatar ?? ''" />
-            <span
-                v-if="online !== undefined"
-                class="mc-user-card__status"
-                :class="{ 'mc-user-card__status_online': online }"
+            <UserAvatar
+                :size="useAvatarSize[variant]"
+                :avatar-key="peer.avatar ?? ''"
             />
+            <span v-if="online" class="mc-user-card__status" />
         </div>
-        <div class="mc-user-card__info">
-            <span class="mc-user-card__name">{{ peer.name }}</span>
+        <div class="mc-user-card-info" :class="`mc-user-card-info_${variant}`">
+            <p class="mc-user-card-info-title">
+                {{ peer.name }}
+                <UserVerifiedTag :verified="verified" />
+            </p>
+            <p class="mc-user-card-info-descr">
+                <slot />
+            </p>
         </div>
     </div>
 </template>
@@ -28,7 +42,7 @@ defineProps<{
 .mc-user-card {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
 
     &__avatar {
         position: relative;
@@ -37,23 +51,51 @@ defineProps<{
 
     &__status {
         position: absolute;
-        bottom: 0;
-        right: 0;
+        right: -2px;
+        bottom: -2px;
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        border: 2px solid var(--mc-bg-list);
-        background: var(--mc-fg-dim);
+        background: var(--mc-acid);
+        box-shadow:
+            0 0 0 2px var(--mc-bg-list),
+            0 0 6px var(--mc-acid);
 
         &_online {
-            background: #22c55e;
+            background: var(--mc-acid);
         }
     }
 
-    &__name {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--mc-fg);
+    .mc-user-card-info {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        overflow: hidden;
+        .mc-user-card-info-title {
+            font-weight: 700;
+            color: var(--mc-fg);
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mc-user-card-info-descr {
+            font-weight: 600;
+            font-family: var(--mc-mono);
+            color: var(--mc-fg-mute);
+            font-size: 0.7em;
+            overflow: hidden;
+            white-space: nowrap;
+            overflow: hidden;
+            flex: 1;
+            text-overflow: ellipsis;
+        }
+
+        &_large {
+            .mc-user-card-info-title {
+                font-size: 1.2em;
+            }
+        }
     }
 }
 </style>

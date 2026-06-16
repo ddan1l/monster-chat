@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, watch, ref } from "vue";
+
 import { useRoute, useRouter } from "vue-router";
+
 import { useChats } from "@entities/chat/useChats";
 
 const route = useRoute();

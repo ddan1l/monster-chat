@@ -1,58 +1,45 @@
 import { ref, toRaw } from "vue";
+
 import { nanoid } from "nanoid";
-import type { Chat, PeerInfo } from "shared";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
-import { useChatMessages } from "@entities/message/useMessages";
-import { useCrypto } from "@shared/crypto/useCrypto";
-import { useUser } from "@entities/user/useUser";
-import { useWs } from "@shared/api/useWs";
 import { useRouter } from "vue-router";
 
-export interface PendingKnock {
-    chatId: string;
-    peerInfo: PeerInfo;
-    ip?: string;
-    region?: string;
-    timezone?: string;
-}
+import { useWs } from "@shared/api/useWs";
+import { useCrypto } from "@shared/crypto/useCrypto";
+import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+
+import { useKnocks, pendingKnocks } from "@entities/chat/usePendingKnocks";
+import { useChatMessages } from "@entities/message/useMessages";
+import { usePeers } from "@entities/peer/usePeers";
+
+import type { Chat } from "shared";
 
 export const chats = ref<Chat[]>([]);
-export const pendingKnocks = ref<PendingKnock[]>([]);
 export const activeChatId = ref<string | null>(null);
 
 export function useChats() {
     const {
-        readAll,
+        readAll: readAllChats,
         write: saveChat,
-        read,
+        read: readChat,
         remove: removeChat,
     } = useIndexedDb(STORES.CHATS);
-    const { write: savePeer, remove: removePeer } = useIndexedDb(STORES.PEERS);
-    const {
-        write: saveKnock,
-        readAll: readAllKnocks,
-        remove: removeKnock,
-    } = useIndexedDb(STORES.PENDING_KNOCKS);
-    const { user, load: loadUser } = useUser();
+
+    const { savePeer, removePeer, getMyPeerInfo } = usePeers();
+    const { removeKnock } = useKnocks();
+
     const { send: wsSend, subscribe } = useWs();
-    const { exportSignPublicKey, exportEncryptionPublicKey } = useCrypto();
+    const { exportSignPublicKey } = useCrypto();
     const { removeAllByChat } = useChatMessages();
     const router = useRouter();
 
     async function loadChats(): Promise<void> {
-        chats.value = await readAll<Chat>();
-    }
-
-    async function loadPendingKnocks(): Promise<void> {
-        pendingKnocks.value = await readAllKnocks<PendingKnock>();
+        chats.value = await readAllChats<Chat>();
     }
 
     function startSync(): void {
-        loadPendingKnocks();
-
         subscribe("chat_created", async (msg) => {
             const { chatId } = msg.payload;
-            const existing = await read<Chat>(chatId);
+            const existing = await readChat<Chat>(chatId);
 
             const updated: Chat = existing
                 ? { ...existing, isActive: true }
@@ -60,31 +47,12 @@ export function useChats() {
 
             await saveChat(updated);
 
-            const idx = chats.value.findIndex((c) => c.id === chatId);
-            if (idx !== -1) chats.value[idx] = updated;
-            else chats.value.push(updated);
-        });
+            const index = chats.value.findIndex((c) => c.id === chatId);
 
-        subscribe("peer_info", async (msg) => {
-            const { chatId, ...peerInfo } = msg.payload;
-            await savePeer(peerInfo, chatId);
-        });
-
-        subscribe("chat_knock", async (msg) => {
-            const { chatId, peerInfo, ip, region, timezone } = msg.payload;
-            const alreadyKnocking = pendingKnocks.value.some(
-                (k) => k.chatId === chatId
-            );
-            if (!alreadyKnocking) {
-                const knock: PendingKnock = {
-                    chatId,
-                    peerInfo,
-                    ip,
-                    region,
-                    timezone,
-                };
-                await saveKnock(knock, chatId);
-                pendingKnocks.value.push(knock);
+            if (index !== -1) {
+                chats.value[index] = updated;
+            } else {
+                chats.value.push(updated);
             }
         });
     }
@@ -109,23 +77,10 @@ export function useChats() {
         return chat;
     }
 
-    async function exportMyKeys() {
-        if (!user.value) await loadUser();
-        const [signPubKey, ecdhPubKey] = await Promise.all([
-            exportSignPublicKey(),
-            exportEncryptionPublicKey(),
-        ]);
-        return {
-            signPubKey,
-            ecdhPubKey,
-            name: user.value!.name,
-            avatar: user.value!.avatar,
-        };
-    }
-
     async function knockChat(chatId: string, hostKey: string): Promise<void> {
-        const peerInfo = await exportMyKeys();
+        const peerInfo = await getMyPeerInfo();
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
         wsSend({
             type: "knock_chat",
             payload: { chatId, hostKey, peerInfo, timezone },
@@ -134,15 +89,16 @@ export function useChats() {
 
     async function approveChat(chatId: string): Promise<void> {
         const knock = pendingKnocks.value.find((k) => k.chatId === chatId);
+
         if (knock) {
             await savePeer(toRaw(knock.peerInfo), chatId);
         }
-        const peerInfo = await exportMyKeys();
+
+        const peerInfo = await getMyPeerInfo();
+
         wsSend({ type: "approve_chat", payload: { chatId, peerInfo } });
+
         await removeKnock(chatId);
-        pendingKnocks.value = pendingKnocks.value.filter(
-            (k) => k.chatId !== chatId
-        );
     }
 
     async function cleanupChat(chatId: string): Promise<void> {
@@ -151,7 +107,9 @@ export function useChats() {
             removePeer(chatId),
             removeAllByChat(chatId),
         ]);
+
         chats.value = chats.value.filter((c) => c.id !== chatId);
+
         if (activeChatId.value === chatId) {
             activeChatId.value = null;
             router.push("/");

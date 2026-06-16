@@ -4,6 +4,8 @@ defineProps<{
     size?: "sm" | "md";
     disabled?: boolean;
 }>();
+
+const emit = defineEmits<{ click: [] }>();
 </script>
 
 <template>
@@ -11,6 +13,7 @@ defineProps<{
         class="mc-btn"
         :class="[`mc-btn_${variant ?? 'primary'}`, `mc-btn_${size ?? 'md'}`]"
         :disabled="disabled"
+        @click="emit('click')"
     >
         <slot />
     </button>
@@ -21,10 +24,13 @@ defineProps<{
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
     gap: 6px;
-    font-weight: 500;
+    font-weight: 700;
+    min-height: 46px;
     transition: 0.1s;
     white-space: nowrap;
+    text-transform: uppercase;
 
     &:disabled {
         opacity: 0.4;
@@ -48,7 +54,7 @@ defineProps<{
         color: #000;
 
         &:hover {
-            background: var(--mc-acid-dim);
+            box-shadow: 0 0 34px var(--mc-acid-glow);
         }
     }
 
@@ -62,10 +68,12 @@ defineProps<{
     }
 
     &_danger {
-        color: var(--mc-danger);
+        color: var(--mc-fg-mute);
+        border: 1px solid var(--mc-line-hard);
 
         &:hover {
-            background: color-mix(in srgb, var(--mc-danger) 12%, transparent);
+            color: var(--mc-danger);
+            border-color: var(--mc-danger);
         }
     }
 }

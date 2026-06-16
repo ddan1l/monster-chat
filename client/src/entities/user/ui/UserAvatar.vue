@@ -6,6 +6,7 @@ const props = defineProps<{
     avatarKey: string;
     selectable?: boolean;
     selected?: boolean;
+    size?: number;
 }>();
 
 defineEmits<{ select: [key: string] }>();
@@ -28,6 +29,10 @@ const tag = computed(() => (props.selectable ? "button" : "div"));
         :is="tag"
         class="mc-user-avatar"
         :class="{ 'mc-user-avatar_selected': selectable && selected }"
+        :style="{
+            width: `${size || 42}px`,
+            height: `${size || 42}px`,
+        }"
         @click="selectable && $emit('select', avatarKey)"
     >
         <component :is="component" class="mc-user-avatar__icon" />
@@ -36,8 +41,6 @@ const tag = computed(() => (props.selectable ? "button" : "div"));
 
 <style lang="scss" scoped>
 .mc-user-avatar {
-    width: 42px;
-    height: 42px;
     padding: 2px;
     flex-shrink: 0;
     color: #050706;
