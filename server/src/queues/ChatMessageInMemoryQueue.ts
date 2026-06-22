@@ -1,5 +1,5 @@
-import type { ChatMessage } from "shared";
 import type { ChatMessageQueue } from "./ChatMessageQueue.js";
+import type { ChatMessage } from "shared";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PER_KEY = 100;

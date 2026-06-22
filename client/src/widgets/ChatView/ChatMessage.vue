@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { PeerInfo } from "shared";
-import type { DecryptedMessage } from "@features/send-message/useChatSession";
+
 import { useFileDownload } from "@features/file-transfer/useFileDownload";
+import type { DecryptedMessage } from "@features/send-message/useChatSession";
+
+import type { PeerInfo } from "shared";
 
 const { downloadFile } = useFileDownload();
 
@@ -64,61 +66,134 @@ function closeMenu() {
         >
             <button
                 v-if="isMine()"
-                style="background: none; border: none; color: #ccc; cursor: pointer; padding: 7px 12px; text-align: left; font-size: 13px; border-radius: 4px"
+                style="
+                    background: none;
+                    border: none;
+                    color: #ccc;
+                    cursor: pointer;
+                    padding: 7px 12px;
+                    text-align: left;
+                    font-size: 13px;
+                    border-radius: 4px;
+                "
                 :disabled="editingNonce !== null"
-                @click="emit('editStart', msg.nonce, msg.text ?? ''); closeMenu()"
-            >✏️ Редактировать</button>
+                @click="
+                    emit('editStart', msg.nonce, msg.text ?? '');
+                    closeMenu();
+                "
+            >
+                ✏️ Редактировать
+            </button>
             <button
-                style="background: none; border: none; color: #ccc; cursor: pointer; padding: 7px 12px; text-align: left; font-size: 13px; border-radius: 4px"
-                @click="emit('deleteForMe', msg.nonce); closeMenu()"
-            >🗑️ Удалить у меня</button>
+                style="
+                    background: none;
+                    border: none;
+                    color: #ccc;
+                    cursor: pointer;
+                    padding: 7px 12px;
+                    text-align: left;
+                    font-size: 13px;
+                    border-radius: 4px;
+                "
+                @click="
+                    emit('deleteForMe', msg.nonce);
+                    closeMenu();
+                "
+            >
+                🗑️ Удалить у меня
+            </button>
             <button
                 v-if="isMine()"
-                style="background: none; border: none; color: #f87171; cursor: pointer; padding: 7px 12px; text-align: left; font-size: 13px; border-radius: 4px"
-                @click="emit('deleteForAll', msg.nonce); closeMenu()"
-            >🗑️ Удалить у всех</button>
+                style="
+                    background: none;
+                    border: none;
+                    color: #f87171;
+                    cursor: pointer;
+                    padding: 7px 12px;
+                    text-align: left;
+                    font-size: 13px;
+                    border-radius: 4px;
+                "
+                @click="
+                    emit('deleteForAll', msg.nonce);
+                    closeMenu();
+                "
+            >
+                🗑️ Удалить у всех
+            </button>
         </div>
     </teleport>
 
-    <li
+    <div
         :id="msg.nonce"
+        class="mc-message-wrapper"
         :data-nonce="msg.nonce"
         :style="{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: isMine() ? 'flex-end' : 'flex-start',
-            marginBottom: '8px',
-            opacity: editingNonce === msg.nonce ? 0.6 : 1,
+            justifyContent: isMine() ? 'flex-end' : 'flex-start',
         }"
         @contextmenu="onContextMenu"
     >
-        <div style="
-            display: inline-flex;
-            align-items: baseline;
-            gap: 6px;
-            background: #f0f0f0;
-            padding: 6px 10px;
-            border-radius: 12px;
-            max-width: 70%;
-        ">
+        <div class="mc-message">
             <div style="display: flex; flex-direction: column; gap: 6px">
                 <!-- eslint-disable-next-line vue/no-v-html -->
                 <span v-html="msg.text"></span>
                 <div
-                    v-for="(file, i) in msg.files" :key="i"
-                    style="display: flex; align-items: center; gap: 8px; background: #222; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer"
+                    v-for="(file, i) in msg.files"
+                    :key="i"
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        background: #222;
+                        border-radius: 6px;
+                        padding: 6px 10px;
+                        font-size: 12px;
+                        cursor: pointer;
+                    "
                     @click="downloadFile(file)"
                 >
                     <span>📎</span>
                     <span style="color: #ccc">{{ file.name }}</span>
-                    <span style="color: #666">{{ (file.size / 1024).toFixed(0) }} KB</span>
+                    <span style="color: #666"
+                        >{{ (file.size / 1024).toFixed(0) }} KB</span
+                    >
                 </div>
             </div>
-            <span v-if="msg.editedAt" style="font-size: 11px; color: #888">изм.</span>
+            <span v-if="msg.editedAt" style="font-size: 11px; color: #888"
+                >изм.</span
+            >
         </div>
 
-        <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12px; color: #888">
+        <div
+            style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 2px;
+                font-size: 12px;
+                color: #888;
+            "
+        >
             <span v-if="isMine()">{{ msg.isRead ? "✓✓" : "✓" }}</span>
         </div>
-    </li>
+    </div>
 </template>
+
+<style lang="scss" scoped>
+.mc-message-wrapper {
+    display: flex;
+    padding: 8px 22px;
+}
+.mc-message {
+    background: var(--mc-bg-bubble-in);
+    border: 1px solid var(--mc-line);
+    color: var(--fg);
+    padding: 9px 13px 7px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.45;
+    max-width: 100%;
+    word-wrap: break-word;
+    position: relative;
+}
+</style>

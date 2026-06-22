@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+
 import { useRouter } from "vue-router";
+
 import { useAuth, type AuthMethod } from "@features/auth/useAuth";
 
 const router = useRouter();

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import type { FileAttachment } from "shared";
+
 import FileUploader from "@features/file-transfer/FileUploader.vue";
+
+import type { FileAttachment } from "shared";
 
 const props = defineProps<{
     disabled: boolean;

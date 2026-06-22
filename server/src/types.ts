@@ -4,6 +4,7 @@ export type Peer = WebSocket & {
     chatId?: string;
     signPubKey?: string;
     ip?: string;
+    watchedPeers?: string[];
 };
 
 export type {
@@ -18,7 +19,6 @@ export type {
     ReadReceiptMessage,
     TypingMessage,
     StopTypingMessage,
-    DeleteMessageMessage,
     DeleteChatMessage,
     CancelChatMessage,
 } from "shared";

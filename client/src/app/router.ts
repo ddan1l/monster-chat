@@ -1,13 +1,16 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { useAuth } from "@features/auth/useAuth";
+
 import { useCrypto } from "@shared/crypto/useCrypto";
+
 import { useUser } from "@entities/user/useUser";
 
+import { useAuth } from "@features/auth/useAuth";
+
+import ApprovePage from "@pages/ApprovePage.vue";
 import InboxPage from "@pages/InboxPage.vue";
+import SettingsPage from "@pages/SettingsPage.vue";
 import SetupPage from "@pages/SetupPage.vue";
 import UnlockPage from "@pages/UnlockPage.vue";
-import ApprovePage from "@pages/ApprovePage.vue";
-import SettingsPage from "@pages/SettingsPage.vue";
 
 const router = createRouter({
     history: createWebHistory(),

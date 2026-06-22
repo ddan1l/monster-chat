@@ -1,78 +1,75 @@
 import { WebSocket } from "ws";
-import type { ChatMessage, ServerNotification, ServerPeerOffline, ServerPeerOnline, ServerPeerTyping, ServerPeerStopTyping } from "shared";
-import type { Peer } from "../types.js";
-import { NotificationService } from "./NotificationService.js";
-import { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
+
+import type { NotificationService } from "./NotificationService.js";
+import type { PushService } from "./PushService.js";
 import type { UserEventQueue } from "../queues/UserEventQueue.js";
-import type { ChatRepository } from "../repositories/ChatRepository.js";
+import type { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
+import type { Peer } from "../types.js";
+
+type PresenceType =
+    | "peer_online"
+    | "peer_offline"
+    | "peer_typing"
+    | "peer_stop_typing";
 
 export class PresenceService {
     constructor(
         private connectionRepository: ConnectionInMemoryRepository,
-        private chatRepository: ChatRepository,
         private userEventQueue: UserEventQueue,
-        private notificationService: NotificationService
+        private notificationService: NotificationService,
+        private pushService: PushService
     ) {}
 
-    register(signPubKey: string, peer: Peer): void {
+    register(signPubKey: string, peer: Peer, peerKeys: string[]): void {
         peer.signPubKey = signPubKey;
+        peer.watchedPeers = peerKeys;
         this.connectionRepository.set(signPubKey, peer);
 
         const pending = this.userEventQueue.flush(signPubKey);
         pending.forEach((event) => this.notificationService.send(peer, event));
 
-        this.broadcastStatus(signPubKey, "peer_online");
+        this.relay(signPubKey, peerKeys, "peer_online");
     }
 
     unregister(peer: Peer): void {
         if (!peer.signPubKey) return;
-        this.broadcastStatus(peer.signPubKey, "peer_offline");
+        this.relay(peer.signPubKey, peer.watchedPeers ?? [], "peer_offline");
         this.connectionRepository.delete(peer.signPubKey);
     }
 
-    private broadcastStatus(signPubKey: string, type: "peer_online" | "peer_offline"): void {
-        const chatIds = this.chatRepository.getChatsForUser(signPubKey);
-        for (const chatId of chatIds) {
-            const event: ServerPeerOnline | ServerPeerOffline = { type, payload: { chatId } };
-            this.chatRepository
-                .getAuthorizedKeys(chatId)
-                .filter((k) => k !== signPubKey)
-                .forEach((key) => {
-                    const peerConn = this.connectionRepository.get(key);
-                    if (peerConn?.readyState === WebSocket.OPEN) {
-                        this.notificationService.send(peerConn, event);
-                    }
-                });
-        }
+    broadcastTyping(
+        senderKey: string,
+        recipientKeys: string[],
+        type: "peer_typing" | "peer_stop_typing"
+    ): void {
+        this.relay(senderKey, recipientKeys, type);
     }
 
-    broadcastTyping(chatId: string, senderKey: string, type: "peer_typing" | "peer_stop_typing"): void {
-        const event: ServerPeerTyping | ServerPeerStopTyping = { type, payload: { chatId } };
-        this.chatRepository
-            .getAuthorizedKeys(chatId)
-            .filter((k) => k !== senderKey)
-            .forEach((key) => {
-                const conn = this.connectionRepository.get(key);
-                if (conn?.readyState === WebSocket.OPEN) {
-                    this.notificationService.send(conn, event);
-                }
+    notify(chatId: string, recipientKey: string): void {
+        const recipient = this.connectionRepository.get(recipientKey);
+        if (recipient?.chatId === chatId) return;
+        this.pushService.notify(recipientKey, chatId);
+    }
+
+    isRegistered(signPubKey: string): boolean {
+        const peer = this.connectionRepository.get(signPubKey);
+        return peer?.readyState === WebSocket.OPEN;
+    }
+
+    // Пересылает событие о senderKey каждому из перечисленных подключённых
+    // получателей. Авторизацию (верифицирован ли отправитель) решает клиент.
+    private relay(
+        senderKey: string,
+        recipientKeys: string[],
+        type: PresenceType
+    ): void {
+        for (const recipientKey of recipientKeys) {
+            const conn = this.connectionRepository.get(recipientKey);
+            if (conn?.readyState !== WebSocket.OPEN) continue;
+            this.notificationService.send(conn, {
+                type,
+                payload: { signPubKey: senderKey },
             });
-    }
-
-    notify(payload: ChatMessage, participantIds: string[]): void {
-        const recipient = this.connectionRepository
-            .getAll()
-            .find(
-                (p) =>
-                    p.signPubKey !== payload.from &&
-                    p.signPubKey !== undefined &&
-                    participantIds.includes(p.signPubKey) &&
-                    p.readyState === WebSocket.OPEN
-            );
-
-        if (!recipient) return;
-
-        const notification: ServerNotification = { type: "notification", payload };
-        this.notificationService.send(recipient, notification);
+        }
     }
 }

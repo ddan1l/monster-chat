@@ -1,5 +1,6 @@
-import type { FileAttachment } from "shared";
 import { useCrypto, fromBase64 } from "@shared/crypto/useCrypto";
+
+import type { FileAttachment } from "shared";
 
 export function useFileDownload() {
     const { decryptBytes } = useCrypto();

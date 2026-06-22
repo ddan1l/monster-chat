@@ -1,5 +1,7 @@
 import { ref } from "vue";
+
 import { useCrypto } from "@shared/crypto/useCrypto";
+
 import { useKeyStorage, type AuthMethod } from "./useKeyStorage";
 import { useKeyWrap } from "./useKeyWrap";
 import { useSession } from "./useSession";
@@ -52,8 +54,6 @@ export function useAuth() {
     const session = useSession();
 
     async function registerPrf(name: string): Promise<void> {
-        const { ecdh, sign } = await generateKeyPairs();
-
         const credential = (await navigator.credentials.create({
             publicKey: {
                 challenge: randomBytes(32),
@@ -97,6 +97,7 @@ export function useAuth() {
             prfOutput = output;
         }
 
+        const { ecdh, sign } = await generateKeyPairs();
         const wrappingKey = await importAesGcm(prfOutput);
         await storage.storeEncryptedKeys(ecdh, sign, wrappingKey, "prf");
         await storage.storePublicKeys(ecdh, sign);

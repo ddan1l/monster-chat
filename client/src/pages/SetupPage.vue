@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+
 import { useRouter } from "vue-router";
-import { useAuth } from "@features/auth/useAuth";
-import { useUser } from "@entities/user/useUser";
+
 import UserAvatar from "@entities/user/ui/UserAvatar.vue";
+import { useUser } from "@entities/user/useUser";
+
+import { useAuth } from "@features/auth/useAuth";
 
 const AVATARS = Object.keys(
     import.meta.glob("/src/shared/ui/icons/avatars/*.svg")

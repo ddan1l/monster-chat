@@ -1,6 +1,8 @@
-import type { OpenChatMessage, Peer } from "../types.js";
 import { chatService } from "../container.js";
 
+import type { OpenChatMessage, Peer } from "../types.js";
+
 export function onOpenChat(ws: Peer, data: OpenChatMessage) {
-    chatService.join(data.payload.chatId, data.payload.signPubKey, ws);
+    const { chatId, signPubKey } = data.payload;
+    chatService.join(chatId, signPubKey, ws);
 }

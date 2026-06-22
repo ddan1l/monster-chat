@@ -1,18 +1,15 @@
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 
-export function usePeerPresence() {
-    const isPeerOnline = ref(false);
+import { onlineStatus } from "./usePeers";
+
+export function usePeerPresence(chatId: string) {
+    const isPeerOnline = computed(() => onlineStatus.value[chatId] ?? false);
     const peerLastSeen = ref<number | null>(null);
 
-    function onPeerOnline(): void {
-        isPeerOnline.value = true;
-        peerLastSeen.value = null;
-    }
+    watch(isPeerOnline, (online) => {
+        if (!online) peerLastSeen.value = Date.now();
+        else peerLastSeen.value = null;
+    });
 
-    function onPeerOffline(): void {
-        isPeerOnline.value = false;
-        peerLastSeen.value = Date.now();
-    }
-
-    return { isPeerOnline, peerLastSeen, onPeerOnline, onPeerOffline };
+    return { isPeerOnline, peerLastSeen };
 }

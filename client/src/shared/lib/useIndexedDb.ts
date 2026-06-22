@@ -1,5 +1,5 @@
 const DB_NAME = "monster-chat";
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 export const STORES = {
     KEYS: "keys",
@@ -8,6 +8,7 @@ export const STORES = {
     MESSAGES: "messages",
     PEERS: "peers",
     PENDING_KNOCKS: "pending_knocks",
+    CHAT_NOTIFICATIONS: "chat_notifications",
 } as const;
 
 export const INDEX_CHAT_ID = "chat_id_date";
@@ -41,6 +42,12 @@ export function openDb(): Promise<IDBDatabase> {
 
             if (!db.objectStoreNames.contains(STORES.PENDING_KNOCKS)) {
                 db.createObjectStore(STORES.PENDING_KNOCKS);
+            }
+
+            if (!db.objectStoreNames.contains(STORES.CHAT_NOTIFICATIONS)) {
+                db.createObjectStore(STORES.CHAT_NOTIFICATIONS, {
+                    keyPath: "chatId",
+                });
             }
 
             if (db.objectStoreNames.contains(STORES.MESSAGES)) {

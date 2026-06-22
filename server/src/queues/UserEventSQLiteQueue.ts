@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
-import type { ServerMessage } from "shared";
+
 import type { UserEventQueue } from "./UserEventQueue.js";
+import type { ServerMessage } from "shared";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PER_USER = 50;

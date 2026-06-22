@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import AppModal from "@shared/ui/components/AppModal.vue";
-import UserCard from "@entities/user/ui/UserCard.vue";
-import AppAlert from "@shared/ui/components/AppAlert.vue";
-import IconAlert from "@shared/ui/icons/IconAlert.vue";
 import { ref, computed, onMounted } from "vue";
+
+import AppAlert from "@shared/ui/components/AppAlert.vue";
+import AppButton from "@shared/ui/components/AppButton.vue";
+import AppModal from "@shared/ui/components/AppModal.vue";
+import IconAlert from "@shared/ui/icons/IconAlert.vue";
 
 import { useChats, chats } from "@entities/chat/useChats";
 import { pendingKnocks } from "@entities/chat/usePendingKnocks";
+import UserCard from "@entities/user/ui/UserCard.vue";
+
 import ChatInviteLink from "@widgets/ChatView/ChatInviteLink.vue";
-import AppButton from "@shared/ui/components/AppButton.vue";
 
 const { createChat, approveChat, cancelPendingChat } = useChats();
 
@@ -77,7 +79,9 @@ onMounted(() => {
                         online
                         :peer="newChatKnock.peerInfo"
                     >
-                        {{ newChatKnock.peerInfo.ecdhPubKey }}
+                        <template #text>
+                            {{ newChatKnock.peerInfo.ecdhPubKey }}
+                        </template>
                     </UserCard>
 
                     <div class="mc-new-chat-table">

@@ -12,19 +12,22 @@ import { usePeers } from "@entities/peer/usePeers";
 import AppHeader from "@widgets/AppHeader/AppHeader.vue";
 
 const { connect, connected } = useWs();
-const { init } = useChatNotification();
 const { signKeyPair } = useCrypto();
+const { startSync: syncPeers, announceOnline } = usePeers();
 
 useChats().startSync();
 useKnocks().startSync();
-usePeers().startSync();
+syncPeers();
+useChatNotification().startSync();
 
 onMounted(() => {
     connect();
 });
 
 watch([connected, signKeyPair], ([isConnected, keys]) => {
-    if (isConnected && keys) init();
+    if (isConnected && keys) {
+        announceOnline();
+    }
 });
 </script>
 
@@ -32,7 +35,7 @@ watch([connected, signKeyPair], ([isConnected, keys]) => {
     <div class="mc-app">
         <div class="mc-app-container">
             <AppHeader />
-            <RouterView v-if="connected" />
+            <RouterView v-if="connected" class="mc-view" />
         </div>
     </div>
 </template>

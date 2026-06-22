@@ -1,6 +1,6 @@
-import { Router } from "express";
-import express from "express";
-import { fileService } from "../container.js";
+import express, { Router } from "express";
+
+import { fileService, presenceService } from "../container.js";
 
 const router = Router();
 
@@ -11,12 +11,7 @@ router.post(
         const { chatId } = req.params;
         const signPubKey = req.headers["x-sign-key"] as string;
 
-        if (!signPubKey) {
-            res.status(400).json({ error: "X-Sign-Key header required" });
-            return;
-        }
-
-        if (!fileService.isAuthorized(chatId, signPubKey)) {
+        if (!signPubKey || !presenceService.isRegistered(signPubKey)) {
             res.status(403).json({ error: "Forbidden" });
             return;
         }

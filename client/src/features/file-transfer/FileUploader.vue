@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { FileAttachment } from "shared";
+
 import { useFileUpload } from "@features/file-transfer/useFileUpload";
+
+import type { FileAttachment } from "shared";
 
 const props = defineProps<{ chatId: string; disabled: boolean }>();
 const emit = defineEmits<{ change: [attachments: FileAttachment[]] }>();

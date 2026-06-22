@@ -1,38 +1,49 @@
 <script setup lang="ts">
-import type { PeerInfo } from "shared";
 import UserAvatar from "./UserAvatar.vue";
 import UserVerifiedTag from "./UserVerifiedTag.vue";
 
-defineProps<{
-    peer: PeerInfo;
-    online?: boolean;
-    variant: "large" | "normal" | "small";
-    verified?: boolean;
-}>();
+import type { PeerInfo } from "shared";
+
+withDefaults(
+    defineProps<{
+        peer?: PeerInfo;
+        online?: boolean;
+        variant: "large" | "normal" | "small";
+        verified?: boolean | null;
+        showAvatar?: boolean;
+    }>(),
+    { verified: null, peer: undefined, showAvatar: true }
+);
 
 const useAvatarSize = {
     large: 56,
     normal: 42,
-    small: 32,
+    small: 36,
 };
 </script>
 
 <template>
     <div class="mc-user-card">
-        <div class="mc-user-card__avatar">
+        <div v-if="showAvatar" class="mc-user-card__avatar">
             <UserAvatar
                 :size="useAvatarSize[variant]"
-                :avatar-key="peer.avatar ?? ''"
+                :avatar-key="peer?.avatar ?? ''"
             />
             <span v-if="online" class="mc-user-card__status" />
         </div>
         <div class="mc-user-card-info" :class="`mc-user-card-info_${variant}`">
             <p class="mc-user-card-info-title">
-                {{ peer.name }}
-                <UserVerifiedTag :verified="verified" />
+                {{ peer?.name ?? "Безымянный" }}
+                <UserVerifiedTag
+                    v-if="verified !== null"
+                    :verified="verified"
+                />
+                <span v-if="$slots.time" class="mc-user-card-time">
+                    <slot name="time" />
+                </span>
             </p>
             <p class="mc-user-card-info-descr">
-                <slot />
+                <slot name="text" />
             </p>
         </div>
     </div>
@@ -43,6 +54,8 @@ const useAvatarSize = {
     display: flex;
     align-items: center;
     gap: 14px;
+    flex: 1;
+    max-width: 100%;
 
     &__avatar {
         position: relative;
@@ -60,10 +73,14 @@ const useAvatarSize = {
         box-shadow:
             0 0 0 2px var(--mc-bg-list),
             0 0 6px var(--mc-acid);
+    }
 
-        &_online {
-            background: var(--mc-acid);
-        }
+    .mc-user-card-time {
+        margin-left: auto;
+        display: inline-block;
+        color: var(--mc-fg-dim);
+        font-size: 0.6em;
+        font-family: var(--mc-mono);
     }
 
     .mc-user-card-info {
@@ -84,13 +101,20 @@ const useAvatarSize = {
             font-family: var(--mc-mono);
             color: var(--mc-fg-mute);
             font-size: 0.7em;
-            overflow: hidden;
-            white-space: nowrap;
-            overflow: hidden;
+            margin-top: 2px;
             flex: 1;
-            text-overflow: ellipsis;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            :deep(span:first-child) {
+                flex: 1;
+                overflow: hidden;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         }
-
         &_large {
             .mc-user-card-info-title {
                 font-size: 1.2em;

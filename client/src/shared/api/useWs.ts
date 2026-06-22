@@ -1,6 +1,8 @@
 import { ref } from "vue";
-import type { ServerMessage, ClientMessage } from "shared";
+
 import { useLog } from "@shared/lib/useLog";
+
+import type { ServerMessage, ClientMessage } from "shared";
 
 type MessageHandler = (msg: ServerMessage) => void;
 type Unsubscribe = () => void;

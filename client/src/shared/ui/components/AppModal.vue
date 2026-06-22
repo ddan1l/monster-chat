@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { watch, ref, onBeforeUnmount } from "vue";
+
 import IconClose from "@shared/ui/icons/IconClose.vue";
-import IconDot from "../icons/IconDot.vue";
+import IconDot from "@shared/ui/icons/IconDot.vue";
 
 const props = defineProps<{
     title?: string;

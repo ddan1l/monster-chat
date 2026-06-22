@@ -1,7 +1,9 @@
 import { ref } from "vue";
-import type { PeerInfo } from "shared";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+
 import { useCrypto, fromBase64 } from "@shared/crypto/useCrypto";
+import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+
+import type { PeerInfo } from "shared";
 
 interface StoredPeer extends PeerInfo {
     verified?: boolean;

@@ -1,7 +1,9 @@
-import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
-import svgLoader from "vite-svg-loader";
 import { fileURLToPath, URL } from "node:url";
+
+import vue from "@vitejs/plugin-vue";
+import { defineConfig } from "vite";
+import svgLoader from "vite-svg-loader";
+
 import { version } from "./package.json";
 
 export default defineConfig({

@@ -43,16 +43,10 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         verify,
     } = useCrypto();
 
-    const {
-        isPeerTyping,
-        sendTyping,
-        sendStopTyping,
-        onPeerTyping,
-        onPeerStopTyping,
-    } = useTypingIndicator(chatId);
+    const { isPeerTyping, sendTyping, sendStopTyping } =
+        useTypingIndicator(chatId);
 
-    const { isPeerOnline, peerLastSeen, onPeerOnline, onPeerOffline } =
-        usePeerPresence();
+    const { isPeerOnline, peerLastSeen } = usePeerPresence(chatId);
 
     const chat = ref<Chat | null>(null);
     const peer = ref<PeerInfo | null>(null);
@@ -120,6 +114,7 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
                 ? { editedAt: stored.editedAt, text: stored.text }
                 : {}),
             ...(stored.isRead !== undefined ? { isRead: stored.isRead } : {}),
+            ...(stored.isOwn !== undefined ? { isOwn: stored.isOwn } : {}),
         };
     }
 
@@ -204,7 +199,7 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         const msg = await buildSignedMessage(content, !!originalNonce);
         wsSend({ type: "message", payload: msg });
         if (!content.action) {
-            addMessage({ ...msg, ...content });
+            addMessage({ ...msg, ...content, isOwn: true, isRead: false });
         }
     }
 
@@ -271,28 +266,6 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
 
         on("read_receipt", (msg) => {
             updateMessage(msg.payload.nonce, { isRead: true });
-        });
-
-        on("peer_typing", (msg) => {
-            if (msg.payload.chatId !== chatId) return;
-            onPeerTyping();
-        });
-
-        on("peer_stop_typing", (msg) => {
-            if (msg.payload.chatId !== chatId) return;
-            onPeerStopTyping();
-        });
-
-        on("peer_online", (msg) => {
-            if (msg.payload.chatId === chatId) {
-                onPeerOnline();
-            }
-        });
-
-        on("peer_offline", (msg) => {
-            if (msg.payload.chatId === chatId) {
-                onPeerOffline();
-            }
         });
 
         unsubs.push(

@@ -11,7 +11,7 @@ export interface SendMessage {
 
 export interface OnlineMessage {
     type: "online";
-    payload: { signPubKey: string };
+    payload: { signPubKey: string; peers: string[] };
 }
 
 export interface InitChatMessage {
@@ -36,7 +36,7 @@ export interface KnockChatMessage {
 
 export interface PeerInfoMessage {
     type: "peer_info";
-    payload: PeerInfo & { chatId: string };
+    payload: PeerInfo & { chatId: string; peerSignPubKey: string };
 }
 
 export interface ReadReceiptMessage {
@@ -46,12 +46,12 @@ export interface ReadReceiptMessage {
 
 export interface TypingMessage {
     type: "typing";
-    payload: { chatId: string; from: string };
+    payload: { to: string[] };
 }
 
 export interface StopTypingMessage {
     type: "stop_typing";
-    payload: { chatId: string; from: string };
+    payload: { to: string[] };
 }
 
 export interface DeleteChatMessage {
@@ -84,9 +84,11 @@ export interface ServerMessageDelivery {
     payload: ChatMessage;
 }
 
+export type NotificationType = "chat_notification";
+
 export interface ServerNotification {
     type: "notification";
-    payload: ChatMessage;
+    payload: { chatId: string; notificationType: NotificationType };
 }
 
 export interface ServerChatOpened {
@@ -126,22 +128,22 @@ export interface ServerReadReceipt {
 
 export interface ServerPeerOnline {
     type: "peer_online";
-    payload: { chatId: string };
+    payload: { signPubKey: string };
 }
 
 export interface ServerPeerOffline {
     type: "peer_offline";
-    payload: { chatId: string };
+    payload: { signPubKey: string };
 }
 
 export interface ServerPeerTyping {
     type: "peer_typing";
-    payload: { chatId: string };
+    payload: { signPubKey: string };
 }
 
 export interface ServerPeerStopTyping {
     type: "peer_stop_typing";
-    payload: { chatId: string };
+    payload: { signPubKey: string };
 }
 
 export type ServerMessage =

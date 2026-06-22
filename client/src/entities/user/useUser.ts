@@ -1,7 +1,10 @@
 import { ref } from "vue";
-import type { User } from "shared";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+
 import { nanoid } from "nanoid";
+
+import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+
+import type { User } from "shared";
 
 const USER_ID = "current-user";
 

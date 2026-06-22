@@ -7,6 +7,7 @@ import type { ChatMessage, MessageContent } from "shared";
 export interface DecryptedMessage extends ChatMessage, MessageContent {
     editedAt?: number;
     isRead?: boolean;
+    isOwn?: boolean;
 }
 
 export const lastMessageByChat = ref<Record<string, DecryptedMessage>>({});

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from "vue";
-import { useChatSession } from "@features/send-message/useChatSession";
-import { useSafetyNumbers } from "@features/verify-identity/useSafetyNumbers";
-import { activeChatId, useChats } from "@entities/chat/useChats";
+
 import { useChatNotification } from "@entities/chat/useChatNotification";
-import ChatHeader from "./ChatHeader.vue";
+import { activeChatId, useChats } from "@entities/chat/useChats";
+
+import { useChatSession } from "@features/send-message/useChatSession";
 import SafetyNumbers from "@features/verify-identity/SafetyNumbers.vue";
-import ChatMessages from "./ChatMessages.vue";
+import { useSafetyNumbers } from "@features/verify-identity/useSafetyNumbers";
+
 import ChatEditor from "./ChatEditor.vue";
+import ChatHeader from "./ChatHeader.vue";
+import ChatMessages from "./ChatMessages.vue";
 
 const props = defineProps<{ chatId: string }>();
 
@@ -58,7 +61,7 @@ const { clearUnread } = useChatNotification();
 
 onMounted(async () => {
     activeChatId.value = props.chatId;
-    clearUnread(props.chatId);
+    await clearUnread(props.chatId);
     await connect();
 });
 
@@ -83,15 +86,8 @@ async function handleEditSubmit(nonce: string, newText: string) {
 </script>
 
 <template>
-    <div
-        style="
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            height: 100%;
-        "
-    >
-        <p v-if="error" style="color: red">{{ error }}</p>
+    <div class="chat-view">
+        <p v-if="error" class="chat-view__error">{{ error }}</p>
 
         <template v-if="chat?.isActive">
             <ChatHeader
@@ -133,26 +129,10 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 @read="markAsRead"
             />
 
-            <div
-                v-if="verified === false"
-                style="
-                    padding: 10px 0 4px;
-                    font-size: 13px;
-                    color: #888;
-                    text-align: center;
-                "
-            >
+            <div v-if="verified === false" class="chat-view__verify-hint">
                 Верифицируйте секретные числа, прежде чем писать сообщения —
                 <button
-                    style="
-                        background: none;
-                        border: none;
-                        color: #a78bfa;
-                        cursor: pointer;
-                        padding: 0;
-                        font-size: 13px;
-                        text-decoration: underline;
-                    "
+                    class="chat-view__verify-link"
                     @click="safetyPanelOpen = true"
                 >
                     Верифицировать
@@ -173,3 +153,34 @@ async function handleEditSubmit(nonce: string, newText: string) {
         </template>
     </div>
 </template>
+
+<style scoped lang="scss">
+.chat-view {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+
+    &__error {
+        color: red;
+    }
+
+    &__verify-hint {
+        padding: 10px 0 4px;
+        font-size: 13px;
+        color: #888;
+        text-align: center;
+    }
+
+    &__verify-link {
+        background: none;
+        border: none;
+        color: #a78bfa;
+        cursor: pointer;
+        padding: 0;
+        font-size: 13px;
+        text-decoration: underline;
+    }
+}
+</style>

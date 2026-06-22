@@ -1,58 +1,44 @@
-import { ref } from "vue";
+import { computed } from "vue";
 
 import { useWs } from "@shared/api/useWs";
-import { useCrypto } from "@shared/crypto/useCrypto";
 import { useDebounce } from "@shared/lib/useDebounce";
+
+import { peers, typingStatus } from "@entities/peer/usePeers";
 
 export function useTypingIndicator(chatId: string) {
     const { send: wsSend } = useWs();
-    const { exportSignPublicKey } = useCrypto();
 
-    const isPeerTyping = ref(false);
+    const isPeerTyping = computed(() => typingStatus.value[chatId] ?? false);
     let isTypingSent = false;
 
-    const autoStopTyping = useDebounce(async () => {
-        const from = await exportSignPublicKey();
-        wsSend({ type: "stop_typing", payload: { chatId, from } });
+    function peerKeys(): string[] {
+        const key = peers.value[chatId]?.signPubKey;
+        return key ? [key] : [];
+    }
+
+    const autoStopTyping = useDebounce(() => {
+        wsSend({ type: "stop_typing", payload: { to: peerKeys() } });
         isTypingSent = false;
     }, 2000);
 
-    const clearPeerTyping = useDebounce(() => {
-        isPeerTyping.value = false;
-    }, 3000);
-
-    async function sendTyping(): Promise<void> {
-        const from = await exportSignPublicKey();
+    function sendTyping(): void {
         if (!isTypingSent) {
-            wsSend({ type: "typing", payload: { chatId, from } });
+            wsSend({ type: "typing", payload: { to: peerKeys() } });
             isTypingSent = true;
         }
         autoStopTyping.schedule();
     }
 
-    async function sendStopTyping(): Promise<void> {
+    function sendStopTyping(): void {
         if (!isTypingSent) return;
         autoStopTyping.cancel();
-        const from = await exportSignPublicKey();
-        wsSend({ type: "stop_typing", payload: { chatId, from } });
+        wsSend({ type: "stop_typing", payload: { to: peerKeys() } });
         isTypingSent = false;
-    }
-
-    function onPeerTyping(): void {
-        isPeerTyping.value = true;
-        clearPeerTyping.schedule();
-    }
-
-    function onPeerStopTyping(): void {
-        isPeerTyping.value = false;
-        clearPeerTyping.cancel();
     }
 
     return {
         isPeerTyping,
         sendTyping,
         sendStopTyping,
-        onPeerTyping,
-        onPeerStopTyping,
     };
 }

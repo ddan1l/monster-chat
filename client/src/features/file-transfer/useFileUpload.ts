@@ -1,5 +1,6 @@
-import type { FileAttachment } from "shared";
 import { useCrypto, toBase64 } from "@shared/crypto/useCrypto";
+
+import type { FileAttachment } from "shared";
 
 export function useFileUpload() {
     const { exportSignPublicKey, encryptBytes } = useCrypto();

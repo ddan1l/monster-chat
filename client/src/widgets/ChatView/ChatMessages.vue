@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
-import type { PeerInfo } from "shared";
+
 import type { DecryptedMessage } from "@features/send-message/useChatSession";
+
 import ChatMessage from "./ChatMessage.vue";
+
+import type { PeerInfo } from "shared";
 
 const props = defineProps<{
     messages: DecryptedMessage[];
@@ -113,6 +116,7 @@ watch(
             padding: 0;
             margin: 0;
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
         "
     >
@@ -127,15 +131,20 @@ watch(
             @delete-for-all="(nonce) => emit('deleteForAll', nonce)"
         />
 
-        <li v-if="isPeerTyping" style="display: flex; align-items: flex-start; margin-bottom: 8px">
-            <div style="
-                background: #f0f0f0;
-                padding: 8px 12px;
-                border-radius: 12px;
-                font-size: 13px;
-                color: #888;
-                font-style: italic;
-            ">
+        <li
+            v-if="isPeerTyping"
+            style="display: flex; align-items: flex-start; margin-bottom: 8px"
+        >
+            <div
+                style="
+                    background: #f0f0f0;
+                    padding: 8px 12px;
+                    border-radius: 12px;
+                    font-size: 13px;
+                    color: #888;
+                    font-style: italic;
+                "
+            >
                 {{ peer?.name }} печатает…
             </div>
         </li>

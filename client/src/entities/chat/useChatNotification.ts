@@ -1,14 +1,14 @@
 import { ref } from "vue";
-import type { OnlineMessage, PeerInfo } from "shared";
+
 import { useWs } from "@shared/api/useWs";
-import { useUser } from "@entities/user/useUser";
-import { useCrypto } from "@shared/crypto/useCrypto";
 import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
 import { useNotifications } from "@shared/lib/useNotifications";
+
 import { activeChatId } from "@entities/chat/useChats";
 
-const unread = ref<Record<string, number>>({});
-let notifySubscribed = false;
+import type { PeerInfo } from "shared";
+
+export const unreadChatNotifications = ref<Record<string, number>>({});
 
 function emojiToIcon(emoji: string): string {
     const canvas = document.createElement("canvas");
@@ -23,46 +23,49 @@ function emojiToIcon(emoji: string): string {
 }
 
 export function useChatNotification() {
-    const { subscribe, send } = useWs();
-    const { user, load: loadUser } = useUser();
-    const { exportSignPublicKey, signKeyPair } = useCrypto();
+    const { readAll, write, remove } = useIndexedDb(STORES.CHAT_NOTIFICATIONS);
+    const { subscribe } = useWs();
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
     const { notify } = useNotifications();
 
-    if (!notifySubscribed) {
-        notifySubscribed = true;
+    async function loadNotifications(): Promise<void> {
+        const entries = await readAll<{ chatId: string; count: number }>();
+        for (const { chatId, count } of entries) {
+            unreadChatNotifications.value[chatId] = count;
+        }
+    }
+
+    async function increment(chatId: string): Promise<void> {
+        unreadChatNotifications.value[chatId] =
+            (unreadChatNotifications.value[chatId] ?? 0) + 1;
+        await write({ chatId, count: unreadChatNotifications.value[chatId] });
+    }
+
+    async function clearUnread(chatId: string): Promise<void> {
+        delete unreadChatNotifications.value[chatId];
+        await remove(chatId);
+    }
+
+    function startSync(): void {
+        loadNotifications();
+
         subscribe("notification", async (msg) => {
-            if (activeChatId.value !== msg.payload.chatId) {
-                unread.value[msg.payload.chatId] =
-                    (unread.value[msg.payload.chatId] ?? 0) + 1;
+            const { chatId } = msg.payload;
+
+            if (activeChatId.value !== chatId) {
+                await increment(chatId);
             }
 
-            const peer = await readPeer<PeerInfo>(msg.payload.chatId);
+            const peer = await readPeer<PeerInfo>(chatId);
             notify(peer?.name ?? "Новое сообщение", {
                 body: "Новое сообщение",
                 icon: peer?.avatar ? emojiToIcon(peer.avatar) : undefined,
-                tag: msg.payload.chatId,
+                tag: chatId,
                 renotify: true,
-                url: `/chat/${msg.payload.chatId}`,
+                url: `/chat/${chatId}`,
             });
         });
     }
 
-    async function init() {
-        if (!user.value) await loadUser();
-        if (!user.value) return;
-        if (!signKeyPair.value) return;
-
-        const signPubKey = await exportSignPublicKey();
-        send({
-            type: "online",
-            payload: { signPubKey },
-        } satisfies OnlineMessage);
-    }
-
-    function clearUnread(chatId: string) {
-        delete unread.value[chatId];
-    }
-
-    return { unread, init, clearUnread };
+    return { loadNotifications, increment, clearUnread, startSync };
 }

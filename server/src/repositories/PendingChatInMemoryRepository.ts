@@ -1,8 +1,8 @@
-import type { PeerInfo } from "shared";
 import type { Peer } from "../types.js";
+import type { PeerInfo } from "shared";
 
 interface Knock {
-    knockerKey: string; // knocker's signPubKey — used to authorize them in ChatInMemoryRepository
+    knockerKey: string;
     peerInfo: PeerInfo;
     peer: Peer;
 }

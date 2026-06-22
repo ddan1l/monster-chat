@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+
 import AppModal from "@shared/ui/components/AppModal.vue";
 
 declare const __APP_VERSION__: string;
@@ -33,6 +34,7 @@ const open = ref(false);
     text-align: center;
     padding: 10px 16px;
     border-bottom: 1px solid var(--mc-line-hard);
+    min-height: 45px;
 
     button {
         color: var(--mc-fg-dim);

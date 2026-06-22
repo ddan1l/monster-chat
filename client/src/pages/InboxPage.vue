@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
+
 import { useRoute } from "vue-router";
+
+import { usePermissions } from "@shared/lib/usePermissions";
+
 import ChatList from "@widgets/ChatList/ChatList.vue";
 import ChatView from "@widgets/ChatView/ChatView.vue";
-import { usePermissions } from "@shared/lib/usePermissions";
 
 const route = useRoute();
 const chatId = computed(() => route.params.chatId as string | undefined);
@@ -35,6 +38,7 @@ const {
 <style lang="scss" scoped>
 .mc-inbox-page {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -42,7 +46,6 @@ const {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-gap: 20px;
     grid-template-columns: 320px 1fr;
 }
 </style>

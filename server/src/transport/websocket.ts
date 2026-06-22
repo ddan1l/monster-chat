@@ -1,18 +1,19 @@
 import { WebSocketServer } from "ws";
-import type { Server, IncomingMessage } from "http";
-import type { ClientMessage } from "../types.js";
-import type { Peer } from "../types.js";
-import { onOnline } from "../handlers/onOnline.js";
-import { onOpenChat } from "../handlers/onOpenChat.js";
-import { onInitChat } from "../handlers/onInitChat.js";
+
 import { onApproveChat } from "../handlers/onApproveChat.js";
-import { onKnockChat } from "../handlers/onKnockChat.js";
-import { onPeerInfo } from "../handlers/onPeerInfo.js";
-import { onMessage } from "../handlers/onMessage.js";
-import { onReadReceipt } from "../handlers/onReadReceipt.js";
-import { onTyping } from "../handlers/onTyping.js";
 import { onCancelChat } from "../handlers/onCancelChat.js";
 import { onClose } from "../handlers/onClose.js";
+import { onInitChat } from "../handlers/onInitChat.js";
+import { onKnockChat } from "../handlers/onKnockChat.js";
+import { onMessage } from "../handlers/onMessage.js";
+import { onOnline } from "../handlers/onOnline.js";
+import { onOpenChat } from "../handlers/onOpenChat.js";
+import { onPeerInfo } from "../handlers/onPeerInfo.js";
+import { onReadReceipt } from "../handlers/onReadReceipt.js";
+import { onTyping } from "../handlers/onTyping.js";
+
+import type { Peer, ClientMessage } from "../types.js";
+import type { Server, IncomingMessage } from "http";
 
 const handlers = {
     online: onOnline,
