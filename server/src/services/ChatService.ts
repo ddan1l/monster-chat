@@ -16,7 +16,6 @@ import type {
     ServerChatCreated,
     ServerPeerInfo,
     ServerMessageDelivery,
-    ServerReadReceipt,
     ServerMessage,
 } from "shared";
 
@@ -129,26 +128,6 @@ export class ChatService {
             payload: { ...peerInfo, chatId },
         };
         this.sendOrQueue(knock.peer, aPeerInfo, knock.knockerKey);
-    }
-
-    relayReadReceipt(chatId: string, nonce: string, sender: Peer): void {
-        const event: ServerReadReceipt = {
-            type: "read_receipt",
-            payload: { chatId, nonce },
-        };
-        const recipientKey = this.connectionRepository
-            .getAll()
-            .find(
-                (p) =>
-                    p !== sender &&
-                    p.readyState === WebSocket.OPEN &&
-                    p.chatId === chatId
-            )?.signPubKey;
-
-        if (recipientKey) {
-            const recipient = this.connectionRepository.get(recipientKey);
-            if (recipient) this.notificationService.send(recipient, event);
-        }
     }
 
     relayPeerInfo(

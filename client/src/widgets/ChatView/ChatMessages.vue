@@ -4,6 +4,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import type { DecryptedMessage } from "@features/send-message/useChatSession";
 
 import ChatMessage from "./ChatMessage.vue";
+import ChatTypingIndicator from "./ChatTypingIndicator.vue";
 
 import type { PeerInfo } from "shared";
 
@@ -109,44 +110,40 @@ watch(
 </script>
 
 <template>
-    <ul
-        ref="listEl"
-        style="
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            flex: 1;
-            min-height: 0;
-            overflow-y: auto;
-        "
-    >
+    <div ref="listEl" class="mc-chat-messages">
         <ChatMessage
-            v-for="msg in messages"
+            v-for="(msg, i) in messages"
             :key="msg.nonce"
             :msg="msg"
             :peer="peer"
+            :tail="
+                messages[i + 1]
+                    ? messages[i + 1].from !== msg.from
+                    : !(isPeerTyping && msg.from === peer?.signPubKey)
+            "
+            :continued="i > 0 && messages[i - 1]?.from === msg.from"
             :editing-nonce="editingNonce"
             @edit-start="(nonce, text) => emit('editStart', nonce, text)"
             @delete-for-me="(nonce) => emit('deleteForMe', nonce)"
             @delete-for-all="(nonce) => emit('deleteForAll', nonce)"
         />
 
-        <li
-            v-if="isPeerTyping"
-            style="display: flex; align-items: flex-start; margin-bottom: 8px"
-        >
-            <div
-                style="
-                    background: #f0f0f0;
-                    padding: 8px 12px;
-                    border-radius: 12px;
-                    font-size: 13px;
-                    color: #888;
-                    font-style: italic;
-                "
-            >
-                {{ peer?.name }} печатает…
-            </div>
-        </li>
-    </ul>
+        <ChatTypingIndicator v-if="isPeerTyping" :peer="peer" />
+    </div>
 </template>
+<style lang="scss" scoped>
+.mc-chat-messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0;
+    margin: 0;
+    background:
+        radial-gradient(
+            60% 40% at 100% 0%,
+            var(--mc-acid-subtle),
+            transparent 55%
+        ),
+        var(--mc-bg-chat);
+}
+</style>

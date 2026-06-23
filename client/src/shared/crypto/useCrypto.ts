@@ -171,7 +171,15 @@ export function useCrypto() {
 }
 
 export function toBase64(buf: ArrayBuffer | Uint8Array): string {
-    return btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const bytes = new Uint8Array(buf);
+    // Конвертируем чанками: спред всего массива в String.fromCharCode
+    // переполняет стек на больших вложениях.
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(binary);
 }
 
 export function fromBase64(s: string): ArrayBuffer {

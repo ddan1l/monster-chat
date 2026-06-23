@@ -9,7 +9,6 @@ import { onMessage } from "../handlers/onMessage.js";
 import { onOnline } from "../handlers/onOnline.js";
 import { onOpenChat } from "../handlers/onOpenChat.js";
 import { onPeerInfo } from "../handlers/onPeerInfo.js";
-import { onReadReceipt } from "../handlers/onReadReceipt.js";
 import { onTyping } from "../handlers/onTyping.js";
 
 import type { Peer, ClientMessage } from "../types.js";
@@ -23,7 +22,6 @@ const handlers = {
     knock_chat: onKnockChat,
     peer_info: onPeerInfo,
     message: onMessage,
-    read_receipt: onReadReceipt,
     typing: onTyping,
     stop_typing: onTyping,
     cancel_chat: onCancelChat,

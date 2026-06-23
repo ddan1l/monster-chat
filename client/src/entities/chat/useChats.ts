@@ -121,11 +121,6 @@ export function useChats() {
         await cleanupChat(chatId);
     }
 
-    async function deleteChatForAll(chatId: string): Promise<void> {
-        wsSend({ type: "delete_chat", payload: { chatId } });
-        await cleanupChat(chatId);
-    }
-
     return {
         chats,
         pendingKnocks,
@@ -134,8 +129,7 @@ export function useChats() {
         createChat,
         knockChat,
         approveChat,
-        deleteChatForMe: cleanupChat,
-        deleteChatForAll,
+        deleteChat: cleanupChat,
         cancelPendingChat,
     };
 }

@@ -12,6 +12,7 @@ import { useUser } from "@entities/user/useUser";
 export type StoredPeer = PeerInfo & {
     verified?: boolean;
     keyChanged?: boolean;
+    lastSeen?: number;
 };
 
 export const peers = ref<Record<string, StoredPeer>>({});
@@ -97,6 +98,10 @@ export function usePeers() {
             const chatId = chatIdByKey(msg.payload.signPubKey);
             if (!chatId) return;
             onlineStatus.value[chatId] = false;
+            const ts = Date.now();
+            const updated = { ...peers.value[chatId], lastSeen: ts };
+            peers.value[chatId] = updated;
+            write(updated, chatId);
         });
 
         subscribe("peer_typing", (msg) => {

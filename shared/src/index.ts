@@ -39,11 +39,6 @@ export interface PeerInfoMessage {
     payload: PeerInfo & { chatId: string; peerSignPubKey: string };
 }
 
-export interface ReadReceiptMessage {
-    type: "read_receipt";
-    payload: { chatId: string; nonce: string };
-}
-
 export interface TypingMessage {
     type: "typing";
     payload: { to: string[] };
@@ -52,11 +47,6 @@ export interface TypingMessage {
 export interface StopTypingMessage {
     type: "stop_typing";
     payload: { to: string[] };
-}
-
-export interface DeleteChatMessage {
-    type: "delete_chat";
-    payload: { chatId: string };
 }
 
 export interface CancelChatMessage {
@@ -72,10 +62,8 @@ export type ClientMessage =
     | ApproveChatMessage
     | KnockChatMessage
     | PeerInfoMessage
-    | ReadReceiptMessage
     | TypingMessage
     | StopTypingMessage
-    | DeleteChatMessage
     | CancelChatMessage;
 
 // Messages sent from server to client
@@ -121,11 +109,6 @@ export interface ServerChatKnock {
     };
 }
 
-export interface ServerReadReceipt {
-    type: "read_receipt";
-    payload: { chatId: string; nonce: string };
-}
-
 export interface ServerPeerOnline {
     type: "peer_online";
     payload: { signPubKey: string };
@@ -154,7 +137,6 @@ export type ServerMessage =
     | ServerMessageDelivery
     | ServerNotification
     | ServerError
-    | ServerReadReceipt
     | ServerPeerOnline
     | ServerPeerOffline
     | ServerPeerTyping
@@ -197,7 +179,7 @@ export interface FileAttachment {
     mimeType: string;
 }
 
-export type MessageAction = "edit_message" | "delete_message" | "delete_chat";
+export type MessageAction = "edit_message" | "delete_message" | "read_message";
 
 export interface MessageContent {
     text?: string;

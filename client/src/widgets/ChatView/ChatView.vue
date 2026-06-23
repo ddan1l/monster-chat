@@ -34,8 +34,7 @@ const {
     sendStopTyping,
     deleteMessageForMe,
     deleteMessageForAll,
-    deleteChatForAll: sendDeleteChatForAll,
-} = useChatSession(props.chatId, () => deleteChatForMe(props.chatId));
+} = useChatSession(props.chatId);
 
 const {
     safetyNumber,
@@ -46,8 +45,7 @@ const {
     removeVerification,
 } = useSafetyNumbers(props.chatId);
 
-const { deleteChatForMe, deleteChatForAll: cleanupAndDeleteChatForAll } =
-    useChats();
+const { deleteChat } = useChats();
 
 watch(
     peer,
@@ -98,11 +96,7 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 :verified="verified"
                 :key-changed="keyChanged"
                 @open-panel="safetyPanelOpen = true"
-                @delete-chat-for-me="deleteChatForMe(props.chatId)"
-                @delete-chat-for-all="
-                    sendDeleteChatForAll();
-                    cleanupAndDeleteChatForAll(props.chatId);
-                "
+                @delete-chat="deleteChat(props.chatId)"
             />
 
             <SafetyNumbers

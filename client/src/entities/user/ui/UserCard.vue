@@ -113,11 +113,20 @@ const useAvatarSize = {
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                user-select: none;
             }
         }
         &_large {
             .mc-user-card-info-title {
                 font-size: 1.2em;
+            }
+        }
+        &_small {
+            .mc-user-card-info-title {
+                font-size: 1em;
+            }
+            .mc-user-card-info-descr {
+                margin-top: 0;
             }
         }
     }

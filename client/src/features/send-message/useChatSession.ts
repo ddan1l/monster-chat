@@ -28,7 +28,7 @@ import type {
 
 export type { DecryptedMessage };
 
-export function useChatSession(chatId: string, onChatDeleted?: () => void) {
+export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
     const { saveChatMessage, getByChat, removeChatMessage } = useChatMessages();
@@ -54,6 +54,11 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
     const error = ref<string | null>(null);
 
     let sharedKey: CryptoKey | null = null;
+    let myKey: string | null = null;
+    const seenNonces = new Set<string>();
+
+    // Окно допустимого расхождения времени для защиты от replay (5 минут).
+    const REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
     const unsubs: (() => void)[] = [];
     function on<T extends ServerMessage["type"]>(
@@ -85,11 +90,20 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         const envelopeBytes = new TextEncoder().encode(
             JSON.stringify(envelope)
         );
-        const valid = await verify(
-            fromBase64(msg.from),
-            envelopeBytes,
-            fromBase64(msg.signature)
-        );
+
+        // Отправителем может быть только один из двух участников чата —
+        // мы сами (загрузка своей истории) или доверенный пир. Любой иной
+        // ключ означает попытку выдать себя за участника.
+        const trustedSender =
+            msg.from === myKey || msg.from === peer.value?.signPubKey;
+
+        const valid =
+            trustedSender &&
+            (await verify(
+                fromBase64(msg.from),
+                envelopeBytes,
+                fromBase64(msg.signature)
+            ));
 
         if (!valid) {
             return { ...msg, text: "<i>Invalid message signature</i>" };
@@ -209,7 +223,9 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
     }
 
     async function markAsRead(nonce: string): Promise<void> {
-        wsSend({ type: "read_receipt", payload: { chatId, nonce } });
+        // Квитанция о прочтении идёт по зашифрованному и подписанному
+        // каналу action'ов — сервер её содержимое не видит.
+        await sendAction("read_message", nonce);
         updateMessage(nonce, { isRead: true });
     }
 
@@ -248,6 +264,13 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         });
 
         on("message", async (msg) => {
+            // Replay-защита: отбрасываем уже виденные nonce и сообщения
+            // с временной меткой вне допустимого окна.
+            const { nonce, timestamp } = msg.payload;
+            if (seenNonces.has(nonce)) return;
+            if (Math.abs(Date.now() - timestamp) > REPLAY_WINDOW_MS) return;
+            seenNonces.add(nonce);
+
             const decrypted = await decryptMessage(msg.payload);
             if (decrypted.action === "edit_message" && decrypted.targetNonce) {
                 applyEdit(decrypted);
@@ -257,15 +280,14 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
             ) {
                 await removeChatMessage(decrypted.targetNonce);
                 removeMessageFromUI(decrypted.targetNonce);
-            } else if (decrypted.action === "delete_chat") {
-                onChatDeleted?.();
+            } else if (
+                decrypted.action === "read_message" &&
+                decrypted.targetNonce
+            ) {
+                updateMessage(decrypted.targetNonce, { isRead: true });
             } else {
                 addMessage(decrypted);
             }
-        });
-
-        on("read_receipt", (msg) => {
-            updateMessage(msg.payload.nonce, { isRead: true });
         });
 
         unsubs.push(
@@ -280,6 +302,8 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         );
 
         if (!user.value) await loadUser();
+
+        myKey = await exportSignPublicKey();
 
         const [loadedChat, loadedPeer] = await Promise.all([
             read<Chat>(chatId),
@@ -339,6 +363,5 @@ export function useChatSession(chatId: string, onChatDeleted?: () => void) {
         sendStopTyping,
         deleteMessageForMe,
         deleteMessageForAll,
-        deleteChatForAll: () => sendAction("delete_chat"),
     };
 }

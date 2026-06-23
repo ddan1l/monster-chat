@@ -25,8 +25,7 @@ const statusText = computed(() => {
 
 const emit = defineEmits<{
     openPanel: [];
-    deleteChatForMe: [];
-    deleteChatForAll: [];
+    deleteChat: [];
 }>();
 
 const showDeleteMenu = ref(false);
@@ -39,6 +38,7 @@ const showDeleteMenu = ref(false);
             <UserCard
                 :peer="peer"
                 :online="isOnline"
+                :show-avatar="false"
                 :verified="verified"
                 variant="small"
             >
@@ -55,22 +55,13 @@ const showDeleteMenu = ref(false);
                 </button>
                 <div v-if="showDeleteMenu" class="chat-header__menu-list">
                     <button
-                        class="chat-header__menu-item"
-                        @click="
-                            emit('deleteChatForMe');
-                            showDeleteMenu = false;
-                        "
-                    >
-                        Удалить только у меня
-                    </button>
-                    <button
                         class="chat-header__menu-item chat-header__menu-item_danger"
                         @click="
-                            emit('deleteChatForAll');
+                            emit('deleteChat');
                             showDeleteMenu = false;
                         "
                     >
-                        Удалить у всех
+                        Удалить чат
                     </button>
                 </div>
             </div>

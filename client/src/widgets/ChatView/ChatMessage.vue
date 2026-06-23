@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+
+import { format } from "date-fns";
+import DOMPurify from "dompurify";
+
+import AppMenu from "@shared/ui/components/AppMenu.vue";
+import AppMenuItem from "@shared/ui/components/AppMenuItem.vue";
+import IconCheck from "@shared/ui/icons/IconCheck.vue";
+
+import UserAvatar from "@entities/user/ui/UserAvatar.vue";
 
 import { useFileDownload } from "@features/file-transfer/useFileDownload";
 import type { DecryptedMessage } from "@features/send-message/useChatSession";
@@ -11,6 +20,8 @@ const { downloadFile } = useFileDownload();
 const props = defineProps<{
     msg: DecryptedMessage;
     peer: PeerInfo | null;
+    tail: boolean;
+    continued: boolean;
     editingNonce: string | null;
 }>();
 
@@ -20,180 +31,173 @@ const emit = defineEmits<{
     deleteForAll: [nonce: string];
 }>();
 
-const isMine = () => props.msg.from !== props.peer?.signPubKey;
+const isSelf = computed(() => props.msg.from !== props.peer?.signPubKey);
 
-const menuX = ref(0);
-const menuY = ref(0);
-const showMenu = ref(false);
+// Текст сообщения приходит от пира как HTML — чистим от любого
+// активного содержимого (script/onerror/...) перед вставкой через v-html.
+const safeText = computed(() =>
+    DOMPurify.sanitize(props.msg.text ?? "", {
+        ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "code", "span"],
+        ALLOWED_ATTR: ["href", "target", "rel"],
+    })
+);
 
-function onContextMenu(e: MouseEvent) {
-    e.preventDefault();
-    menuX.value = e.clientX;
-    menuY.value = e.clientY;
-    showMenu.value = true;
-}
-
-function closeMenu() {
-    showMenu.value = false;
-}
+const bubble = ref<HTMLElement | null>(null);
+const menu = ref<InstanceType<typeof AppMenu> | null>(null);
 </script>
 
 <template>
-    <!-- Context menu overlay -->
-    <teleport to="body">
-        <div
-            v-if="showMenu"
-            style="position: fixed; inset: 0; z-index: 99"
-            @click="closeMenu"
-            @contextmenu.prevent="closeMenu"
-        />
-        <div
-            v-if="showMenu"
-            :style="{
-                position: 'fixed',
-                left: menuX + 'px',
-                top: menuY + 'px',
-                zIndex: 100,
-                background: '#1a1a1a',
-                border: '1px solid #333',
-                borderRadius: '8px',
-                padding: '4px',
-                minWidth: '160px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px',
-            }"
-        >
-            <button
-                v-if="isMine()"
-                style="
-                    background: none;
-                    border: none;
-                    color: #ccc;
-                    cursor: pointer;
-                    padding: 7px 12px;
-                    text-align: left;
-                    font-size: 13px;
-                    border-radius: 4px;
-                "
-                :disabled="editingNonce !== null"
-                @click="
-                    emit('editStart', msg.nonce, msg.text ?? '');
-                    closeMenu();
-                "
-            >
-                ✏️ Редактировать
-            </button>
-            <button
-                style="
-                    background: none;
-                    border: none;
-                    color: #ccc;
-                    cursor: pointer;
-                    padding: 7px 12px;
-                    text-align: left;
-                    font-size: 13px;
-                    border-radius: 4px;
-                "
-                @click="
-                    emit('deleteForMe', msg.nonce);
-                    closeMenu();
-                "
-            >
-                🗑️ Удалить у меня
-            </button>
-            <button
-                v-if="isMine()"
-                style="
-                    background: none;
-                    border: none;
-                    color: #f87171;
-                    cursor: pointer;
-                    padding: 7px 12px;
-                    text-align: left;
-                    font-size: 13px;
-                    border-radius: 4px;
-                "
-                @click="
-                    emit('deleteForAll', msg.nonce);
-                    closeMenu();
-                "
-            >
-                🗑️ Удалить у всех
-            </button>
-        </div>
-    </teleport>
-
     <div
         :id="msg.nonce"
         class="mc-message-wrapper"
-        :data-nonce="msg.nonce"
-        :style="{
-            justifyContent: isMine() ? 'flex-end' : 'flex-start',
+        :class="{
+            'mc-message-wrapper_self': isSelf,
+            'mc-message-wrapper_grouped': !tail,
+            'mc-message-wrapper_continued': continued,
         }"
-        @contextmenu="onContextMenu"
+        :data-nonce="msg.nonce"
     >
-        <div class="mc-message">
-            <div style="display: flex; flex-direction: column; gap: 6px">
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <span v-html="msg.text"></span>
-                <div
-                    v-for="(file, i) in msg.files"
-                    :key="i"
-                    style="
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        background: #222;
-                        border-radius: 6px;
-                        padding: 6px 10px;
-                        font-size: 12px;
-                        cursor: pointer;
-                    "
-                    @click="downloadFile(file)"
-                >
-                    <span>📎</span>
-                    <span style="color: #ccc">{{ file.name }}</span>
-                    <span style="color: #666"
-                        >{{ (file.size / 1024).toFixed(0) }} KB</span
-                    >
-                </div>
-            </div>
-            <span v-if="msg.editedAt" style="font-size: 11px; color: #888"
-                >изм.</span
+        <UserAvatar
+            v-if="!isSelf && peer?.avatar"
+            :avatar-key="peer.avatar"
+            :size="30"
+            class="mc-message-wrapper__avatar"
+            :class="{ 'mc-message-wrapper__avatar_hidden': !tail }"
+        />
+        <div
+            ref="bubble"
+            class="mc-message"
+            :class="{ 'mc-message_self': isSelf }"
+            @contextmenu="menu?.openAt($event)"
+        >
+            <div
+                v-for="(file, i) in msg.files"
+                :key="i"
+                class="mc-message__file"
+                @click.stop="downloadFile(file)"
             >
+                <span>📎</span>
+                <span class="mc-message__file-name">{{ file.name }}</span>
+                <span class="mc-message__file-size"
+                    >{{ (file.size / 1024).toFixed(0) }} KB</span
+                >
+            </div>
+            <div class="mc-message__body">
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <span v-html="safeText"></span
+                ><span class="mc-message__meta">
+                    <span v-if="msg.editedAt" class="mc-message__edited"
+                        >изм.</span
+                    >
+                    <span class="mc-message__time">{{
+                        format(msg.timestamp, "HH:mm")
+                    }}</span>
+                    <IconCheck v-if="isSelf" :double="msg.isRead" />
+                </span>
+            </div>
         </div>
 
-        <div
-            style="
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                margin-top: 2px;
-                font-size: 12px;
-                color: #888;
-            "
+        <AppMenu
+            ref="menu"
+            :anchor="bubble"
+            :placement="isSelf ? 'top-end' : 'top-start'"
         >
-            <span v-if="isMine()">{{ msg.isRead ? "✓✓" : "✓" }}</span>
-        </div>
+            <template #default="{ close }">
+                <AppMenuItem
+                    v-if="isSelf"
+                    :disabled="editingNonce !== null"
+                    @click="
+                        emit('editStart', msg.nonce, msg.text ?? '');
+                        close();
+                    "
+                >
+                    ✏️ Редактировать
+                </AppMenuItem>
+                <AppMenuItem
+                    @click="
+                        emit('deleteForMe', msg.nonce);
+                        close();
+                    "
+                >
+                    🗑️ Удалить у меня
+                </AppMenuItem>
+                <AppMenuItem
+                    v-if="isSelf"
+                    variant="danger"
+                    @click="
+                        emit('deleteForAll', msg.nonce);
+                        close();
+                    "
+                >
+                    🗑️ Удалить у всех
+                </AppMenuItem>
+            </template>
+        </AppMenu>
     </div>
 </template>
 
 <style lang="scss" scoped>
 .mc-message-wrapper {
     display: flex;
+    align-items: flex-end;
+    gap: 8px;
     padding: 8px 22px;
+    &_self {
+        justify-content: flex-end;
+    }
+
+    &__avatar {
+        flex-shrink: 0;
+        margin-bottom: 1px;
+        &_hidden {
+            visibility: hidden;
+        }
+    }
 }
 .mc-message {
     background: var(--mc-bg-bubble-in);
     border: 1px solid var(--mc-line);
-    color: var(--fg);
+    border-left: 2px solid var(--mc-line-hard);
+    color: var(--mc-fg);
     padding: 9px 13px 7px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 550;
     line-height: 1.45;
-    max-width: 100%;
     word-wrap: break-word;
     position: relative;
+    max-width: 40%;
+    &_self {
+        background-color: var(--mc-acid);
+        color: var(--mc-fd-dark);
+        box-shadow: 0 0 24px var(--mc-acid-glow);
+        border: none;
+    }
+
+    &__body {
+        display: flow-root;
+    }
+
+    &__meta {
+        float: right;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 8px;
+        margin-top: 7px;
+        font-size: 11px;
+        opacity: 0.7;
+        white-space: nowrap;
+    }
+
+    &__file {
+        margin-bottom: 6px;
+    }
+}
+
+.mc-message-wrapper_grouped {
+    padding-bottom: 2px !important;
+}
+.mc-message-wrapper_continued {
+    padding-top: 2px !important;
 }
 </style>

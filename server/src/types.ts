@@ -16,9 +16,7 @@ export type {
     ApproveChatMessage,
     KnockChatMessage,
     PeerInfoMessage,
-    ReadReceiptMessage,
     TypingMessage,
     StopTypingMessage,
-    DeleteChatMessage,
     CancelChatMessage,
 } from "shared";
