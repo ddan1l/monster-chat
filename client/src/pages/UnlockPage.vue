@@ -100,7 +100,7 @@ async function unlockWithPassword() {
             gap: 24px;
         "
     >
-        <h1>Unlock Monster Chat !!!!</h1>
+        <h1>Unlock Monster Chat</h1>
 
         <div style="display: flex; gap: 16px; align-items: flex-start">
             <template v-if="authMethods.includes('prf')">
