@@ -2,7 +2,9 @@
 import { ref, watch } from "vue";
 
 import AppEditor from "@shared/ui/components/AppEditor.vue";
+import IconSend from "@shared/ui/icons/IconSend.vue";
 
+import FileAudioRecording from "@features/file-transfer/FileAudioRecording.vue";
 import FileUploader from "@features/file-transfer/FileUploader.vue";
 
 import type { FileAttachment } from "shared";
@@ -88,26 +90,30 @@ function submitEdit() {
         </template>
 
         <template v-else>
-            <!-- <FileUploader
-                ref="uploaderRef"
-                :chat-id="chatId"
-                :disabled="disabled"
-                @change="attachments = $event"
-            /> -->
-            <div class="chat-editor__row">
-                <AppEditor
-                    ref="editorRef"
-                    v-model="sendText"
-                    :autofocus="true"
-                    @input="emit('typing')"
-                    @submit="send"
-                />
+            <div class="chat-editor__wrap">
+                <div class="chat-editor__row">
+                    <FileUploader
+                        ref="uploaderRef"
+                        :chat-id="chatId"
+                        :disabled="disabled"
+                        @change="attachments = $event"
+                    />
+
+                    <AppEditor
+                        ref="editorRef"
+                        v-model="sendText"
+                        :autofocus="true"
+                        @input="emit('typing')"
+                        @submit="send"
+                    />
+                    <FileAudioRecording :disabled="disabled" />
+                </div>
                 <button
-                    class="chat-editor__btn chat-editor__btn_primary"
+                    class="chat-editor__send"
                     :disabled="disabled"
                     @click="send"
                 >
-                    Отправить
+                    <IconSend />
                 </button>
             </div>
         </template>
@@ -120,13 +126,20 @@ function submitEdit() {
     background-color: var(--mc-bg-rail);
     border-top: 1px solid var(--mc-line);
     margin-top: 10px;
+    &__wrap {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
     &__row {
+        flex: 1;
         display: flex;
         align-items: flex-end;
         gap: 8px;
         background: var(--mc-bg-input, var(--mc-bg-rail));
         border: 1px solid var(--mc-line);
-        padding: 8px 12px;
+        padding: 4px;
     }
 
     &__btn {
@@ -142,18 +155,30 @@ function submitEdit() {
             color: var(--mc-fg);
             background: var(--mc-bg-sel);
         }
+    }
 
-        &_primary {
-            color: var(--mc-acid);
-            border-color: var(--mc-acid);
-            &:hover {
-                background: var(--mc-acid);
-                color: var(--mc-fd-dark);
-            }
-            &:disabled {
-                opacity: 0.4;
-                pointer-events: none;
-            }
+    &__send {
+        flex-shrink: 0;
+        width: 44px;
+        height: 44px;
+        background: var(--mc-acid);
+        color: #0a0c0a;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        box-shadow: 0 0 20px var(--mc-acid-glow);
+        border: none;
+        transition:
+            box-shadow 0.15s,
+            opacity 0.1s;
+
+        &:hover {
+            box-shadow: 0 0 32px var(--mc-acid-glow-strong);
+        }
+
+        &:disabled {
+            opacity: 0.4;
+            pointer-events: none;
         }
     }
 }

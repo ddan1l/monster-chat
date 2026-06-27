@@ -135,7 +135,6 @@ const showDeleteMenu = ref(false);
         display: flex;
         align-items: center;
         gap: 14px;
-        background: var(--mc-bg-rail);
     }
 
     &__menu {
@@ -146,9 +145,18 @@ const showDeleteMenu = ref(false);
         background: none;
         border: none;
         cursor: pointer;
-        padding: 4px;
-        color: #555;
+        width: 34px;
+        height: 34px;
+        color: var(--mc-fg-mute);
         font-size: 16px;
+        transition:
+            background 0.1s,
+            color 0.1s;
+
+        &:hover {
+            background: var(--mc-bg-sel);
+            color: var(--mc-acid);
+        }
     }
 
     &__menu-list {

@@ -7,6 +7,7 @@ import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
 import { chats } from "@entities/chat/useChats";
 import {
     useChatMessages,
+    PAGE_SIZE,
     type DecryptedMessage,
 } from "@entities/message/useMessages";
 import { usePeerPresence } from "@entities/peer/usePeerPresence";
@@ -31,7 +32,8 @@ export type { DecryptedMessage };
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
-    const { saveChatMessage, getByChat, removeChatMessage } = useChatMessages();
+    const { saveChatMessage, getLastPage, getPageBefore, removeChatMessage } =
+        useChatMessages();
     const { user, load: loadUser } = useUser();
     const { send: wsSend, subscribe } = useWs();
     const {
@@ -51,6 +53,7 @@ export function useChatSession(chatId: string) {
     const chat = ref<Chat | null>(null);
     const peer = ref<PeerInfo | null>(null);
     const messages = ref<DecryptedMessage[]>([]);
+    const hasMoreMessages = ref(false);
     const error = ref<string | null>(null);
 
     let sharedKey: CryptoKey | null = null;
@@ -319,32 +322,35 @@ export function useChatSession(chatId: string) {
         unsubs.push(
             watch(
                 () => chats.value.find((c) => c.id === chatId)?.isActive,
-                async (isActive) => {
-                    if (!isActive) return;
-
-                    const [signPubKey, msgs, activePeer] = await Promise.all([
-                        exportSignPublicKey(),
-                        getByChat(chatId),
-                        readPeer<PeerInfo>(chatId),
-                    ]);
-                    chat.value =
-                        chats.value.find((c) => c.id === chatId) ?? null;
-                    peer.value = activePeer;
-
-                    if (activePeer) await initSharedKey(activePeer.ecdhPubKey);
-
-                    messages.value = await Promise.all(
-                        msgs.map(decryptMessage)
-                    );
-
-                    wsSend({
-                        type: "open_chat",
-                        payload: { chatId, signPubKey },
-                    });
+                (isActive) => {
+                    if (isActive) loadChat();
                 },
                 { immediate: true }
             )
         );
+    }
+
+    async function loadChat(): Promise<void> {
+        const [signPubKey, msgs, activePeer] = await Promise.all([
+            exportSignPublicKey(),
+            getLastPage(chatId),
+            readPeer<PeerInfo>(chatId),
+        ]);
+        chat.value = chats.value.find((c) => c.id === chatId) ?? null;
+        peer.value = activePeer;
+        if (activePeer) await initSharedKey(activePeer.ecdhPubKey);
+        messages.value = await Promise.all(msgs.map(decryptMessage));
+        hasMoreMessages.value = msgs.length === PAGE_SIZE;
+        wsSend({ type: "open_chat", payload: { chatId, signPubKey } });
+    }
+
+    async function loadMoreMessages(): Promise<void> {
+        if (!hasMoreMessages.value || messages.value.length === 0) return;
+        const oldest = messages.value[0].timestamp;
+        const older = await getPageBefore(chatId, oldest);
+        const decrypted = await Promise.all(older.map(decryptMessage));
+        if (decrypted.length < PAGE_SIZE) hasMoreMessages.value = false;
+        messages.value = [...decrypted, ...messages.value];
     }
 
     return {
@@ -354,8 +360,10 @@ export function useChatSession(chatId: string) {
         peerLastSeen,
         isPeerTyping,
         messages,
+        hasMoreMessages,
         error,
         connect,
+        loadMoreMessages,
         sendMessage,
         editMessage,
         markAsRead,

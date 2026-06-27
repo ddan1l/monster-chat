@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { ref } from "vue";
 
 import type { DecryptedMessage } from "@features/send-message/useChatSession";
 
+import ChatDateDivider from "./ChatDateDivider.vue";
 import ChatMessage from "./ChatMessage.vue";
 import ChatTypingIndicator from "./ChatTypingIndicator.vue";
+import { useChatItems } from "./useChatItems";
+import { useChatScroll } from "./useChatScroll";
 
 import type { PeerInfo } from "shared";
 
@@ -13,6 +16,7 @@ const props = defineProps<{
     peer: PeerInfo | null;
     editingNonce: string | null;
     isPeerTyping: boolean;
+    onLoadMore: () => Promise<void>;
 }>();
 
 const emit = defineEmits<{
@@ -23,119 +27,60 @@ const emit = defineEmits<{
 }>();
 
 const listEl = ref<HTMLElement | null>(null);
-const observedNonces = new Set<string>();
-let observer: IntersectionObserver | null = null;
-let initialScrollDone = false;
 
-function scrollToBottom(smooth = false) {
-    if (!listEl.value) return;
-    if (smooth) {
-        listEl.value.scrollTo({
-            top: listEl.value.scrollHeight,
-        });
-    } else {
-        listEl.value.scrollTop = listEl.value.scrollHeight;
-    }
-}
+const { items } = useChatItems(() => props.messages);
 
-function isNearBottom() {
-    if (!listEl.value) return true;
-    const { scrollTop, scrollHeight, clientHeight } = listEl.value;
-    return scrollHeight - scrollTop - clientHeight < 100;
-}
-
-function observePendingMessages() {
-    if (!observer || !props.peer || !listEl.value) return;
-    for (const msg of props.messages) {
-        if (
-            msg.from !== props.peer.signPubKey ||
-            msg.isRead ||
-            observedNonces.has(msg.nonce)
-        )
-            continue;
-        const el = listEl.value.querySelector<HTMLElement>(
-            `[data-nonce="${msg.nonce}"]`
-        );
-        if (el) {
-            observedNonces.add(msg.nonce);
-            observer.observe(el);
-        }
-    }
-}
-
-onMounted(() => {
-    observer = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            const nonce = (entry.target as HTMLElement).dataset.nonce!;
-            observer!.unobserve(entry.target);
-            emit("read", nonce);
-        }
-    });
-});
-
-onUnmounted(() => observer?.disconnect());
-
-watch(
-    () => props.messages.length,
-    async (newLen, oldLen) => {
-        await nextTick();
-        observePendingMessages();
-        if (!initialScrollDone && newLen > 0) {
-            initialScrollDone = true;
-            requestAnimationFrame(() => scrollToBottom());
-        } else if (newLen > (oldLen ?? 0) && isNearBottom()) {
-            scrollToBottom(true);
-        }
-    }
-);
-
-watch(
+useChatScroll(
+    listEl,
+    () => props.messages,
     () => props.peer,
-    async () => {
-        await nextTick();
-        observePendingMessages();
-    }
-);
-
-watch(
     () => props.isPeerTyping,
-    async (val) => {
-        if (val && isNearBottom()) {
-            await nextTick();
-            scrollToBottom(true);
-        }
-    }
+    (nonce) => emit("read", nonce),
+    props.onLoadMore
 );
 </script>
 
 <template>
     <div ref="listEl" class="mc-chat-messages">
-        <ChatMessage
-            v-for="(msg, i) in messages"
-            :key="msg.nonce"
-            :msg="msg"
-            :peer="peer"
-            :tail="
-                messages[i + 1]
-                    ? messages[i + 1].from !== msg.from
-                    : !(isPeerTyping && msg.from === peer?.signPubKey)
-            "
-            :continued="i > 0 && messages[i - 1]?.from === msg.from"
-            :editing-nonce="editingNonce"
-            @edit-start="(nonce, text) => emit('editStart', nonce, text)"
-            @delete-for-me="(nonce) => emit('deleteForMe', nonce)"
-            @delete-for-all="(nonce) => emit('deleteForAll', nonce)"
-        />
+        <template
+            v-for="item in items"
+            :key="item.type === 'divider' ? item.key : item.msg.nonce"
+        >
+            <ChatDateDivider
+                v-if="item.type === 'divider'"
+                :timestamp="item.ts"
+                :data-date="item.key"
+            />
+            <ChatMessage
+                v-else
+                :msg="item.msg"
+                :peer="peer"
+                :tail="
+                    messages[item.index + 1]
+                        ? messages[item.index + 1].from !== item.msg.from
+                        : !(isPeerTyping && item.msg.from === peer?.signPubKey)
+                "
+                :continued="
+                    item.index > 0 &&
+                    messages[item.index - 1]?.from === item.msg.from
+                "
+                :editing-nonce="editingNonce"
+                @edit-start="(nonce, text) => emit('editStart', nonce, text)"
+                @delete-for-me="(nonce) => emit('deleteForMe', nonce)"
+                @delete-for-all="(nonce) => emit('deleteForAll', nonce)"
+            />
+        </template>
 
         <ChatTypingIndicator v-if="isPeerTyping" :peer="peer" />
     </div>
 </template>
+
 <style lang="scss" scoped>
 .mc-chat-messages {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-anchor: none;
     padding: 0;
     margin: 0;
     background:

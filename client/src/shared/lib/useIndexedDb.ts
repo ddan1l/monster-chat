@@ -137,6 +137,34 @@ export function useIndexedDb(storeName: StoreName) {
             req.onerror = () => reject(req.error);
         });
     }
+    async function readByIndexCursor<T>(
+        indexName: string,
+        range: IDBKeyRange,
+        limit: number,
+        direction: IDBCursorDirection = "next"
+    ): Promise<T[]> {
+        const db = await openDb();
+        return new Promise((resolve, reject) => {
+            const results: T[] = [];
+            const req = db
+                .transaction(storeName, "readonly")
+                .objectStore(storeName)
+                .index(indexName)
+                .openCursor(range, direction);
+
+            req.onsuccess = () => {
+                const cursor = req.result;
+                if (!cursor || results.length >= limit) {
+                    resolve(results);
+                    return;
+                }
+                results.push(cursor.value as T);
+                cursor.continue();
+            };
+            req.onerror = () => reject(req.error);
+        });
+    }
+
     async function remove(key: string): Promise<void> {
         const db = await openDb();
         return new Promise((resolve, reject) => {
@@ -149,5 +177,13 @@ export function useIndexedDb(storeName: StoreName) {
         });
     }
 
-    return { read, readAll, write, readByIndex, readLastByIndex, remove };
+    return {
+        read,
+        readAll,
+        write,
+        readByIndex,
+        readByIndexCursor,
+        readLastByIndex,
+        remove,
+    };
 }

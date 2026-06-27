@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import IconFile from "@shared/ui/icons/IconFile.vue";
+
 import { useFileUpload } from "@features/file-transfer/useFileUpload";
 
 import type { FileAttachment } from "shared";
@@ -114,19 +116,10 @@ defineExpose({ clear });
     </div>
 
     <label
-        :style="{
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: disabled ? 0.4 : 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '4px 8px',
-            border: '1px solid #333',
-            borderRadius: '6px',
-            color: '#888',
-            fontSize: '13px',
-        }"
+        class="button-sm file-uploader__btn"
+        :class="{ 'file-uploader__btn_disabled': disabled }"
     >
-        📎
+        <IconFile />
         <input
             type="file"
             multiple
@@ -136,3 +129,17 @@ defineExpose({ clear });
         />
     </label>
 </template>
+
+<style scoped lang="scss">
+.file-uploader__btn {
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+
+    &_disabled {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+}
+</style>

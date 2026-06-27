@@ -4,7 +4,6 @@ import { onBeforeUnmount } from "vue";
 import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
-import { BubbleMenu } from "@tiptap/vue-3/menus";
 
 const props = withDefaults(
     defineProps<{
@@ -67,36 +66,6 @@ defineExpose({ setContent, clear, focus });
 
 <template>
     <div class="mc-editor">
-        <BubbleMenu v-if="editor" :editor="editor" class="mc-editor__bubble">
-            <button
-                class="mc-editor__bubble-btn"
-                :class="{
-                    'mc-editor__bubble-btn_active': editor.isActive('bold'),
-                }"
-                @click="editor.chain().focus().toggleBold().run()"
-            >
-                <b>B</b>
-            </button>
-            <button
-                class="mc-editor__bubble-btn"
-                :class="{
-                    'mc-editor__bubble-btn_active': editor.isActive('italic'),
-                }"
-                @click="editor.chain().focus().toggleItalic().run()"
-            >
-                <i>I</i>
-            </button>
-            <button
-                class="mc-editor__bubble-btn"
-                :class="{
-                    'mc-editor__bubble-btn_active': editor.isActive('strike'),
-                }"
-                @click="editor.chain().focus().toggleStrike().run()"
-            >
-                <s>S</s>
-            </button>
-        </BubbleMenu>
-
         <EditorContent class="mc-editor__content" :editor="editor" />
     </div>
 </template>
@@ -109,10 +78,12 @@ defineExpose({ setContent, clear, focus });
     &__content {
         .tiptap {
             outline: none;
-            font-size: 14px;
+            font-size: 0.875em;
             font-weight: 550;
             line-height: 1.5;
-            min-height: 22px;
+            min-height: 30px;
+            padding: 7px 0;
+            box-sizing: border-box;
             color: var(--mc-fg);
 
             p {

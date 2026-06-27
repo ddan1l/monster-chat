@@ -12,10 +12,11 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
 
 export const lastMessageByChat = ref<Record<string, DecryptedMessage>>({});
 
+export const PAGE_SIZE = 100;
+
 export function useChatMessages() {
-    const { write, readByIndex, readLastByIndex, remove } = useIndexedDb(
-        STORES.MESSAGES
-    );
+    const { write, readByIndex, readByIndexCursor, readLastByIndex, remove } =
+        useIndexedDb(STORES.MESSAGES);
 
     async function saveChatMessage(message: ChatMessage): Promise<void> {
         await write(JSON.parse(JSON.stringify(message)) as ChatMessage);
@@ -31,6 +32,39 @@ export function useChatMessages() {
             [chatId, Number.MAX_SAFE_INTEGER]
         );
         return readByIndex<ChatMessage>(INDEX_CHAT_ID, range);
+    }
+
+    async function getLastPage(chatId: string): Promise<ChatMessage[]> {
+        const range = IDBKeyRange.bound(
+            [chatId, 0],
+            [chatId, Number.MAX_SAFE_INTEGER]
+        );
+        const page = await readByIndexCursor<ChatMessage>(
+            INDEX_CHAT_ID,
+            range,
+            PAGE_SIZE,
+            "prev"
+        );
+        return page.reverse();
+    }
+
+    async function getPageBefore(
+        chatId: string,
+        beforeTimestamp: number
+    ): Promise<ChatMessage[]> {
+        const range = IDBKeyRange.bound(
+            [chatId, 0],
+            [chatId, beforeTimestamp],
+            false,
+            true
+        );
+        const page = await readByIndexCursor<ChatMessage>(
+            INDEX_CHAT_ID,
+            range,
+            PAGE_SIZE,
+            "prev"
+        );
+        return page.reverse();
     }
 
     async function getLastMessage(chatId: string): Promise<ChatMessage | null> {
@@ -53,6 +87,8 @@ export function useChatMessages() {
     return {
         saveChatMessage,
         getByChat,
+        getLastPage,
+        getPageBefore,
         getLastMessage,
         removeChatMessage,
         removeAllByChat,

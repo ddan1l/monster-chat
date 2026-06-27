@@ -27,6 +27,7 @@ const {
     peerLastSeen,
     isPeerTyping,
     connect,
+    loadMoreMessages,
     sendMessage,
     editMessage,
     markAsRead,
@@ -117,6 +118,7 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 :peer="peer"
                 :is-peer-typing="isPeerTyping"
                 :editing-nonce="editingNonce"
+                :on-load-more="loadMoreMessages"
                 @edit-start="handleEditStart"
                 @delete-for-me="deleteMessageForMe"
                 @delete-for-all="deleteMessageForAll"
