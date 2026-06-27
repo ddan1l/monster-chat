@@ -5,6 +5,7 @@ import { PendingChatInMemoryRepository } from "../repositories/PendingChatInMemo
 
 import { NotificationService } from "./NotificationService.js";
 
+import type { PushService } from "./PushService.js";
 import type { ChatMessageQueue } from "../queues/ChatMessageQueue.js";
 import type { UserEventQueue } from "../queues/UserEventQueue.js";
 import type { Peer } from "../types.js";
@@ -25,7 +26,8 @@ export class ChatService {
         private queueRepository: ChatMessageQueue,
         private pendingChatRepository: PendingChatInMemoryRepository,
         private notificationService: NotificationService,
-        private userEventQueue: UserEventQueue
+        private userEventQueue: UserEventQueue,
+        private webPushService: PushService
     ) {}
 
     join(chatId: string, signPubKey: string, peer: Peer): void {
@@ -56,6 +58,7 @@ export class ChatService {
             this.notificationService.send(recipient, delivery);
         } else {
             this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
+            this.webPushService.notify(recipientKey, chatId);
         }
     }
 

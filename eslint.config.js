@@ -26,17 +26,6 @@ export default ts.config(
             "import/resolver": {
                 typescript: true,
                 node: true,
-                alias: {
-                    map: [
-                        ["@shared", "./src/shared"],
-                        ["@entities", "./src/entities"],
-                        ["@features", "./src/features"],
-                        ["@widgets", "./src/widgets"],
-                        ["@pages", "./src/pages"],
-                        ["@app", "./src/app"],
-                    ],
-                    extensions: [".ts", ".js", ".vue", ".json"],
-                },
             },
         },
         rules: {

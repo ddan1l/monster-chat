@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 import svgLoader from "vite-svg-loader";
 
 import { version } from "./package.json";
@@ -10,7 +11,53 @@ export default defineConfig({
     define: {
         __APP_VERSION__: JSON.stringify(version),
     },
-    plugins: [vue(), svgLoader()],
+    plugins: [
+        vue(),
+        svgLoader(),
+        VitePWA({
+            strategies: "injectManifest",
+            srcDir: "src",
+            filename: "sw.ts",
+            registerType: "autoUpdate",
+            includeAssets: ["favicon.png", "icon.svg"],
+            manifest: {
+                name: "Monster Chat",
+                short_name: "Monster",
+                description: "End-to-end encrypted p2p messenger",
+                theme_color: "#0f120f",
+                background_color: "#0f120f",
+                display: "standalone",
+                orientation: "portrait",
+                scope: "/",
+                start_url: "/",
+                icons: [
+                    {
+                        src: "/icon-192.png",
+                        sizes: "192x192",
+                        type: "image/png",
+                    },
+                    {
+                        src: "/icon-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                    },
+                    {
+                        src: "/icon-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "maskable",
+                    },
+                ],
+            },
+            injectManifest: {
+                globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+            },
+            devOptions: {
+                enabled: true,
+                type: "module",
+            },
+        }),
+    ],
     resolve: {
         alias: {
             "@shared": fileURLToPath(new URL("./src/shared", import.meta.url)),
