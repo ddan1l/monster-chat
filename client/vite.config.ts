@@ -51,6 +51,8 @@ export default defineConfig({
             },
             injectManifest: {
                 globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+                rollupFormat: "es",
+                target: "esnext",
             },
             devOptions: {
                 enabled: true,
