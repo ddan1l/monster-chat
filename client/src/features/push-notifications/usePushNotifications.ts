@@ -16,11 +16,12 @@ export async function subscribePush(signPubKey: string): Promise<void> {
 
     const reg = await navigator.serviceWorker.ready;
     const existing = await reg.pushManager.getSubscription();
-    if (existing) await existing.unsubscribe();
-    const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(key),
-    });
+    const subscription =
+        existing ??
+        (await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(key),
+        }));
 
     await fetch("/api/push/subscribe", {
         method: "POST",
