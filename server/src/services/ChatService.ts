@@ -56,8 +56,9 @@ export class ChatService {
             this.notificationService.sendEvent(recipient, delivery);
         } else {
             this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
-            this.notificationService.notify(recipientKey, chatId);
         }
+
+        this.notificationService.notify(recipientKey, chatId);
     }
 
     initChat(chatId: string, hostKey: string, peer: Peer): void {
