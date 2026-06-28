@@ -42,6 +42,7 @@ export function useChatNotification() {
                 await increment(chatId);
             }
 
+            if (!document.hidden && activeChatId.value === chatId) return;
             if (Notification.permission !== "granted") return;
             const peer = await readPeer<PeerInfo>(chatId);
             const reg = await navigator.serviceWorker?.ready;
