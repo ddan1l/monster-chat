@@ -20,6 +20,8 @@ const emit = defineEmits<{
     submit: [];
 }>();
 
+let skipUpdate = false;
+
 const editor = useEditor({
     content: props.modelValue,
     extensions: [
@@ -29,7 +31,7 @@ const editor = useEditor({
     autofocus: props.autofocus,
     onUpdate({ editor }) {
         emit("update:modelValue", editor.getHTML());
-        emit("input");
+        if (!skipUpdate) emit("input");
     },
     editorProps: {
         handleKeyDown(_, event) {
@@ -52,7 +54,9 @@ function setContent(html: string) {
 }
 
 function clear() {
+    skipUpdate = true;
     editor.value?.commands.clearContent(true);
+    skipUpdate = false;
 }
 
 function focus() {
