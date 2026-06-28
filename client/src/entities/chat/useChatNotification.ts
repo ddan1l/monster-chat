@@ -6,7 +6,7 @@ import { useNotifications } from "@shared/lib/useNotifications";
 import { useVisibility } from "@shared/lib/useVisibility";
 
 import { activeChatId } from "@entities/chat/useChats";
-import { avatarUrl } from "@entities/user/useAvatar";
+import { avatarIconUrl } from "@entities/user/useAvatar";
 
 import type { PeerInfo } from "shared";
 
@@ -52,7 +52,9 @@ export function useChatNotification() {
             const peer = await readPeer<PeerInfo>(chatId);
             await notify(peer?.name ?? "Monster Chat", {
                 body: "Новое сообщение",
-                icon: peer?.avatar ? avatarUrl(peer.avatar) : undefined,
+                icon: peer?.avatar
+                    ? await avatarIconUrl(peer.avatar)
+                    : undefined,
                 data: { chatId },
             });
         });
