@@ -1,7 +1,10 @@
 import { ref } from "vue";
 
 import { useWs } from "@shared/api/useWs";
+import { avatarUrl } from "@shared/lib/avatarUrl";
 import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import { useNotifications } from "@shared/lib/useNotifications";
+import { useVisibility } from "@shared/lib/useVisibility";
 
 import { activeChatId } from "@entities/chat/useChats";
 
@@ -11,8 +14,10 @@ export const unreadChatNotifications = ref<Record<string, number>>({});
 
 export function useChatNotification() {
     const { readAll, write, remove } = useIndexedDb(STORES.CHAT_NOTIFICATIONS);
-    const { subscribe } = useWs();
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
+    const { subscribe } = useWs();
+    const { notify } = useNotifications();
+    const { isVisible } = useVisibility();
 
     async function loadNotifications(): Promise<void> {
         const entries = await readAll<{ chatId: string; count: number }>();
@@ -21,7 +26,7 @@ export function useChatNotification() {
         }
     }
 
-    async function increment(chatId: string): Promise<void> {
+    async function incrementUnread(chatId: string): Promise<void> {
         unreadChatNotifications.value[chatId] =
             (unreadChatNotifications.value[chatId] ?? 0) + 1;
         await write({ chatId, count: unreadChatNotifications.value[chatId] });
@@ -39,21 +44,19 @@ export function useChatNotification() {
             const { chatId } = msg.payload;
 
             if (activeChatId.value !== chatId) {
-                await increment(chatId);
+                await incrementUnread(chatId);
             }
 
-            if (!document.hidden && activeChatId.value === chatId) return;
-            if (Notification.permission !== "granted") return;
-            const peer = await readPeer<PeerInfo>(chatId);
-            const reg = await navigator.serviceWorker?.ready;
-            await reg?.showNotification(peer?.name ?? "Monster Chat", {
-                body: "Новое сообщение",
-                icon: "/icon-192.png",
+            if (isVisible.value && activeChatId.value === chatId) return;
 
+            const peer = await readPeer<PeerInfo>(chatId);
+            await notify(peer?.name ?? "Monster Chat", {
+                body: "Новое сообщение",
+                icon: peer?.avatar ? avatarUrl(peer.avatar) : undefined,
                 data: { chatId },
             });
         });
     }
 
-    return { loadNotifications, increment, clearUnread, startSync };
+    return { loadNotifications, incrementUnread, clearUnread, startSync };
 }

@@ -31,30 +31,21 @@ export class NotificationService {
 
     notify(recipientKey: string, chatId: string): void {
         const recipient = this.connectionRepository.get(recipientKey);
+        const notification: ServerNotification = {
+            type: "notification",
+            payload: { chatId, notificationType: "chat_notification" },
+        };
 
         if (recipient?.readyState === WebSocket.OPEN) {
-            const notification: ServerNotification = {
-                type: "notification",
-                payload: { chatId, notificationType: "chat_notification" },
-            };
             this.sendEvent(recipient, notification);
         } else {
-            console.log(
-                "[Notify] recipient offline, sending WebPush for",
-                recipientKey.slice(0, 20)
-            );
+            this.userEventQueue.push(recipientKey, notification);
             this.sendWebPush(recipientKey, chatId);
         }
     }
 
     private sendWebPush(signPubKey: string, chatId: string): void {
         const subs = this.pushSubscriptions.findAll(signPubKey);
-        console.log(
-            "[WebPush] subs found:",
-            subs.length,
-            "for key",
-            signPubKey.slice(0, 20)
-        );
         if (!subs.length) return;
 
         const payload = JSON.stringify({
@@ -66,9 +57,6 @@ export class NotificationService {
         for (const sub of subs) {
             webpush
                 .sendNotification(sub as webpush.PushSubscription, payload)
-                .then((res) => {
-                    console.log("[WebPush] sent ok, status:", res.statusCode);
-                })
                 .catch((err) => {
                     console.error(
                         "[WebPush] send failed",
