@@ -43,7 +43,7 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
     <div class="mc-app">
         <div class="mc-app-container">
             <AppHeader />
-            <RouterView v-if="connected" class="mc-view" />
+            <RouterView class="mc-view" />
         </div>
     </div>
 </template>

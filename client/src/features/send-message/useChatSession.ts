@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted, toRaw } from "vue";
+import { ref, watch, onUnmounted, toRaw, nextTick } from "vue";
 
 import { useWs } from "@shared/api/useWs";
 import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
@@ -45,6 +45,7 @@ export function useChatSession(chatId: string) {
         verify,
     } = useCrypto();
 
+    const { connected } = useWs();
     const { isPeerTyping, sendTyping, sendStopTyping } =
         useTypingIndicator(chatId);
 
@@ -59,9 +60,6 @@ export function useChatSession(chatId: string) {
     let sharedKey: CryptoKey | null = null;
     let myKey: string | null = null;
     const seenNonces = new Set<string>();
-
-    // Окно допустимого расхождения времени для защиты от replay (5 минут).
-    const REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
     const unsubs: (() => void)[] = [];
     function on<T extends ServerMessage["type"]>(
@@ -269,9 +267,8 @@ export function useChatSession(chatId: string) {
         on("message", async (msg) => {
             // Replay-защита: отбрасываем уже виденные nonce и сообщения
             // с временной меткой вне допустимого окна.
-            const { nonce, timestamp } = msg.payload;
+            const { nonce } = msg.payload;
             if (seenNonces.has(nonce)) return;
-            if (Math.abs(Date.now() - timestamp) > REPLAY_WINDOW_MS) return;
             seenNonces.add(nonce);
 
             const decrypted = await decryptMessage(msg.payload);
@@ -328,6 +325,15 @@ export function useChatSession(chatId: string) {
                 { immediate: true }
             )
         );
+
+        unsubs.push(
+            watch(connected, async (isConnected, wasConnected) => {
+                if (isConnected && wasConnected === false) {
+                    await nextTick();
+                    loadChat();
+                }
+            })
+        );
     }
 
     async function loadChat(): Promise<void> {
@@ -341,7 +347,9 @@ export function useChatSession(chatId: string) {
         if (activePeer) await initSharedKey(activePeer.ecdhPubKey);
         messages.value = await Promise.all(msgs.map(decryptMessage));
         hasMoreMessages.value = msgs.length === PAGE_SIZE;
-        wsSend({ type: "open_chat", payload: { chatId, signPubKey } });
+        if (connected.value) {
+            wsSend({ type: "open_chat", payload: { chatId, signPubKey } });
+        }
     }
 
     async function loadMoreMessages(): Promise<void> {
