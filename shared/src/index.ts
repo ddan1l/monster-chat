@@ -212,5 +212,5 @@ export interface ChatEnvelope {
 
 export interface ChatMessage extends ChatEnvelope {
     signature: string; // base64
-    isAction?: boolean;
+    silent?: boolean;
 }

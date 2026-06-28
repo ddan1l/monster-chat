@@ -58,7 +58,7 @@ export class ChatService {
             this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
         }
 
-        if (!payload.isAction) {
+        if (!payload.silent) {
             this.notificationService.notify(recipientKey, chatId);
         }
     }

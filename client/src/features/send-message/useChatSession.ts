@@ -169,7 +169,7 @@ export function useChatSession(chatId: string) {
 
     async function buildSignedMessage(
         content: MessageContent,
-        isAction?: boolean
+        silent?: boolean
     ): Promise<ChatMessage> {
         const nonce = crypto.randomUUID();
         const { payload, iv } = await encrypt(
@@ -193,7 +193,7 @@ export function useChatSession(chatId: string) {
         return {
             ...envelope,
             signature: toBase64(signature),
-            ...(isAction ? { isAction: true } : {}),
+            ...(silent ? { silent: true } : {}),
         };
     }
 
