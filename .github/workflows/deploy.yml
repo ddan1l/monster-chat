@@ -26,6 +26,7 @@ jobs:
         run: npm run build --workspace=client
         env:
           VITE_WS_URL: wss://megamonster.online/ws
+          VITE_APP_NAME: MONSTER CHAT
 
       - name: Copy dist to VPS
         uses: appleboy/scp-action@v0.1.7

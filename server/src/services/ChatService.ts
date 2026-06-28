@@ -53,16 +53,14 @@ export class ChatService {
 
         if (recipient?.readyState === WebSocket.OPEN) {
             this.notificationService.send(recipient, delivery);
-            if (recipient.chatId !== chatId) {
-                const notification = {
-                    type: "notification" as const,
-                    payload: {
-                        chatId,
-                        notificationType: "chat_notification" as const,
-                    },
-                };
-                this.notificationService.send(recipient, notification);
-            }
+            const notification = {
+                type: "notification" as const,
+                payload: {
+                    chatId,
+                    notificationType: "chat_notification" as const,
+                },
+            };
+            this.notificationService.send(recipient, notification);
         } else {
             this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
             this.webPushService.notify(recipientKey, chatId);

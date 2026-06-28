@@ -56,6 +56,8 @@ export function useChatNotification() {
                 await increment(chatId);
             }
 
+            if (!document.hidden && activeChatId.value === chatId) return;
+
             const peer = await readPeer<PeerInfo>(chatId);
             notify(peer?.name ?? "Новое сообщение", {
                 body: "Новое сообщение",
