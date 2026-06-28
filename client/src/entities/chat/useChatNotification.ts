@@ -46,15 +46,25 @@ export function useChatNotification() {
             if (Notification.permission !== "granted") return;
 
             const peer = await readPeer<PeerInfo>(chatId);
-            const n = new Notification(peer?.name ?? "Новое сообщение", {
+            const title = peer?.name ?? "Monster Chat";
+            const options: NotificationOptions = {
                 body: "Новое сообщение",
                 icon: "/icon-192.png",
                 tag: chatId,
-            });
-            n.onclick = () => {
-                window.focus();
-                window.location.href = `/chat/${chatId}`;
+                renotify: true,
+                data: { chatId },
             };
+
+            if ("serviceWorker" in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                await reg.showNotification(title, options);
+            } else {
+                const n = new Notification(title, options);
+                n.onclick = () => {
+                    window.focus();
+                    window.location.href = `/chat/${chatId}`;
+                };
+            }
         });
     }
 

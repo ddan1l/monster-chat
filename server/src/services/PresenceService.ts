@@ -1,7 +1,6 @@
 import { WebSocket } from "ws";
 
 import type { NotificationService } from "./NotificationService.js";
-import type { PushService } from "./PushService.js";
 import type { UserEventQueue } from "../queues/UserEventQueue.js";
 import type { ConnectionInMemoryRepository } from "../repositories/ConnectionInMemoryRepository.js";
 import type { Peer } from "../types.js";
@@ -16,8 +15,7 @@ export class PresenceService {
     constructor(
         private connectionRepository: ConnectionInMemoryRepository,
         private userEventQueue: UserEventQueue,
-        private notificationService: NotificationService,
-        private pushService: PushService
+        private notificationService: NotificationService
     ) {}
 
     register(signPubKey: string, peer: Peer, peerKeys: string[]): void {
@@ -26,7 +24,9 @@ export class PresenceService {
         this.connectionRepository.set(signPubKey, peer);
 
         const pending = this.userEventQueue.flush(signPubKey);
-        pending.forEach((event) => this.notificationService.send(peer, event));
+        pending.forEach((event) =>
+            this.notificationService.sendEvent(peer, event)
+        );
 
         this.relay(signPubKey, peerKeys, "peer_online");
     }
@@ -45,12 +45,6 @@ export class PresenceService {
         this.relay(senderKey, recipientKeys, type);
     }
 
-    notify(chatId: string, recipientKey: string): void {
-        const recipient = this.connectionRepository.get(recipientKey);
-        if (recipient?.chatId === chatId) return;
-        this.pushService.notify(recipientKey, chatId);
-    }
-
     isRegistered(signPubKey: string): boolean {
         const peer = this.connectionRepository.get(signPubKey);
         return peer?.readyState === WebSocket.OPEN;
@@ -66,7 +60,7 @@ export class PresenceService {
         for (const recipientKey of recipientKeys) {
             const conn = this.connectionRepository.get(recipientKey);
             if (conn?.readyState !== WebSocket.OPEN) continue;
-            this.notificationService.send(conn, {
+            this.notificationService.sendEvent(conn, {
                 type,
                 payload: { signPubKey: senderKey },
             });

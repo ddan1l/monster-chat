@@ -12,8 +12,6 @@ import { ChatService } from "./services/ChatService.js";
 import { FileService } from "./services/FileService.js";
 import { NotificationService } from "./services/NotificationService.js";
 import { PresenceService } from "./services/PresenceService.js";
-import { WebPushService } from "./services/WebPushService.js";
-import { WsPushService } from "./services/WsPushService.js";
 import { LocalFileStorage } from "./storage/LocalFileStorage.js";
 
 import type { ChatMessageQueue } from "./queues/ChatMessageQueue.js";
@@ -39,20 +37,18 @@ if (driver === "sqlite") {
 
 const connectionRepository = new ConnectionInMemoryRepository();
 const pendingChatRepository = new PendingChatInMemoryRepository();
-const notificationService = new NotificationService();
+
+export const pushSubscriptions = pushSubscriptionRepository;
 
 const fileStorage = new LocalFileStorage(
     process.env.UPLOADS_DIR ?? "./uploads"
 );
 
-const wsPushService = new WsPushService(
+const notificationService = new NotificationService(
     connectionRepository,
     userEventQueue,
-    notificationService
+    pushSubscriptionRepository
 );
-
-export const webPushService = new WebPushService(pushSubscriptionRepository);
-export const pushSubscriptions = pushSubscriptionRepository;
 
 export const fileService = new FileService(fileStorage);
 export const chatService = new ChatService(
@@ -60,12 +56,10 @@ export const chatService = new ChatService(
     chatMessageQueue,
     pendingChatRepository,
     notificationService,
-    userEventQueue,
-    webPushService
+    userEventQueue
 );
 export const presenceService = new PresenceService(
     connectionRepository,
     userEventQueue,
-    notificationService,
-    wsPushService
+    notificationService
 );

@@ -5,7 +5,6 @@ import { PendingChatInMemoryRepository } from "../repositories/PendingChatInMemo
 
 import { NotificationService } from "./NotificationService.js";
 
-import type { PushService } from "./PushService.js";
 import type { ChatMessageQueue } from "../queues/ChatMessageQueue.js";
 import type { UserEventQueue } from "../queues/UserEventQueue.js";
 import type { Peer } from "../types.js";
@@ -26,8 +25,7 @@ export class ChatService {
         private queueRepository: ChatMessageQueue,
         private pendingChatRepository: PendingChatInMemoryRepository,
         private notificationService: NotificationService,
-        private userEventQueue: UserEventQueue,
-        private webPushService: PushService
+        private userEventQueue: UserEventQueue
     ) {}
 
     join(chatId: string, signPubKey: string, peer: Peer): void {
@@ -39,11 +37,11 @@ export class ChatService {
                 type: "message",
                 payload: msg,
             };
-            this.notificationService.send(peer, delivery);
+            this.notificationService.sendEvent(peer, delivery);
         });
 
         const joined: ServerChatOpened = { type: "chat_opened" };
-        this.notificationService.send(peer, joined);
+        this.notificationService.sendEvent(peer, joined);
     }
 
     deliver(chatId: string, payload: ChatMessage): void {
@@ -55,20 +53,10 @@ export class ChatService {
             recipient?.readyState === WebSocket.OPEN &&
             recipient.chatId === chatId
         ) {
-            this.notificationService.send(recipient, delivery);
-        } else if (recipient?.readyState === WebSocket.OPEN) {
-            this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
-            const notification = {
-                type: "notification" as const,
-                payload: {
-                    chatId,
-                    notificationType: "chat_notification" as const,
-                },
-            };
-            this.notificationService.send(recipient, notification);
+            this.notificationService.sendEvent(recipient, delivery);
         } else {
             this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
-            this.webPushService.notify(recipientKey, chatId);
+            this.notificationService.notify(recipientKey, chatId);
         }
     }
 
@@ -95,7 +83,7 @@ export class ChatService {
                 type: "error",
                 message: "Invalid chat or fingerprint.",
             };
-            this.notificationService.send(knockerPeer, error);
+            this.notificationService.sendEvent(knockerPeer, error);
             return;
         }
 
@@ -122,7 +110,7 @@ export class ChatService {
                 type: "error",
                 message: "No pending knock for this chat.",
             };
-            this.notificationService.send(peer, error);
+            this.notificationService.sendEvent(peer, error);
             return;
         }
 
@@ -156,7 +144,7 @@ export class ChatService {
         const recipient = this.connectionRepository.get(peerSignPubKey);
 
         if (recipient?.readyState === WebSocket.OPEN) {
-            this.notificationService.send(recipient, event);
+            this.notificationService.sendEvent(recipient, event);
         } else {
             this.userEventQueue.push(peerSignPubKey, event);
         }
@@ -168,7 +156,7 @@ export class ChatService {
         signPubKey: string
     ): void {
         if (peer.readyState === WebSocket.OPEN) {
-            this.notificationService.send(peer, event);
+            this.notificationService.sendEvent(peer, event);
         } else {
             this.userEventQueue.push(signPubKey, event);
         }
