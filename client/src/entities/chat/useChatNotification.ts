@@ -51,7 +51,6 @@ export function useChatNotification() {
                 body: "Новое сообщение",
                 icon: "/icon-192.png",
                 tag: chatId,
-                renotify: true,
                 data: { chatId },
             };
 
