@@ -43,10 +43,12 @@ export function useChatNotification() {
             }
 
             if (!document.hidden && activeChatId.value === chatId) return;
-            if (Notification.permission !== "granted") return;
 
             const peer = await readPeer<PeerInfo>(chatId);
             const title = peer?.name ?? "Monster Chat";
+
+            console.log("SHOW", msg);
+
             const options: NotificationOptions = {
                 body: "Новое сообщение",
                 icon: "/icon-192.png",
