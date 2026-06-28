@@ -46,26 +46,16 @@ export function useChatNotification() {
 
             const peer = await readPeer<PeerInfo>(chatId);
             const title = peer?.name ?? "Monster Chat";
-
-            console.log("SHOW", msg);
-
-            const options: NotificationOptions = {
+            const n = new Notification(title, {
                 body: "Новое сообщение",
                 icon: "/icon-192.png",
                 tag: chatId,
                 data: { chatId },
+            });
+            n.onclick = () => {
+                window.focus();
+                window.location.href = `/chat/${chatId}`;
             };
-
-            if ("serviceWorker" in navigator) {
-                const reg = await navigator.serviceWorker.ready;
-                await reg.showNotification(title, options);
-            } else {
-                const n = new Notification(title, options);
-                n.onclick = () => {
-                    window.focus();
-                    window.location.href = `/chat/${chatId}`;
-                };
-            }
         });
     }
 
