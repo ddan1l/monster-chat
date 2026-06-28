@@ -47,6 +47,7 @@ export function useChatNotification() {
                 await incrementUnread(chatId);
             }
 
+            if (msg.payload.silent) return;
             if (isVisible.value && activeChatId.value === chatId) return;
 
             const peer = await readPeer<PeerInfo>(chatId);

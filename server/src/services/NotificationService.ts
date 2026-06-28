@@ -39,6 +39,7 @@ export class NotificationService {
         if (recipient?.readyState === WebSocket.OPEN) {
             this.sendEvent(recipient, notification);
         } else {
+            notification.payload.silent = true;
             this.userEventQueue.push(recipientKey, notification);
             this.sendWebPush(recipientKey, chatId);
         }

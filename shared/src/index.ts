@@ -82,7 +82,7 @@ export type NotificationType = "chat_notification";
 
 export interface ServerNotification {
     type: "notification";
-    payload: { chatId: string; notificationType: NotificationType };
+    payload: { chatId: string; notificationType: NotificationType; silent?: boolean };
 }
 
 export interface ServerChatOpened {
