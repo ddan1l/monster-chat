@@ -66,9 +66,9 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
             :is-active="route.params.chatId === chat.id"
             @select="router.push(`/chat/${chat.id}`)"
         />
-    </div>
 
-    <div class="mc-chat-list__version">v{{ version }}</div>
+        <div class="mc-chat-list__version">v{{ version }}</div>
+    </div>
 
     <ChatKnockModal v-if="showNewChat" @close="showNewChat = false" />
 </template>
