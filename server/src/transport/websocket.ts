@@ -9,6 +9,7 @@ import { onMessage } from "../handlers/onMessage.js";
 import { onOnline } from "../handlers/onOnline.js";
 import { onOpenChat } from "../handlers/onOpenChat.js";
 import { onPeerInfo } from "../handlers/onPeerInfo.js";
+import { onPing } from "../handlers/onPing.js";
 import { onTyping } from "../handlers/onTyping.js";
 
 import type { Peer, ClientMessage } from "../types.js";
@@ -25,6 +26,7 @@ const handlers = {
     typing: onTyping,
     stop_typing: onTyping,
     cancel_chat: onCancelChat,
+    ping: onPing,
 } satisfies {
     [K in ClientMessage["type"]]: (
         ws: Peer,

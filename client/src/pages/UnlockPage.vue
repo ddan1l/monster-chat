@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { useAuth, type AuthMethod } from "@features/auth/useAuth";
 
 const router = useRouter();
+const route = useRoute();
+
+function redirectAfterUnlock() {
+    const redirect = route.query.redirect;
+    router.replace(typeof redirect === "string" ? redirect : "/");
+}
+
 const {
     getAuthMethods,
     authenticate,
@@ -55,7 +62,7 @@ async function unlockWithPrf() {
     prfError.value = null;
     try {
         await authenticate();
-        router.replace("/");
+        redirectAfterUnlock();
     } catch (e) {
         console.error("[unlock:prf]", e);
         prfError.value = "Authentication failed. Try again.";
@@ -70,7 +77,7 @@ async function unlockWithPassword() {
     passwordError.value = null;
     try {
         await authenticateWithPassword(password.value);
-        router.replace("/");
+        redirectAfterUnlock();
     } catch (e) {
         console.error("[unlock:password]", e);
         const msg = e instanceof Error ? e.message : "";

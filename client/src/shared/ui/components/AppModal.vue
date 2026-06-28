@@ -15,10 +15,23 @@ const emit = defineEmits<{ close: [] }>();
 const localVisible = ref(false);
 const ANIMATION_DURATION = 150;
 
+const closeModal = () => {
+    localVisible.value = false;
+    document.removeEventListener("keydown", onKey);
+    setTimeout(() => {
+        emit("close");
+    }, ANIMATION_DURATION);
+};
+
 const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
         closeModal();
     }
+};
+
+const close = () => {
+    if (!localVisible.value) return;
+    closeModal();
 };
 
 watch(
@@ -33,20 +46,6 @@ watch(
     },
     { immediate: true }
 );
-
-const close = () => {
-    if (!localVisible.value) return;
-    closeModal();
-};
-
-const closeModal = () => {
-    localVisible.value = false;
-    document.removeEventListener("keydown", onKey);
-
-    setTimeout(() => {
-        emit("close");
-    }, ANIMATION_DURATION);
-};
 
 onBeforeUnmount(() => {
     document.removeEventListener("keydown", onKey);

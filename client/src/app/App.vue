@@ -9,10 +9,8 @@ import { useChats } from "@entities/chat/useChats";
 import { useKnocks } from "@entities/chat/usePendingKnocks";
 import { usePeers } from "@entities/peer/usePeers";
 
-import {
-    subscribePush,
-    usePushNotifications,
-} from "@features/push-notifications/usePushNotifications";
+import { subscribePush } from "@features/push-notifications/usePushNotifications";
+import { usePwa } from "@features/pwa/usePwa";
 
 import AppHeader from "@widgets/AppHeader/AppHeader.vue";
 
@@ -24,7 +22,7 @@ useChats().startSync();
 useKnocks().startSync();
 syncPeers();
 useChatNotification().startSync();
-usePushNotifications();
+const { isPwa } = usePwa();
 
 onMounted(() => {
     connect();
@@ -40,7 +38,7 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
 </script>
 
 <template>
-    <div class="mc-app">
+    <div class="mc-app" :class="{ 'mc-app_pwa': isPwa }">
         <div class="mc-app-container">
             <AppHeader />
             <RouterView class="mc-view" />
@@ -53,6 +51,9 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
     padding: 20px;
     height: 100vh;
     overflow: hidden;
+    &_pwa {
+        padding: 0;
+    }
 }
 .mc-app-container {
     border: 1px solid var(--mc-line-hard);

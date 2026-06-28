@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
 
 import vue from "@vitejs/plugin-vue";
@@ -5,11 +6,11 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import svgLoader from "vite-svg-loader";
 
-import { version } from "./package.json";
+const appVersion = execSync("git rev-parse --short HEAD").toString().trim();
 
 export default defineConfig({
     define: {
-        __APP_VERSION__: JSON.stringify(version),
+        __APP_VERSION__: JSON.stringify(appVersion),
     },
     plugins: [
         vue(),

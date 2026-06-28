@@ -10,6 +10,11 @@ type Unsubscribe = () => void;
 interface UseWs {
     connected: ReturnType<typeof ref<boolean>>;
     reconnecting: ReturnType<typeof ref<boolean>>;
+    reconnectCount: ReturnType<typeof ref<number>>;
+    txBytes: ReturnType<typeof ref<number>>;
+    rxBytes: ReturnType<typeof ref<number>>;
+    connectedAt: ReturnType<typeof ref<number | null>>;
+    endpoint: string;
     connect: () => void;
     send: (payload: ClientMessage) => void;
     subscribe: <T extends ServerMessage["type"]>(
@@ -21,9 +26,14 @@ interface UseWs {
 const ws = ref<WebSocket | null>(null);
 const connected = ref(false);
 const reconnecting = ref(false);
+const reconnectCount = ref(0);
+const txBytes = ref(0);
+const rxBytes = ref(0);
+const connectedAt = ref<number | null>(null);
 const messageHandlers = new Set<MessageHandler>();
 let retryDelay = 1000;
 
+const endpoint = import.meta.env.VITE_WS_URL as string;
 const log = useLog("useWs");
 
 export function useWs(): UseWs {
@@ -31,14 +41,16 @@ export function useWs(): UseWs {
         if (ws.value) return;
 
         log.info("connecting...");
-        ws.value = new WebSocket(import.meta.env.VITE_WS_URL);
+        ws.value = new WebSocket(endpoint);
         ws.value.onopen = () => {
             log.info("connected");
             connected.value = true;
             reconnecting.value = false;
+            connectedAt.value = Date.now();
             retryDelay = 1000;
         };
         ws.value.onmessage = ({ data }) => {
+            rxBytes.value += (data as string).length;
             const msg: ServerMessage = JSON.parse(data);
             log.info("←", msg.type, msg);
             messageHandlers.forEach((h) => h(msg));
@@ -48,6 +60,8 @@ export function useWs(): UseWs {
             ws.value = null;
             connected.value = false;
             reconnecting.value = true;
+            connectedAt.value = null;
+            reconnectCount.value++;
             setTimeout(() => connect(), retryDelay);
             retryDelay = Math.min(retryDelay * 2, 30_000);
         };
@@ -67,9 +81,22 @@ export function useWs(): UseWs {
     }
 
     function send(payload: ClientMessage): void {
+        const str = JSON.stringify(payload);
+        txBytes.value += str.length;
         log.info("→", payload.type, payload);
-        ws.value?.send(JSON.stringify(payload));
+        ws.value?.send(str);
     }
 
-    return { connected, reconnecting, connect, send, subscribe };
+    return {
+        connected,
+        reconnecting,
+        reconnectCount,
+        txBytes,
+        rxBytes,
+        connectedAt,
+        endpoint,
+        connect,
+        send,
+        subscribe,
+    };
 }

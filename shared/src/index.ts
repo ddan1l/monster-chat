@@ -54,6 +54,11 @@ export interface CancelChatMessage {
     payload: { chatId: string };
 }
 
+export interface PingMessage {
+    type: "ping";
+    payload: { ts: number };
+}
+
 export type ClientMessage =
     | OpenChatMessage
     | SendMessage
@@ -64,7 +69,8 @@ export type ClientMessage =
     | PeerInfoMessage
     | TypingMessage
     | StopTypingMessage
-    | CancelChatMessage;
+    | CancelChatMessage
+    | PingMessage;
 
 // Messages sent from server to client
 export interface ServerMessageDelivery {
@@ -129,6 +135,11 @@ export interface ServerPeerStopTyping {
     payload: { signPubKey: string };
 }
 
+export interface ServerPong {
+    type: "pong";
+    payload: { ts: number };
+}
+
 export type ServerMessage =
     | ServerChatOpened
     | ServerChatCreated
@@ -140,7 +151,8 @@ export type ServerMessage =
     | ServerPeerOnline
     | ServerPeerOffline
     | ServerPeerTyping
-    | ServerPeerStopTyping;
+    | ServerPeerStopTyping
+    | ServerPong;
 
 export interface Chat {
     id: string;

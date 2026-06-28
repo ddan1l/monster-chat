@@ -41,7 +41,9 @@ router.beforeEach(async (to) => {
     const { encryptionKeyPair } = useCrypto();
     if (!encryptionKeyPair.value) {
         const restored = await useAuth().restoreFromSession();
-        if (!restored) return "/unlock";
+        if (!restored) {
+            return { path: "/unlock", query: { redirect: to.fullPath } };
+        }
     }
 });
 
