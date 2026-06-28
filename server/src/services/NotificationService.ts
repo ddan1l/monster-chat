@@ -66,6 +66,9 @@ export class NotificationService {
         for (const sub of subs) {
             webpush
                 .sendNotification(sub as webpush.PushSubscription, payload)
+                .then((res) => {
+                    console.log("[WebPush] sent ok, status:", res.statusCode);
+                })
                 .catch((err) => {
                     console.error(
                         "[WebPush] send failed",
