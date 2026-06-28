@@ -32,6 +32,12 @@ export class WebPushService implements PushService {
             webpush
                 .sendNotification(sub as webpush.PushSubscription, payload)
                 .catch((err) => {
+                    console.error(
+                        "[WebPush] send failed",
+                        err.statusCode,
+                        err.body,
+                        sub.endpoint
+                    );
                     if (err.statusCode === 404 || err.statusCode === 410) {
                         this.subscriptions.remove(signPubKey, sub.endpoint!);
                     }
