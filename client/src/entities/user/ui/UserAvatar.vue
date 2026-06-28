@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { Component } from "vue";
 import { computed } from "vue";
+
+import { avatarComponent } from "@entities/user/useAvatar";
 
 const props = defineProps<{
     avatarKey: string;
@@ -11,15 +12,7 @@ const props = defineProps<{
 
 defineEmits<{ select: [key: string] }>();
 
-const modules = import.meta.glob("/src/shared/ui/icons/avatars/*.svg", {
-    eager: true,
-    query: "?component",
-    import: "default",
-});
-
-const component = computed(
-    () => modules[props.avatarKey] as Component | undefined
-);
+const component = computed(() => avatarComponent(props.avatarKey));
 
 const tag = computed(() => (props.selectable ? "button" : "div"));
 </script>

@@ -1,12 +1,12 @@
 import { ref } from "vue";
 
 import { useWs } from "@shared/api/useWs";
-import { avatarUrl } from "@shared/lib/avatarUrl";
 import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
 import { useNotifications } from "@shared/lib/useNotifications";
 import { useVisibility } from "@shared/lib/useVisibility";
 
 import { activeChatId } from "@entities/chat/useChats";
+import { avatarUrl } from "@entities/user/useAvatar";
 
 import type { PeerInfo } from "shared";
 
