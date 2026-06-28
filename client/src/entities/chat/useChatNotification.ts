@@ -42,20 +42,15 @@ export function useChatNotification() {
                 await increment(chatId);
             }
 
-            if (!document.hidden && activeChatId.value === chatId) return;
-
+            if (Notification.permission !== "granted") return;
             const peer = await readPeer<PeerInfo>(chatId);
-            const title = peer?.name ?? "Monster Chat";
-            const n = new Notification(title, {
+            const reg = await navigator.serviceWorker?.ready;
+            await reg?.showNotification(peer?.name ?? "Monster Chat", {
                 body: "Новое сообщение",
                 icon: "/icon-192.png",
-                tag: chatId,
+
                 data: { chatId },
             });
-            n.onclick = () => {
-                window.focus();
-                window.location.href = `/chat/${chatId}`;
-            };
         });
     }
 

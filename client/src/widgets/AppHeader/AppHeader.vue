@@ -38,7 +38,7 @@ const {
     <header class="mc-app-header">
         <div v-if="!isPwa" class="mc-app-header__title-row">
             <button class="mc-app-header__title" @click="open = true">
-                {{ name }} · v{{ version }}
+                {{ name }} · VERSION({{ version }})
             </button>
         </div>
 
