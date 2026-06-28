@@ -39,12 +39,22 @@ export class NotificationService {
             };
             this.sendEvent(recipient, notification);
         } else {
+            console.log(
+                "[Notify] recipient offline, sending WebPush for",
+                recipientKey.slice(0, 20)
+            );
             this.sendWebPush(recipientKey, chatId);
         }
     }
 
     private sendWebPush(signPubKey: string, chatId: string): void {
         const subs = this.pushSubscriptions.findAll(signPubKey);
+        console.log(
+            "[WebPush] subs found:",
+            subs.length,
+            "for key",
+            signPubKey.slice(0, 20)
+        );
         if (!subs.length) return;
 
         const payload = JSON.stringify({
