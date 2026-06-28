@@ -38,7 +38,6 @@ export class NotificationService {
                 payload: { chatId, notificationType: "chat_notification" },
             };
             this.sendEvent(recipient, notification);
-            this.sendWebPush(recipientKey, chatId);
         } else {
             console.log(
                 "[Notify] recipient offline, sending WebPush for",
