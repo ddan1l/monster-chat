@@ -31,6 +31,7 @@ const txBytes = ref(0);
 const rxBytes = ref(0);
 const connectedAt = ref<number | null>(null);
 const messageHandlers = new Set<MessageHandler>();
+const sendQueue: ClientMessage[] = [];
 let retryDelay = 1000;
 
 const endpoint = import.meta.env.VITE_WS_URL as string;
@@ -48,6 +49,7 @@ export function useWs(): UseWs {
             reconnecting.value = false;
             connectedAt.value = Date.now();
             retryDelay = 1000;
+            while (sendQueue.length) send(sendQueue.shift()!);
         };
         ws.value.onmessage = ({ data }) => {
             rxBytes.value += (data as string).length;
@@ -62,6 +64,7 @@ export function useWs(): UseWs {
             reconnecting.value = true;
             connectedAt.value = null;
             reconnectCount.value++;
+            sendQueue.length = 0;
             setTimeout(() => connect(), retryDelay);
             retryDelay = Math.min(retryDelay * 2, 30_000);
         };
@@ -81,10 +84,14 @@ export function useWs(): UseWs {
     }
 
     function send(payload: ClientMessage): void {
+        if (ws.value?.readyState !== WebSocket.OPEN) {
+            sendQueue.push(payload);
+            return;
+        }
         const str = JSON.stringify(payload);
         txBytes.value += str.length;
         log.info("→", payload.type, payload);
-        ws.value?.send(str);
+        ws.value.send(str);
     }
 
     return {
