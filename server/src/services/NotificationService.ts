@@ -38,6 +38,7 @@ export class NotificationService {
                 payload: { chatId, notificationType: "chat_notification" },
             };
             this.sendEvent(recipient, notification);
+            this.sendWebPush(recipientKey, chatId);
         } else {
             console.log(
                 "[Notify] recipient offline, sending WebPush for",
@@ -59,7 +60,7 @@ export class NotificationService {
 
         const payload = JSON.stringify({
             title: "Monster Chat",
-            body: "Новое сообщение",
+            body: "Новое сообщение(WEBPUSH)",
             chatId,
         });
 
