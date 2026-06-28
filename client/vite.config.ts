@@ -9,6 +9,9 @@ import svgLoader from "vite-svg-loader";
 const appVersion = execSync("git rev-parse --short HEAD").toString().trim();
 
 export default defineConfig({
+    build: {
+        sourcemap: true,
+    },
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
     },

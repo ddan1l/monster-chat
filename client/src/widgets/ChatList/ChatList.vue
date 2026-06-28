@@ -18,6 +18,9 @@ import ChatListItem from "@widgets/ChatList/ChatListItem.vue";
 
 import type { PeerInfo } from "shared";
 
+declare const __APP_VERSION__: string;
+const version = __APP_VERSION__;
+
 const router = useRouter();
 const route = useRoute();
 const { loadChats } = useChats();
@@ -65,6 +68,8 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
         />
     </div>
 
+    <div class="mc-chat-list__version">v{{ version }}</div>
+
     <ChatKnockModal v-if="showNewChat" @close="showNewChat = false" />
 </template>
 
@@ -72,5 +77,16 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
 .mc-chat-list {
     background-color: var(--mc-bg-list);
     border-right: 1px solid var(--mc-line-hard);
+    display: flex;
+    flex-direction: column;
+
+    &__version {
+        margin-top: auto;
+        padding: 8px 16px;
+        font-size: 0.6875em;
+        font-family: var(--mc-mono);
+        color: var(--mc-fg-dim);
+        border-top: 1px solid var(--mc-line-hard);
+    }
 }
 </style>
