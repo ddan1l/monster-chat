@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
+import { onMounted, onUnmounted, watch } from "vue";
+
+import { useRouter } from "vue-router";
 
 import { useWs } from "@shared/api/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
@@ -15,6 +17,20 @@ import { usePwa } from "@features/pwa/usePwa";
 import AppHeader from "@widgets/AppHeader/AppHeader.vue";
 
 const { connect, connected } = useWs();
+const router = useRouter();
+
+function onSwMessage(event: MessageEvent) {
+    if (event.data?.type === "navigate") {
+        router.push(event.data.url);
+    }
+}
+
+onMounted(() =>
+    navigator.serviceWorker?.addEventListener("message", onSwMessage)
+);
+onUnmounted(() =>
+    navigator.serviceWorker?.removeEventListener("message", onSwMessage)
+);
 const { signKeyPair, exportSignPublicKey } = useCrypto();
 const { startSync: syncPeers, announceOnline } = usePeers();
 

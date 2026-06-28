@@ -36,7 +36,7 @@ self.addEventListener("notificationclick", (event) => {
             .then((clientList) => {
                 if (clientList.length > 0) {
                     clientList[0].focus();
-                    clientList[0].navigate(url);
+                    clientList[0].postMessage({ type: "navigate", url });
                 } else {
                     self.clients.openWindow(url);
                 }
