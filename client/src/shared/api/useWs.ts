@@ -54,7 +54,7 @@ export function useWs(): UseWs {
         ws.value.onmessage = ({ data }) => {
             rxBytes.value += (data as string).length;
             const msg: ServerMessage = JSON.parse(data);
-            log.info("←", msg.type, msg);
+            if (msg.type !== "pong") log.info("←", msg.type, msg);
             messageHandlers.forEach((h) => h(msg));
         };
         ws.value.onclose = () => {
@@ -90,7 +90,7 @@ export function useWs(): UseWs {
         }
         const str = JSON.stringify(payload);
         txBytes.value += str.length;
-        log.info("→", payload.type, payload);
+        if (payload.type !== "ping") log.info("→", payload.type, payload);
         ws.value.send(str);
     }
 

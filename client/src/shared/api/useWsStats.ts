@@ -25,7 +25,8 @@ export function useWsStats() {
     });
 
     watch(connected, (val) => {
-        if (!val) ping.value = null;
+        if (val) sendPing();
+        else ping.value = null;
     });
 
     function sendPing() {
