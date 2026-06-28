@@ -204,7 +204,7 @@ const {
         color: var(--mc-fg-dim);
 
         &_sig {
-            transform: translateY(1px);
+            transform: translateY(2px);
         }
     }
 
