@@ -33,6 +33,7 @@ export class PresenceService {
 
     unregister(peer: Peer): void {
         if (!peer.signPubKey) return;
+        if (this.connectionRepository.get(peer.signPubKey) !== peer) return;
         this.relay(peer.signPubKey, peer.watchedPeers ?? [], "peer_offline");
         this.connectionRepository.delete(peer.signPubKey);
     }
