@@ -105,6 +105,7 @@ jobs:
             MAC_ARM=$(ls $RELEASES/release-darwin-aarch64/*.tar.gz 2>/dev/null | head -1)
             MAC_ARM_SIG=$(cat ${MAC_ARM}.sig 2>/dev/null || echo "")
 
+            mkdir -p /var/www/monster-chat/server/updates
             cat > /var/www/monster-chat/server/updates/latest.json <<EOF
             {
               "version": "$VERSION",
