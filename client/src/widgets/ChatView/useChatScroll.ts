@@ -1,6 +1,8 @@
 import { nextTick, onMounted, onUnmounted, watch } from "vue";
 import type { Ref } from "vue";
 
+import { useVisibility } from "@shared/lib/useVisibility";
+
 import type { DecryptedMessage } from "@features/send-message/useChatSession";
 
 import type { PeerInfo } from "shared";
@@ -13,6 +15,7 @@ export function useChatScroll(
     onRead: (nonce: string) => void,
     onLoadMore: () => Promise<void>
 ) {
+    const { isVisible } = useVisibility();
     const observedNonces = new Set<string>();
     let observer: IntersectionObserver | null = null;
     let initialScrollDone = false;
@@ -73,6 +76,7 @@ export function useChatScroll(
         observer = new IntersectionObserver((entries) => {
             for (const entry of entries) {
                 if (!entry.isIntersecting) continue;
+                if (!isVisible.value) continue;
                 const nonce = (entry.target as HTMLElement).dataset.nonce!;
                 observer!.unobserve(entry.target);
                 onRead(nonce);
@@ -108,6 +112,34 @@ export function useChatScroll(
             observePendingMessages();
         }
     );
+
+    watch(isVisible, (visible) => {
+        if (!visible || !observer || !listEl.value) return;
+        for (const msg of messages()) {
+            if (
+                msg.from !== peer()?.signPubKey ||
+                msg.isRead ||
+                !observedNonces.has(msg.nonce)
+            )
+                continue;
+            const el = listEl.value.querySelector<HTMLElement>(
+                `[data-nonce="${msg.nonce}"]`
+            );
+            if (el) {
+                const rect = el.getBoundingClientRect();
+                const inView =
+                    rect.top >= 0 &&
+                    rect.bottom <=
+                        (window.innerHeight ||
+                            document.documentElement.clientHeight);
+                if (inView) {
+                    observedNonces.delete(msg.nonce);
+                    observer.unobserve(el);
+                    onRead(msg.nonce);
+                }
+            }
+        }
+    });
 
     watch(
         () => isPeerTyping(),

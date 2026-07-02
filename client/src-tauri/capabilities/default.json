@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "notification:allow-notify",
+    "notification:allow-show",
+    "notification:allow-request-permission",
+    "notification:allow-is-permission-granted",
+    "notification:allow-check-permissions",
+    "notification:allow-register-listener",
+    "fs:allow-write-file",
+    "fs:allow-temp-write",
+    "fs:scope-temp",
+    "core:event:default"
+  ]
+}

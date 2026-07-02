@@ -89,7 +89,7 @@ export default defineConfig({
                 "default-src 'self'",
                 "script-src 'self' 'unsafe-inline'",
                 "style-src 'self' 'unsafe-inline'",
-                "connect-src 'self' ws://localhost:* wss:",
+                "connect-src 'self' ws://localhost:* wss: http://ipc.localhost https://ipc.localhost",
                 "img-src 'self' data:",
                 "object-src 'none'",
                 "base-uri 'self'",

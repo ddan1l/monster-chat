@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 
 import { useWs } from "@shared/api/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
+import { requestNotificationPermission } from "@shared/lib/useNotifications";
 
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useChats } from "@entities/chat/useChats";
@@ -31,6 +32,7 @@ onMounted(() =>
 onUnmounted(() =>
     navigator.serviceWorker?.removeEventListener("message", onSwMessage)
 );
+
 const { signKeyPair, exportSignPublicKey } = useCrypto();
 const { startSync: syncPeers, announceOnline } = usePeers();
 
@@ -42,6 +44,7 @@ const { isPwa } = usePwa();
 
 onMounted(() => {
     connect();
+    requestNotificationPermission();
 });
 
 watch([connected, signKeyPair], async ([isConnected, keys]) => {

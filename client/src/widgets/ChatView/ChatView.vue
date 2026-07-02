@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from "vue";
 
+import { useWs } from "@shared/api/useWs";
+
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { activeChatId, useChats } from "@entities/chat/useChats";
 
@@ -17,6 +19,8 @@ const props = defineProps<{ chatId: string }>();
 const editingNonce = ref<string | null>(null);
 const editingText = ref("");
 const safetyPanelOpen = ref(false);
+
+const { connected } = useWs();
 
 const {
     error,
@@ -136,6 +140,7 @@ async function handleEditSubmit(nonce: string, newText: string) {
             </div>
 
             <ChatEditor
+                v-if="connected"
                 :disabled="!!error || verified !== true"
                 :chat-id="props.chatId"
                 :editing-nonce="editingNonce"
@@ -146,6 +151,7 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 @typing="sendTyping"
                 @stop-typing="sendStopTyping"
             />
+            <div v-else class="chat-view__offline">Оффлайн режим</div>
         </template>
     </div>
 </template>
@@ -177,6 +183,14 @@ async function handleEditSubmit(nonce: string, newText: string) {
         padding: 0;
         font-size: 13px;
         text-decoration: underline;
+    }
+
+    &__offline {
+        padding: 12px 16px;
+        font-size: 13px;
+        color: var(--mc-fg-dim);
+        text-align: center;
+        border-top: 1px solid var(--mc-line-hard);
     }
 }
 </style>

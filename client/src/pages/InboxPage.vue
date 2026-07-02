@@ -4,6 +4,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 
 import { usePermissions } from "@shared/lib/usePermissions";
+import { isTauri } from "@shared/lib/useTauri";
 
 import ChatList from "@widgets/ChatList/ChatList.vue";
 import ChatView from "@widgets/ChatView/ChatView.vue";
@@ -20,7 +21,7 @@ const {
 
 <template>
     <div class="mc-inbox-page">
-        <template v-if="notifReady && !notifGranted">
+        <template v-if="!isTauri && notifReady && !notifGranted">
             <p v-if="notifStatus === 'denied'">
                 Notifications blocked. Enable them in browser settings.
             </p>
