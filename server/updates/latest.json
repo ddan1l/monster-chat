@@ -10,10 +10,6 @@
     "darwin-aarch64": {
       "url": "https://megamonster.chat/releases/0.1.0/MonsterChat_0.1.0_aarch64.dmg",
       "signature": ""
-    },
-    "darwin-x86_64": {
-      "url": "https://megamonster.chat/releases/0.1.0/MonsterChat_0.1.0_x64.dmg",
-      "signature": ""
     }
   }
 }

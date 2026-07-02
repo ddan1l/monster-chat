@@ -18,9 +18,6 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             tauri_target: darwin-aarch64
-          - platform: macos-13
-            target: x86_64-apple-darwin
-            tauri_target: darwin-x86_64
 
     runs-on: ${{ matrix.platform }}
 
@@ -35,6 +32,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: client/src-tauri -> target
 
       - name: Install dependencies
         run: npm install
@@ -103,8 +104,6 @@ jobs:
             WIN_SIG=$(cat ${WIN_EXE}.sig 2>/dev/null || echo "")
             MAC_ARM=$(ls $RELEASES/release-darwin-aarch64/*.tar.gz 2>/dev/null | head -1)
             MAC_ARM_SIG=$(cat ${MAC_ARM}.sig 2>/dev/null || echo "")
-            MAC_X64=$(ls $RELEASES/release-darwin-x86_64/*.tar.gz 2>/dev/null | head -1)
-            MAC_X64_SIG=$(cat ${MAC_X64}.sig 2>/dev/null || echo "")
 
             cat > /var/www/monster-chat/server/updates/latest.json <<EOF
             {
@@ -119,10 +118,6 @@ jobs:
                 "darwin-aarch64": {
                   "url": "$BASE/release-darwin-aarch64/$(basename $MAC_ARM)",
                   "signature": "$MAC_ARM_SIG"
-                },
-                "darwin-x86_64": {
-                  "url": "$BASE/release-darwin-x86_64/$(basename $MAC_X64)",
-                  "signature": "$MAC_X64_SIG"
                 }
               }
             }
