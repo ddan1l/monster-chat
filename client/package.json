@@ -6,7 +6,8 @@
     "scripts": {
         "dev": "vite",
         "build": "vue-tsc && vite build",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "tauri": "tauri"
     },
     "dependencies": {
         "@floating-ui/vue": "^2.0.0",
