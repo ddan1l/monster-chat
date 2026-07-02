@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0",
+  "notes": "",
+  "pub_date": "2026-07-03T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://megamonster.chat/releases/0.1.0/MonsterChat_0.1.0_x64-setup.exe",
+      "signature": ""
+    },
+    "darwin-aarch64": {
+      "url": "https://megamonster.chat/releases/0.1.0/MonsterChat_0.1.0_aarch64.dmg",
+      "signature": ""
+    },
+    "darwin-x86_64": {
+      "url": "https://megamonster.chat/releases/0.1.0/MonsterChat_0.1.0_x64.dmg",
+      "signature": ""
+    }
+  }
+}

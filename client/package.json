@@ -13,6 +13,8 @@
         "@fontsource-variable/onest": "^5.2.11",
         "@fontsource/geist-mono": "^5.2.8",
         "@fontsource/onest": "^5.2.11",
+        "@tauri-apps/plugin-autostart": "^2.5.1",
+        "@tauri-apps/plugin-updater": "^2",
         "@tauri-apps/plugin-fs": "^2.5.1",
         "@tauri-apps/plugin-notification": "^2.3.3",
         "@tiptap/extension-bubble-menu": "^3.27.1",

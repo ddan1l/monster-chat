@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { ref, onMounted } from "vue";
+
+import { isTauri } from "@shared/lib/useTauri";
+
 import {
     useSettings,
     type Theme,
@@ -6,6 +10,24 @@ import {
 } from "@entities/settings/useSettings";
 
 const { settings, setTheme, setLanguage, setNotifications } = useSettings();
+
+const autostartEnabled = ref(false);
+
+onMounted(async () => {
+    if (!isTauri) return;
+    const { isEnabled } = await import("@tauri-apps/plugin-autostart");
+    autostartEnabled.value = await isEnabled();
+});
+
+async function toggleAutostart(val: boolean) {
+    const { enable, disable } = await import("@tauri-apps/plugin-autostart");
+    if (val) {
+        await enable();
+    } else {
+        await disable();
+    }
+    autostartEnabled.value = val;
+}
 
 const themes: { value: Theme; label: string }[] = [
     { value: "acid-green", label: "Acid Green" },
@@ -88,6 +110,35 @@ const languages: { value: Language; label: string }[] = [
                     {{ l.label }}
                 </button>
             </div>
+        </section>
+
+        <!-- Autostart -->
+        <section
+            v-if="isTauri"
+            style="display: flex; flex-direction: column; gap: 12px"
+        >
+            <h2 style="margin: 0; font-size: 15px">Система</h2>
+            <label
+                style="
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    cursor: pointer;
+                "
+            >
+                <input
+                    type="checkbox"
+                    :checked="autostartEnabled"
+                    @change="
+                        toggleAutostart(
+                            ($event.target as HTMLInputElement).checked
+                        )
+                    "
+                />
+                <span style="font-size: 14px; color: var(--mc-fg)"
+                    >Запускать при старте системы</span
+                >
+            </label>
         </section>
 
         <!-- Notifications -->

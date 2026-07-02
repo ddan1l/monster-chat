@@ -4,7 +4,7 @@ use tauri::{
     Manager, WindowEvent,
 };
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 fn flash_taskbar(window: &tauri::WebviewWindow) {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -25,7 +25,7 @@ fn flash_taskbar(window: &tauri::WebviewWindow) {
     }
 }
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 fn stop_flash_taskbar(window: &tauri::WebviewWindow) {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{FlashWindowEx, FLASHWINFO, FLASHW_STOP};
@@ -44,21 +44,36 @@ fn stop_flash_taskbar(window: &tauri::WebviewWindow) {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn flash_dock(window: &tauri::WebviewWindow) {
+    use tauri::UserAttentionType;
+    let _ = window.request_user_attention(Some(UserAttentionType::Informational));
+}
+
+#[cfg(target_os = "macos")]
+fn stop_flash_dock(window: &tauri::WebviewWindow) {
+    let _ = window.request_user_attention(None);
+}
+
 fn show_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
-        #[cfg(windows)]
+        #[cfg(target_os = "windows")]
         stop_flash_taskbar(&window);
+        #[cfg(target_os = "macos")]
+        stop_flash_dock(&window);
     }
 }
 
 #[tauri::command]
 fn start_flash(app: tauri::AppHandle) {
-    #[cfg(windows)]
     if let Some(window) = app.get_webview_window("main") {
+        #[cfg(target_os = "windows")]
         flash_taskbar(&window);
+        #[cfg(target_os = "macos")]
+        flash_dock(&window);
     }
 }
 
@@ -67,6 +82,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

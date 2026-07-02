@@ -1,24 +1,20 @@
 import { ref } from "vue";
 
+import { useWs } from "@shared/api/useWs";
+
 import { isTauri } from "./useTauri";
 
 const isVisible = ref(!document.hidden);
 
 if (isTauri) {
-    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
-        const win = getCurrentWindow();
-        win.onFocusChanged(({ payload: focused }) => {
-            if (focused) isVisible.value = true;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+        listen("tauri://blur", () => {
+            isVisible.value = false;
+            useWs().send({ type: "set_away" });
         });
-        // document.hidden не отражает window.hide() в Tauri —
-        // слушаем нативные события видимости окна
-        import("@tauri-apps/api/event").then(({ listen }) => {
-            listen("tauri://blur", () => {
-                isVisible.value = false;
-            });
-            listen("tauri://focus", () => {
-                isVisible.value = true;
-            });
+        listen("tauri://focus", () => {
+            isVisible.value = true;
+            useWs().send({ type: "set_online" });
         });
     });
 } else {

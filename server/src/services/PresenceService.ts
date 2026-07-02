@@ -38,6 +38,14 @@ export class PresenceService {
         this.connectionRepository.delete(peer.signPubKey);
     }
 
+    setAway(signPubKey: string, peerKeys: string[]): void {
+        this.relay(signPubKey, peerKeys, "peer_offline");
+    }
+
+    setOnline(signPubKey: string, peerKeys: string[]): void {
+        this.relay(signPubKey, peerKeys, "peer_online");
+    }
+
     broadcastTyping(
         senderKey: string,
         recipientKeys: string[],

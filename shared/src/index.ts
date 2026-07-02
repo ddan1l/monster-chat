@@ -59,6 +59,14 @@ export interface PingMessage {
     payload: { ts: number };
 }
 
+export interface SetAwayMessage {
+    type: "set_away";
+}
+
+export interface SetOnlineMessage {
+    type: "set_online";
+}
+
 export type ClientMessage =
     | OpenChatMessage
     | SendMessage
@@ -70,7 +78,9 @@ export type ClientMessage =
     | TypingMessage
     | StopTypingMessage
     | CancelChatMessage
-    | PingMessage;
+    | PingMessage
+    | SetAwayMessage
+    | SetOnlineMessage;
 
 // Messages sent from server to client
 export interface ServerMessageDelivery {

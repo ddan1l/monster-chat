@@ -6,6 +6,7 @@ import express from "express";
 import { pushSubscriptions } from "../container.js";
 import { fileRoutes } from "../routes/files.js";
 import { pushRoutes } from "../routes/push.js";
+import { updatesRouter } from "../routes/updates.js";
 
 export function attachHttp(server: Server) {
     const app = express();
@@ -16,6 +17,7 @@ export function attachHttp(server: Server) {
 
     app.use("/api/files", fileRoutes);
     app.use("/api/push", pushRoutes(pushSubscriptions));
+    app.use("/api/updates", updatesRouter);
 
     server.on("request", app);
 }

@@ -5,15 +5,17 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import svgLoader from "vite-svg-loader";
+import tauriConf from "./src-tauri/tauri.conf.json";
 
-const appVersion = execSync("git rev-parse --short HEAD").toString().trim();
+const gitHash = execSync("git rev-parse --short HEAD").toString().trim();
 
 export default defineConfig({
     build: {
         sourcemap: true,
     },
     define: {
-        __APP_VERSION__: JSON.stringify(appVersion),
+        __APP_VERSION__: JSON.stringify(tauriConf.version),
+        __GIT_HASH__: JSON.stringify(gitHash),
     },
     plugins: [
         vue(),

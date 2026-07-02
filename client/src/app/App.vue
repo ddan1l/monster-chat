@@ -6,6 +6,7 @@ import { useRouter } from "vue-router";
 import { useWs } from "@shared/api/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
 import { requestNotificationPermission } from "@shared/lib/useNotifications";
+import { checkForUpdates, useUpdater } from "@shared/lib/useUpdater";
 
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useChats } from "@entities/chat/useChats";
@@ -41,10 +42,12 @@ useKnocks().startSync();
 syncPeers();
 useChatNotification().startSync();
 const { isPwa } = usePwa();
+const { updateAvailable, installUpdate } = useUpdater();
 
 onMounted(() => {
     connect();
     requestNotificationPermission();
+    checkForUpdates();
 });
 
 watch([connected, signKeyPair], async ([isConnected, keys]) => {
@@ -59,6 +62,12 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
 <template>
     <div class="mc-app" :class="{ 'mc-app_pwa': isPwa }">
         <div class="mc-app-container">
+            <div v-if="updateAvailable" class="mc-update-banner">
+                <span>Доступна новая версия</span>
+                <button class="mc-update-btn" @click="installUpdate">
+                    Обновить
+                </button>
+            </div>
             <AppHeader />
             <RouterView class="mc-view" />
         </div>
@@ -80,5 +89,28 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
     height: 100%;
     display: flex;
     flex-direction: column;
+}
+.mc-update-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--mc-bg-sel);
+    border-bottom: 1px solid var(--mc-line);
+    font-size: 13px;
+    color: var(--mc-fg);
+}
+.mc-update-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--mc-acid);
+    background: transparent;
+    color: var(--mc-acid);
+    font-size: 12px;
+    cursor: pointer;
+    &:hover {
+        background: var(--mc-acid);
+        color: var(--mc-bg);
+    }
 }
 </style>

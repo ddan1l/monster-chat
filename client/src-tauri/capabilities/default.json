@@ -16,6 +16,11 @@
     "fs:allow-write-file",
     "fs:allow-temp-write",
     "fs:scope-temp",
-    "core:event:default"
+    "core:event:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

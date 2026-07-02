@@ -64,7 +64,11 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
             :key="chat.id"
             :chat="chat"
             :is-active="route.params.chatId === chat.id"
-            @select="router.push(`/chat/${chat.id}`)"
+            @select="
+                route.params.chatId === chat.id
+                    ? router.push('/')
+                    : router.push(`/chat/${chat.id}`)
+            "
         />
 
         <div class="mc-chat-list__version">VERSION({{ version }})</div>
