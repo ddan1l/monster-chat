@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "client/src-tauri/tauri.conf.json"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            tauri_target: windows-x86_64
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            tauri_target: darwin-aarch64
+          - platform: macos-13
+            target: x86_64-apple-darwin
+            tauri_target: darwin-x86_64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
+          VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
+        with:
+          projectPath: client
+          args: --target ${{ matrix.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.tauri_target }}
+          path: |
+            client/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            client/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.sig
+            client/src-tauri/target/${{ matrix.target }}/release/bundle/updater/*.tar.gz
+            client/src-tauri/target/${{ matrix.target }}/release/bundle/updater/*.sig
+            client/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.tar.gz
+            client/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.sig
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Read version
+        id: version
+        run: echo "version=$(jq -r .version client/src-tauri/tauri.conf.json)" >> $GITHUB_OUTPUT
+
+      - name: Upload releases to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "artifacts/"
+          target: "/var/www/monster-chat/releases/${{ steps.version.outputs.version }}"
+          strip_components: 1
+
+      - name: Generate latest.json and deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            VERSION="${{ steps.version.outputs.version }}"
+            BASE="https://megamonster.chat/releases/$VERSION"
+            RELEASES="/var/www/monster-chat/releases/$VERSION"
+
+            WIN_EXE=$(ls $RELEASES/release-windows-x86_64/*.exe 2>/dev/null | head -1)
+            WIN_SIG=$(cat ${WIN_EXE}.sig 2>/dev/null || echo "")
+            MAC_ARM=$(ls $RELEASES/release-darwin-aarch64/*.tar.gz 2>/dev/null | head -1)
+            MAC_ARM_SIG=$(cat ${MAC_ARM}.sig 2>/dev/null || echo "")
+            MAC_X64=$(ls $RELEASES/release-darwin-x86_64/*.tar.gz 2>/dev/null | head -1)
+            MAC_X64_SIG=$(cat ${MAC_X64}.sig 2>/dev/null || echo "")
+
+            cat > /var/www/monster-chat/server/updates/latest.json <<EOF
+            {
+              "version": "$VERSION",
+              "notes": "",
+              "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "platforms": {
+                "windows-x86_64": {
+                  "url": "$BASE/release-windows-x86_64/$(basename $WIN_EXE)",
+                  "signature": "$WIN_SIG"
+                },
+                "darwin-aarch64": {
+                  "url": "$BASE/release-darwin-aarch64/$(basename $MAC_ARM)",
+                  "signature": "$MAC_ARM_SIG"
+                },
+                "darwin-x86_64": {
+                  "url": "$BASE/release-darwin-x86_64/$(basename $MAC_X64)",
+                  "signature": "$MAC_X64_SIG"
+                }
+              }
+            }
+            EOF

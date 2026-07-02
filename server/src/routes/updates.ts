@@ -5,20 +5,23 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const updatesMeta = JSON.parse(
-    readFileSync(join(__dirname, "../../updates/latest.json"), "utf-8")
-);
+const metaPath = join(__dirname, "../../updates/latest.json");
 
 export const updatesRouter = Router();
 
 updatesRouter.get("/:target/:arch/:version", (req, res) => {
-    const { version } = req.params;
+    let meta: { version: string };
+    try {
+        meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    } catch {
+        res.status(503).end();
+        return;
+    }
 
-    if (version === updatesMeta.version) {
+    if (req.params.version === meta.version) {
         res.status(204).end();
         return;
     }
 
-    res.json(updatesMeta);
+    res.json(meta);
 });
