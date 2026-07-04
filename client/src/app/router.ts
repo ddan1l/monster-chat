@@ -30,6 +30,8 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
+    if (to.path === "/" && isTauri) return "/app";
+
     if (!to.path.startsWith("/app")) return true;
 
     const { canInstallApp } = await import("@shared/lib/useTauri");

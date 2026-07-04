@@ -29,6 +29,14 @@ jobs:
           VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
           VITE_APP_ORIGIN: ${{ secrets.VITE_APP_ORIGIN }}
 
+      - name: Clear old dist
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: rm -rf /var/www/monster-chat/client/dist
+
       - name: Copy dist to VPS
         uses: appleboy/scp-action@v0.1.7
         with:

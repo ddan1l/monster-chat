@@ -13,11 +13,11 @@ const props = defineProps<{
 }>();
 
 const isValidLink = (url: string): boolean => {
-    return /^https?:\/\/[^/]+\/join\/[^#]+#key=.+$/.test(url);
+    return /^https?:\/\/[^/]+\/(app\/)?join\/[^#]+#key=.+$/.test(url);
 };
 
 const parseInviteLink = (url: string): InviteLinkParts => {
-    const regex = /^(https?:\/\/[^/]+)\/join\/([^#]+)(#key=)(.+)$/;
+    const regex = /^(https?:\/\/[^/]+\/(app\/)?join\/)([^#]+)(#key=)(.+)$/;
     const match = url.match(regex);
 
     if (!match) {
@@ -25,10 +25,10 @@ const parseInviteLink = (url: string): InviteLinkParts => {
     }
 
     return {
-        base: `${match[1]}/join/`,
-        code: match[2],
-        hashKey: match[3],
-        key: match[4],
+        base: match[1],
+        code: match[3],
+        hashKey: match[4],
+        key: match[5],
     };
 };
 

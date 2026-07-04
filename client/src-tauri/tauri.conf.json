@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "MonsterChat",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "identifier": "online.megamonster.chat",
   "build": {
     "frontendDist": "../dist",
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* wss: http://ipc.localhost https://ipc.localhost; img-src 'self' data:; object-src 'none'",
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* wss: http://ipc.localhost https://ipc.localhost ipc:; img-src 'self' data:; object-src 'none'",
       "dangerousDisableAssetCspModification": true
     }
   },
