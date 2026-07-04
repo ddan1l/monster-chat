@@ -5,3 +5,5 @@ data.db
 uploads
 dist
 .env
+server/updates/latest.json
+releases/

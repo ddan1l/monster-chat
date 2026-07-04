@@ -27,6 +27,7 @@ jobs:
         env:
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
           VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
+          VITE_APP_ORIGIN: ${{ secrets.VITE_APP_ORIGIN }}
 
       - name: Copy dist to VPS
         uses: appleboy/scp-action@v0.1.7
