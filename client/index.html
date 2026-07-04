@@ -16,6 +16,10 @@
             } catch {
                 document.documentElement.setAttribute("data-theme", "acid-green");
             }
+            document.documentElement.style.opacity = "0";
+            document.fonts.ready.then(() => {
+                document.documentElement.style.opacity = "";
+            });
         </script>
     </head>
     <body>
