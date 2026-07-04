@@ -3,12 +3,10 @@ import { ref } from "vue";
 import { useCrypto, fromBase64 } from "@shared/crypto/useCrypto";
 import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
 
-import type { PeerInfo } from "shared";
+import { peers, usePeers } from "@entities/peer/usePeers";
+import type { StoredPeer } from "@entities/peer/usePeers";
 
-interface StoredPeer extends PeerInfo {
-    verified?: boolean;
-    keyChanged?: boolean;
-}
+import type { PeerInfo } from "shared";
 
 async function computeSafetyNumber(
     mySignPubKey: CryptoKey,
@@ -67,6 +65,7 @@ async function computeSafetyNumber(
 export function useSafetyNumbers(chatId: string) {
     const { read, write } = useIndexedDb(STORES.PEERS);
     const { signKeyPair } = useCrypto();
+    const { announceOnline } = usePeers();
 
     const safetyNumber = ref<string | null>(null);
     const verified = ref<boolean | null>(null);
@@ -85,7 +84,9 @@ export function useSafetyNumbers(chatId: string) {
     async function updatePeer(updates: Partial<StoredPeer>): Promise<void> {
         const stored = await read<StoredPeer>(chatId);
         if (stored) {
-            await write({ ...stored, ...updates }, chatId);
+            const updated = { ...stored, chatId, ...updates };
+            await write(updated, chatId);
+            peers.value[chatId] = updated;
         }
     }
 
@@ -93,6 +94,7 @@ export function useSafetyNumbers(chatId: string) {
         await updatePeer({ verified: true, keyChanged: false });
         verified.value = true;
         keyChanged.value = false;
+        announceOnline();
     }
 
     async function removeVerification() {

@@ -3,20 +3,16 @@ import { ref, onMounted, computed } from "vue";
 
 import { useRouter, useRoute } from "vue-router";
 
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
-
 import { useChats, chats } from "@entities/chat/useChats";
 import {
     useChatMessages,
     lastMessageByChat,
 } from "@entities/message/useMessages";
-import { peers, usePeers } from "@entities/peer/usePeers";
+import { usePeers } from "@entities/peer/usePeers";
 
 import ChatKnockModal from "@widgets/ChatKnock/ChatKnockModal.vue";
 import ChatListHeader from "@widgets/ChatList/ChatListHeader.vue";
 import ChatListItem from "@widgets/ChatList/ChatListItem.vue";
-
-import type { PeerInfo } from "shared";
 
 declare const __APP_VERSION__: string;
 const version = __APP_VERSION__;
@@ -25,7 +21,6 @@ const router = useRouter();
 const route = useRoute();
 const { loadChats } = useChats();
 const { announceOnline } = usePeers();
-const { read: readPeer } = useIndexedDb(STORES.PEERS);
 const { getLastMessage } = useChatMessages();
 const loaded = ref(false);
 
@@ -34,16 +29,12 @@ onMounted(async () => {
 
     const entries = await Promise.all(
         chats.value.map(async (c) => {
-            const [peer, last] = await Promise.all([
-                readPeer<PeerInfo>(c.id),
-                getLastMessage(c.id),
-            ]);
-            return { id: c.id, peer, last };
+            const last = await getLastMessage(c.id);
+            return { id: c.id, last };
         })
     );
 
-    for (const { id, peer, last } of entries) {
-        if (peer) peers.value[id] = peer;
+    for (const { id, last } of entries) {
         if (last) lastMessageByChat.value[id] = last;
     }
 

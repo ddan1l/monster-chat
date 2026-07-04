@@ -103,6 +103,7 @@ function submitEdit() {
                         ref="editorRef"
                         v-model="sendText"
                         :autofocus="true"
+                        :disabled="disabled"
                         @input="emit('typing')"
                         @submit="send"
                     />

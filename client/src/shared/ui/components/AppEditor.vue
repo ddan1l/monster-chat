@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount } from "vue";
+import { onBeforeUnmount, watch } from "vue";
 
 import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
@@ -10,8 +10,14 @@ const props = withDefaults(
         modelValue?: string;
         placeholder?: string;
         autofocus?: boolean;
+        disabled?: boolean;
     }>(),
-    { modelValue: "", placeholder: "Сообщение...", autofocus: false }
+    {
+        modelValue: "",
+        placeholder: "Сообщение...",
+        autofocus: false,
+        disabled: false,
+    }
 );
 
 const emit = defineEmits<{
@@ -24,6 +30,7 @@ let skipUpdate = false;
 
 const editor = useEditor({
     content: props.modelValue,
+    editable: !props.disabled,
     extensions: [
         StarterKit,
         Placeholder.configure({ placeholder: props.placeholder }),
@@ -62,6 +69,11 @@ function clear() {
 function focus() {
     editor.value?.commands.focus();
 }
+
+watch(
+    () => props.disabled,
+    (val) => editor.value?.setEditable(!val)
+);
 
 onBeforeUnmount(() => editor.value?.destroy());
 

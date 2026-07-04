@@ -10,6 +10,7 @@ import { STORES, useIndexedDb } from "@shared/lib/useIndexedDb";
 import { useUser } from "@entities/user/useUser";
 
 export type StoredPeer = PeerInfo & {
+    chatId: string;
     verified?: boolean;
     keyChanged?: boolean;
     lastSeen?: number;
@@ -22,7 +23,7 @@ export const typingStatus = ref<Record<string, boolean>>({});
 const typingDebouncers = new Map<string, ReturnType<typeof useDebounce>>();
 
 export function usePeers() {
-    const { read, write, remove } = useIndexedDb(STORES.PEERS);
+    const { read, readAll, write, remove } = useIndexedDb(STORES.PEERS);
     const { user, load: loadUser } = useUser();
     const { exportSignPublicKey, exportEncryptionPublicKey } = useCrypto();
     const { subscribe, send } = useWs();
@@ -47,8 +48,16 @@ export function usePeers() {
     }
 
     async function savePeer(peerInfo: PeerInfo, chatId: string): Promise<void> {
-        peers.value[chatId] = peerInfo;
-        return write(peerInfo, chatId);
+        const stored: StoredPeer = { ...peerInfo, chatId };
+        peers.value[chatId] = stored;
+        return write(stored, chatId);
+    }
+
+    async function loadAllPeers(): Promise<void> {
+        const all = await readAll<StoredPeer>();
+        for (const peer of all) {
+            peers.value[peer.chatId] = peer;
+        }
     }
 
     function chatIdByKey(signPubKey: string): string | undefined {
@@ -69,19 +78,19 @@ export function usePeers() {
         send({ type: "online", payload: { signPubKey, peers: peerKeys } });
     }
 
-    function startSync(): void {
+    async function startSync(): Promise<void> {
+        await loadAllPeers();
         subscribe("peer_info", async (msg) => {
             const { chatId, ...peerInfo } = msg.payload;
             const stored = await read<StoredPeer>(chatId);
-            if (stored && stored.signPubKey !== peerInfo.signPubKey) {
-                await write(
-                    { ...peerInfo, verified: false, keyChanged: true },
-                    chatId
-                );
-            } else {
-                await write(peerInfo, chatId);
-            }
-            peers.value[chatId] = peerInfo;
+            const keyRotated =
+                !!stored?.signPubKey &&
+                stored.signPubKey !== peerInfo.signPubKey;
+            const updated: StoredPeer = keyRotated
+                ? { ...peerInfo, chatId, verified: false, keyChanged: true }
+                : { ...stored, ...peerInfo, chatId };
+            await write(updated, chatId);
+            peers.value[chatId] = updated;
         });
 
         subscribe("peer_online", (msg) => {

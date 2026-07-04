@@ -36,12 +36,15 @@ onUnmounted(() =>
 );
 
 const { signKeyPair, exportSignPublicKey } = useCrypto();
-const { startSync: syncPeers, announceOnline } = usePeers();
+const peers = usePeers();
+const { loadChats } = useChats();
 
 useChats().startSync();
 useKnocks().startSync();
-syncPeers();
 useChatNotification().startSync();
+
+loadChats();
+peers.startSync();
 const { isPwa } = usePwa();
 const { updateAvailable, installUpdate } = useUpdater();
 
@@ -67,7 +70,7 @@ onMounted(async () => {
 
 watch([connected, signKeyPair], async ([isConnected, keys]) => {
     if (isConnected && keys) {
-        announceOnline();
+        peers.announceOnline();
         const signPubKey = await exportSignPublicKey();
         subscribePush(signPubKey);
     }
