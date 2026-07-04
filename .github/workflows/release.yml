@@ -101,10 +101,10 @@ jobs:
             BASE="https://megamonster.online/releases/$VERSION"
             RELEASES="/var/www/monster-chat/releases/$VERSION"
 
-            WIN_EXE=$(ls $RELEASES/release-windows-x86_64/nsis/*.exe 2>/dev/null | head -1)
-            WIN_SIG=$(cat ${WIN_EXE}.sig 2>/dev/null || echo "")
-            MAC_ARM=$(ls $RELEASES/release-darwin-aarch64/*.tar.gz 2>/dev/null | head -1)
-            MAC_ARM_SIG=$(cat ${MAC_ARM}.sig 2>/dev/null || echo "")
+            WIN_EXE=$(find $RELEASES/release-windows-x86_64/nsis -name "*.exe" | head -1)
+            WIN_SIG=$(cat "${WIN_EXE}.sig" 2>/dev/null || echo "")
+            MAC_ARM=$(find $RELEASES/release-darwin-aarch64 -name "*.tar.gz" | head -1)
+            MAC_ARM_SIG=$(cat "${MAC_ARM}.sig" 2>/dev/null || echo "")
 
             mkdir -p /var/www/monster-chat/server/updates
             cat > /var/www/monster-chat/server/updates/latest.json <<EOF
@@ -114,11 +114,11 @@ jobs:
               "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
               "platforms": {
                 "windows-x86_64": {
-                  "url": "$BASE/release-windows-x86_64/$(basename $WIN_EXE)",
+                  "url": "$BASE/release-windows-x86_64/nsis/$(basename "$WIN_EXE")",
                   "signature": "$WIN_SIG"
                 },
                 "darwin-aarch64": {
-                  "url": "$BASE/release-darwin-aarch64/$(basename $MAC_ARM)",
+                  "url": "$BASE/release-darwin-aarch64/$(basename "$MAC_ARM")",
                   "signature": "$MAC_ARM_SIG"
                 }
               }
