@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "MonsterChat",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "identifier": "online.megamonster.chat",
   "build": {
     "frontendDist": "../dist",
@@ -18,7 +18,8 @@
         "minWidth": 320,
         "minHeight": 500,
         "resizable": true,
-        "maximized": true
+        "maximized": true,
+        "backgroundColor": "#050706"
       }
     ],
     "security": {

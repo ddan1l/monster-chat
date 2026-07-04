@@ -10,6 +10,7 @@ import { usePwa } from "@features/pwa/usePwa";
 declare const __APP_VERSION__: string;
 const name = import.meta.env.VITE_APP_NAME as string;
 const version = __APP_VERSION__;
+const isLocal = import.meta.env.DEV;
 
 const { isPwa } = usePwa();
 
@@ -38,7 +39,9 @@ const {
     <header class="mc-app-header">
         <div v-if="!isPwa" class="mc-app-header__title-row">
             <button class="mc-app-header__title" @click="open = true">
-                {{ name }} · VERSION({{ version }})
+                {{ name }}{{ isLocal ? " · LOCAL" : "" }} · VERSION({{
+                    version
+                }})
             </button>
         </div>
 
