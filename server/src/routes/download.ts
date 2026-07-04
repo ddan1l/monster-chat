@@ -5,33 +5,31 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const tauriConfPath = join(__dirname, "../../../client/src-tauri/tauri.conf.json");
+const metaPath = join(__dirname, "../../updates/latest.json");
 
-const BASE = "https://megamonster.online/releases";
-
-const platformFiles: Record<string, { dir: string; ext: string }> = {
-    windows: { dir: "release-windows-x86_64", ext: "_x64-setup.exe" },
-    mac: { dir: "release-darwin-aarch64", ext: "_aarch64.dmg" },
+const platformMap: Record<string, string> = {
+    windows: "windows-x86_64",
+    mac: "darwin-aarch64",
 };
 
 export const downloadRouter = Router();
 
 downloadRouter.get("/:platform", (req, res) => {
-    let version: string;
+    let meta: { platforms: Record<string, { url: string }> };
     try {
-        const conf = JSON.parse(readFileSync(tauriConfPath, "utf-8"));
-        version = conf.version;
+        meta = JSON.parse(readFileSync(metaPath, "utf-8"));
     } catch {
         res.status(503).end();
         return;
     }
 
-    const platform = platformFiles[req.params.platform];
-    if (!platform) {
+    const key = platformMap[req.params.platform];
+    const url = key && meta.platforms[key]?.url;
+
+    if (!url) {
         res.status(404).end();
         return;
     }
 
-    const filename = `MonsterChat_${version}${platform.ext}`;
-    res.redirect(302, `${BASE}/${version}/${platform.dir}/${filename}`);
+    res.redirect(302, url);
 });
