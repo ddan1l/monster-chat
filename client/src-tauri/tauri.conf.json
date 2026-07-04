@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "MonsterChat",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "identifier": "online.megamonster.chat",
   "build": {
     "frontendDist": "../dist",
@@ -33,7 +33,7 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwQzdDNzkyRTc1MEVDRTMKUldUajdGRG5rc2ZIRUt0dXZEbno2QitqUDJMWnpoMXZWczZHclJQQjkzSWZnQUFWZDF6cTBvN20K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0Q0U2ODVBQTBGRjY0MTQKUldRVVpQK2dXbWpPMUFiVGRvbWxtZ0dscG8xcFB1OEJmaW00dEtvek5SeC9aSzZQcmlzckFCeGsK",
       "endpoints": [
         "https://megamonster.online/api/updates/{{target}}/{{arch}}/{{current_version}}"
       ]
