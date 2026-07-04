@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import UserAvatar from "@entities/user/ui/UserAvatar.vue";
 import { useUser } from "@entities/user/useUser";
@@ -13,7 +13,13 @@ const AVATARS = Object.keys(
 ).sort();
 
 const router = useRouter();
+const route = useRoute();
 const { registerPrf, registerPassword, addPasswordFallback } = useAuth();
+
+function redirectAfterSetup() {
+    const redirect = route.query.redirect;
+    router.replace(typeof redirect === "string" ? redirect : "/app");
+}
 const { init: initUser } = useUser();
 
 const step = ref<"identity" | "auth" | "password-backup">("identity");
@@ -126,7 +132,7 @@ async function saveBackup() {
     backupLoading.value = true;
     try {
         await addPasswordFallback(backupPassword.value);
-        router.replace("/");
+        redirectAfterSetup();
     } catch {
         backupError.value = "Failed. Please try again.";
     } finally {
@@ -148,7 +154,7 @@ async function setupWithPassword() {
     try {
         await registerPassword(password.value);
         await initUser(name.value.trim(), avatar.value);
-        router.replace("/");
+        redirectAfterSetup();
     } catch {
         passwordError.value = "Failed. Please try again.";
     } finally {

@@ -66,8 +66,8 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
             :is-active="route.params.chatId === chat.id"
             @select="
                 route.params.chatId === chat.id
-                    ? router.push('/')
-                    : router.push(`/chat/${chat.id}`)
+                    ? router.push('/app')
+                    : router.push(`/app/chat/${chat.id}`)
             "
         />
 

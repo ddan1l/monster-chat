@@ -1,13 +1,10 @@
 import { type Server } from "http";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import cors from "cors";
 import express from "express";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 import { pushSubscriptions } from "../container.js";
+import { downloadRouter } from "../routes/download.js";
 import { fileRoutes } from "../routes/files.js";
 import { pushRoutes } from "../routes/push.js";
 import { updatesRouter } from "../routes/updates.js";
@@ -22,7 +19,7 @@ export function attachHttp(server: Server) {
     app.use("/api/files", fileRoutes);
     app.use("/api/push", pushRoutes(pushSubscriptions));
     app.use("/api/updates", updatesRouter);
-    app.use("/releases", express.static(join(__dirname, "../../releases")));
+    app.use("/api/download", downloadRouter);
 
     server.on("request", app);
 }

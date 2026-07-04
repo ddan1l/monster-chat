@@ -60,7 +60,9 @@ export function useChats() {
     async function createChat(): Promise<Chat> {
         const chatId = nanoid(8);
         const hostKey = await exportSignPublicKey();
-        const joinLink = `${window.location.origin}/join/${chatId}#key=${hostKey}`;
+        const appOrigin =
+            import.meta.env.VITE_APP_ORIGIN ?? window.location.origin;
+        const joinLink = `${appOrigin}/app/join/${chatId}#key=${hostKey}`;
 
         const chat: Chat = {
             id: chatId,
@@ -112,7 +114,7 @@ export function useChats() {
 
         if (activeChatId.value === chatId) {
             activeChatId.value = null;
-            router.push("/");
+            router.push("/app");
         }
     }
 

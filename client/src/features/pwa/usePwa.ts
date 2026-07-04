@@ -1,11 +1,15 @@
 import { ref, onMounted } from "vue";
 
-import { useRegisterSW } from "virtual:pwa-register/vue";
+import { isTauri } from "@shared/lib/useTauri";
 
 const isPwa = ref(false);
 
 export function usePwa() {
-    useRegisterSW({ immediate: true });
+    if (!isTauri) {
+        import("virtual:pwa-register/vue").then(({ useRegisterSW }) => {
+            useRegisterSW({ immediate: true });
+        });
+    }
 
     onMounted(() => {
         isPwa.value =

@@ -10,7 +10,9 @@ const isIOS = /iphone|ipod/i.test(ua) || isIPad;
 
 const isMobile = isAndroid || isIOS;
 const isDesktop = !isMobile;
+const isWindows = /windows/i.test(ua);
+const isMac = /macintosh/i.test(ua) && !isIPad;
 
 export function useDevice() {
-    return { isMobile, isDesktop, isIOS, isAndroid, isIPad };
+    return { isMobile, isDesktop, isIOS, isAndroid, isIPad, isWindows, isMac };
 }

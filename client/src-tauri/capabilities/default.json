@@ -21,6 +21,7 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "updater:allow-check",
-    "updater:allow-download-and-install"
+    "updater:allow-download-and-install",
+    "deep-link:default"
   ]
 }

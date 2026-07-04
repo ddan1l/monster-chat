@@ -6,6 +6,7 @@ import { useRouter } from "vue-router";
 import { useWs } from "@shared/api/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
 import { requestNotificationPermission } from "@shared/lib/useNotifications";
+import { isTauri } from "@shared/lib/useTauri";
 import { checkForUpdates, useUpdater } from "@shared/lib/useUpdater";
 
 import { useChatNotification } from "@entities/chat/useChatNotification";
@@ -44,10 +45,24 @@ useChatNotification().startSync();
 const { isPwa } = usePwa();
 const { updateAvailable, installUpdate } = useUpdater();
 
-onMounted(() => {
+onMounted(async () => {
     connect();
     requestNotificationPermission();
     checkForUpdates();
+
+    if (isTauri) {
+        const { onOpenUrl, getCurrent } =
+            await import("@tauri-apps/plugin-deep-link");
+        const { listen } = await import("@tauri-apps/api/event");
+        const handleUrl = (url: string) => {
+            const path = url.replace(/^monsterchat:\/\//, "/");
+            router.push(path);
+        };
+        const current = await getCurrent();
+        if (current) current.forEach(handleUrl);
+        onOpenUrl((urls) => urls.forEach(handleUrl));
+        listen<string>("deep-link-url", (e) => handleUrl(e.payload));
+    }
 });
 
 watch([connected, signKeyPair], async ([isConnected, keys]) => {

@@ -47,6 +47,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
           VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
+          VITE_APP_ORIGIN: ${{ secrets.VITE_APP_ORIGIN }}
         with:
           projectPath: client
           args: --target ${{ matrix.target }}
@@ -97,10 +98,10 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             VERSION="${{ steps.version.outputs.version }}"
-            BASE="https://megamonster.chat/releases/$VERSION"
+            BASE="https://megamonster.online/releases/$VERSION"
             RELEASES="/var/www/monster-chat/releases/$VERSION"
 
-            WIN_EXE=$(ls $RELEASES/release-windows-x86_64/*.exe 2>/dev/null | head -1)
+            WIN_EXE=$(ls $RELEASES/release-windows-x86_64/nsis/*.exe 2>/dev/null | head -1)
             WIN_SIG=$(cat ${WIN_EXE}.sig 2>/dev/null || echo "")
             MAC_ARM=$(ls $RELEASES/release-darwin-aarch64/*.tar.gz 2>/dev/null | head -1)
             MAC_ARM_SIG=$(cat ${MAC_ARM}.sig 2>/dev/null || echo "")

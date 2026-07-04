@@ -11,4 +11,8 @@ import "@shared/ui/styles/global.scss";
 // Глушим нативное контекстное меню браузера; свои меню вешаем точечно.
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.ready.then((reg) => reg.update());
+}
+
 createApp(App).use(router).mount("#app");
