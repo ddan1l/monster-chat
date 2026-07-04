@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 
 import { useRoute } from "vue-router";
 
@@ -10,6 +10,10 @@ const { isWindows, isMac } = useDevice();
 
 const to = computed(() => (route.query.to as string) ?? "/app");
 const deepLink = computed(() => `monsterchat:/${to.value}`);
+
+onMounted(() => {
+    window.location.href = deepLink.value;
+});
 </script>
 
 <template>

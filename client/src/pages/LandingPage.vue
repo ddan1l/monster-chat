@@ -12,10 +12,6 @@ const { isWindows, isMac } = useDevice();
 function openApp() {
     window.location.href = "monsterchat://app";
 }
-
-onMounted(() => {
-    if (canInstallApp && !isTauri) openApp();
-});
 </script>
 
 <template>

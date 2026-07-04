@@ -34,7 +34,7 @@ router.beforeEach(async (to) => {
 
     const { canInstallApp } = await import("@shared/lib/useTauri");
     if (canInstallApp && !isTauri) {
-        return { path: "/link", query: { to: to.fullPath } };
+        return { path: "/open", query: { to: to.fullPath } };
     }
 
     if (to.path === "/app/setup" || to.path === "/app/unlock") return true;

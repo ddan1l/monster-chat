@@ -102,8 +102,7 @@ jobs:
             RELEASES="/var/www/monster-chat/releases/$VERSION"
 
             WIN_EXE=$(find $RELEASES/release-windows-x86_64/nsis -name "*.exe" | head -1)
-            WIN_ZIP=$(find $RELEASES/release-windows-x86_64/nsis -name "*.nsis.zip" | head -1)
-            WIN_SIG=$(cat "${WIN_ZIP}.sig" 2>/dev/null || echo "")
+            WIN_SIG=$(cat "${WIN_EXE}.sig" 2>/dev/null || echo "")
             MAC_ARM=$(find $RELEASES/release-darwin-aarch64 -name "*.tar.gz" | head -1)
             MAC_ARM_SIG=$(cat "${MAC_ARM}.sig" 2>/dev/null || echo "")
 
@@ -115,7 +114,7 @@ jobs:
               "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
               "platforms": {
                 "windows-x86_64": {
-                  "url": "$BASE/release-windows-x86_64/nsis/$(basename "$WIN_ZIP")",
+                  "url": "$BASE/release-windows-x86_64/nsis/$(basename "$WIN_EXE")",
                   "signature": "$WIN_SIG"
                 },
                 "darwin-aarch64": {
