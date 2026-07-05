@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "MonsterChat",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "identifier": "online.megamonster.chat",
   "build": {
     "frontendDist": "../dist",
@@ -53,6 +53,9 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    },
+    "macOS": {
+      "signingIdentity": "-"
     }
   }
 }
