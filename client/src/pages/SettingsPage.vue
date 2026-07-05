@@ -30,10 +30,10 @@ async function toggleAutostart(val: boolean) {
 }
 
 const themes: { value: Theme; label: string }[] = [
-    { value: "acid-green", label: "Acid Green" },
-    { value: "kyber-blue", label: "Kyber Blue" },
-    { value: "hot-magenta", label: "Hot Magenta" },
-    { value: "amber", label: "Amber" },
+    { value: "acid-green", label: "Токсичный компромисс" },
+    { value: "kyber-blue", label: "Ночной океан" },
+    { value: "hot-magenta", label: "Сахарная вата" },
+    { value: "amber", label: "Медовая ловушка" },
 ];
 
 const languages: { value: Language; label: string }[] = [
