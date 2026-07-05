@@ -88,7 +88,9 @@ const showSearch = computed(() => !!route.query.search);
         title="Поиск"
         :is-visible="showSearch"
         @close="
-            router.replace({ query: { ...route.query, search: undefined } })
+            router
+                .replace({ query: { ...route.query, search: undefined } })
+                .catch(() => {})
         "
     />
 
@@ -97,7 +99,9 @@ const showSearch = computed(() => !!route.query.search);
         :max-width="640"
         :is-visible="showSettings"
         @close="
-            router.replace({ query: { ...route.query, settings: undefined } })
+            router
+                .replace({ query: { ...route.query, settings: undefined } })
+                .catch(() => {})
         "
     >
         <SettingsPage />

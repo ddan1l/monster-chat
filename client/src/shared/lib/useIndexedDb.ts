@@ -17,6 +17,24 @@ type StoreName = (typeof STORES)[keyof typeof STORES];
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+export async function closeDb(): Promise<void> {
+    if (dbPromise) {
+        const db = await dbPromise;
+        db.close();
+        dbPromise = null;
+    }
+}
+
+export async function deleteDb(): Promise<void> {
+    await closeDb();
+    await new Promise<void>((resolve, reject) => {
+        const req = indexedDB.deleteDatabase(DB_NAME);
+        req.onsuccess = () => resolve();
+        req.onblocked = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
 export function openDb(): Promise<IDBDatabase> {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {

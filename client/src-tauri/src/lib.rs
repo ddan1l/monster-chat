@@ -153,6 +153,9 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                #[cfg(target_os = "macos")]
+                let _ = window.minimize();
+                #[cfg(not(target_os = "macos"))]
                 let _ = window.hide();
             }
         })

@@ -11,6 +11,15 @@ import {
 
 const { settings, setTheme, setLanguage, setNotifications } = useSettings();
 
+const confirmDelete = ref(false);
+
+async function deleteAllData() {
+    localStorage.clear();
+    const { deleteDb } = await import("@shared/lib/useIndexedDb");
+    await deleteDb();
+    location.reload();
+}
+
 const autostartEnabled = ref(false);
 
 onMounted(async () => {
@@ -139,6 +148,65 @@ const languages: { value: Language; label: string }[] = [
                     >Запускать при старте системы</span
                 >
             </label>
+        </section>
+
+        <!-- Delete all data -->
+        <section style="display: flex; flex-direction: column; gap: 12px">
+            <h2 style="margin: 0; font-size: 15px">Опасная зона</h2>
+            <div v-if="!confirmDelete" style="display: flex">
+                <button
+                    :style="{
+                        padding: '8px 16px',
+                        border: '2px solid var(--mc-danger)',
+                        background: 'transparent',
+                        color: 'var(--mc-danger)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontFamily: 'var(--mc-mono)',
+                        fontWeight: '700',
+                        letterSpacing: '0.04em',
+                    }"
+                    @click="confirmDelete = true"
+                >
+                    УДАЛИТЬ ВСЕ ДАННЫЕ
+                </button>
+            </div>
+            <div v-else style="display: flex; flex-direction: column; gap: 8px">
+                <span style="font-size: 13px; color: var(--mc-danger)"
+                    >Все ключи, чаты и настройки будут удалены. Это
+                    необратимо.</span
+                >
+                <div style="display: flex; gap: 8px">
+                    <button
+                        :style="{
+                            padding: '8px 16px',
+                            border: '2px solid var(--mc-danger)',
+                            background: 'var(--mc-danger)',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontFamily: 'var(--mc-mono)',
+                            fontWeight: '700',
+                        }"
+                        @click="deleteAllData"
+                    >
+                        ПОДТВЕРДИТЬ
+                    </button>
+                    <button
+                        :style="{
+                            padding: '8px 16px',
+                            border: '2px solid var(--mc-line)',
+                            background: 'transparent',
+                            color: 'var(--mc-fg-mute)',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                        }"
+                        @click="confirmDelete = false"
+                    >
+                        Отмена
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- Notifications -->
