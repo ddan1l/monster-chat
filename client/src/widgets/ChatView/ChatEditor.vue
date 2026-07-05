@@ -141,6 +141,11 @@ function submitEdit() {
         background: var(--mc-bg-input, var(--mc-bg-rail));
         border: 1px solid var(--mc-line);
         padding: 4px;
+        transition: border-color 0.2s;
+
+        &:focus-within {
+            border-color: var(--mc-line-hard);
+        }
     }
 
     &__btn {

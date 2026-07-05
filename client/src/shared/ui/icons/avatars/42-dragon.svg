@@ -6,5 +6,5 @@
         <polygon points="120,148 130,138 140,148" fill="currentColor"></polygon>
         <polygon points="150,120 160,108 168,120" fill="currentColor"></polygon>
         
-        <circle cx="154" cy="70" r="3" fill="var(--mc-acid)"></circle>
+        <circle cx="154" cy="70" r="3" fill="var(--mc-avatar)"></circle>
 </svg>

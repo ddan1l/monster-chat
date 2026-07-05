@@ -5,6 +5,6 @@
         <path d="M 100 116 L 100 184" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>
         <path d="M 122 116 Q 130 154 124 182" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
         <path d="M 144 116 Q 150 150 140 178" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path>
-        <ellipse cx="84" cy="74" rx="6" ry="8" fill="var(--mc-acid)"></ellipse>
-        <ellipse cx="116" cy="74" rx="6" ry="8" fill="var(--mc-acid)"></ellipse>
+        <ellipse cx="84" cy="74" rx="6" ry="8" fill="var(--mc-avatar)"></ellipse>
+        <ellipse cx="116" cy="74" rx="6" ry="8" fill="var(--mc-avatar)"></ellipse>
 </svg>

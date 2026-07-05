@@ -69,10 +69,10 @@ const useAvatarSize = {
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background: var(--mc-acid);
+        background: var(--mc-online);
         box-shadow:
             0 0 0 2px var(--mc-bg-list),
-            0 0 6px var(--mc-acid);
+            0 0 6px var(--mc-online-shadow);
     }
 
     .mc-user-card-time {

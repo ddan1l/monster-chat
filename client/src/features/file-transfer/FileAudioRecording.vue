@@ -1,20 +1,12 @@
 <script setup lang="ts">
+import AppButtonSmall from "@shared/ui/components/AppButtonSmall.vue";
 import IconMic from "@shared/ui/icons/IconMic.vue";
 
 defineProps<{ disabled?: boolean }>();
 </script>
 
 <template>
-    <button class="button-sm audio-recording-btn" :disabled="disabled">
+    <AppButtonSmall :size="34" :disabled="disabled">
         <IconMic />
-    </button>
+    </AppButtonSmall>
 </template>
-
-<style scoped lang="scss">
-.audio-recording-btn {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    cursor: pointer;
-}
-</style>

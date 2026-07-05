@@ -55,13 +55,38 @@ const { displayText, unreadCount, lastMessage, isOwn, isRead } = useChatPreview(
 </template>
 
 <style lang="scss" scoped>
+@keyframes indicator-enter {
+    from {
+        top: 50%;
+        bottom: 50%;
+        opacity: 0;
+    }
+    to {
+        top: 0;
+        bottom: 0;
+        opacity: 1;
+    }
+}
+
 .mc-chat-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
     cursor: pointer;
-    border-left: 2px solid transparent;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: -1px;
+        width: 2px;
+        top: 50%;
+        bottom: 50%;
+        background: var(--mc-acid);
+        box-shadow: 0 0 6px var(--mc-acid);
+        opacity: 0;
+    }
 
     &:hover {
         background-color: var(--mc-bg-card);
@@ -69,7 +94,11 @@ const { displayText, unreadCount, lastMessage, isOwn, isRead } = useChatPreview(
 
     &_active {
         background-color: var(--mc-bg-sel);
-        border-color: var(--mc-acid);
+
+        &::before {
+            animation: indicator-enter 0.22s ease forwards;
+        }
+
         &:hover {
             background-color: var(--mc-bg-sel);
         }

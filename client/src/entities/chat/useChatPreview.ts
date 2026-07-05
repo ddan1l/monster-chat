@@ -34,7 +34,10 @@ export function useChatPreview(chatId: string, isActive: Ref<boolean>) {
             return `📎 ${message.files[0].name}`;
         }
 
-        return message.text ?? "";
+        const raw = message.text ?? "";
+        const div = document.createElement("div");
+        div.innerHTML = raw;
+        return div.textContent ?? "";
     });
 
     const isOwn = computed(() => lastMessage.value?.isOwn ?? false);

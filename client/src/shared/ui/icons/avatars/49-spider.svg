@@ -11,6 +11,6 @@
         
         <ellipse cx="100" cy="118" rx="40" ry="34" fill="currentColor"></ellipse>
         <circle cx="100" cy="84" r="20" fill="currentColor"></circle>
-        <circle cx="90" cy="82" r="5" fill="var(--mc-acid)"></circle>
-        <circle cx="110" cy="82" r="5" fill="var(--mc-acid)"></circle>
+        <circle cx="90" cy="82" r="5" fill="var(--mc-avatar)"></circle>
+        <circle cx="110" cy="82" r="5" fill="var(--mc-avatar)"></circle>
 </svg>

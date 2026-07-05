@@ -167,9 +167,8 @@ const menu = ref<InstanceType<typeof AppMenu> | null>(null);
     position: relative;
     max-width: 40%;
     &_self {
-        background-color: var(--mc-acid);
-        color: var(--mc-fd-dark);
-        box-shadow: 0 0 24px var(--mc-acid-glow);
+        background-color: var(--mc-bg-message);
+        color: var(--mc-fg-message);
         border: none;
     }
 

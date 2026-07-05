@@ -37,10 +37,10 @@ const tag = computed(() => (props.selectable ? "button" : "div"));
     padding: 2px;
     flex-shrink: 0;
     color: #050706;
-    background: var(--mc-acid);
+    background: var(--mc-avatar);
 
     &[type="button"]:hover {
-        background: var(--mc-acid-dim);
+        background: var(--mc-avatar);
     }
 
     &_selected {

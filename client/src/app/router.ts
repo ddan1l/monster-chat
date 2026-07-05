@@ -11,21 +11,29 @@ import ApprovePage from "@pages/ApprovePage.vue";
 import InboxPage from "@pages/InboxPage.vue";
 import LandingPage from "@pages/LandingPage.vue";
 import OpenPage from "@pages/OpenPage.vue";
-import SettingsPage from "@pages/SettingsPage.vue";
 import SetupPage from "@pages/SetupPage.vue";
 import UnlockPage from "@pages/UnlockPage.vue";
 
 const router = createRouter({
     history: createWebHistory(),
     routes: [
-        { path: "/", component: LandingPage },
-        { path: "/open", component: OpenPage },
-        { path: "/app", component: InboxPage },
-        { path: "/app/chat/:chatId", component: InboxPage },
-        { path: "/app/setup", component: SetupPage },
-        { path: "/app/unlock", component: UnlockPage },
-        { path: "/app/join/:chatId", component: ApprovePage },
-        { path: "/app/settings", component: SettingsPage },
+        { path: "/", name: "landing", component: LandingPage },
+        { path: "/open", name: "open", component: OpenPage },
+        {
+            path: "/app",
+            name: "inbox",
+            component: InboxPage,
+            meta: { index: 0 },
+        },
+        {
+            path: "/app/chat/:chatId",
+            name: "chat",
+            component: InboxPage,
+            meta: { index: 0 },
+        },
+        { path: "/app/setup", name: "setup", component: SetupPage },
+        { path: "/app/unlock", name: "unlock", component: UnlockPage },
+        { path: "/app/join/:chatId", name: "join", component: ApprovePage },
     ],
 });
 

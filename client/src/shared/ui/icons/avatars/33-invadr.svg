@@ -11,11 +11,11 @@
           <rect x="40" y="130" width="20" height="20"></rect><rect x="80" y="130" width="40" height="20"></rect><rect x="140" y="130" width="20" height="20"></rect>
           <rect x="20" y="130" width="20" height="20"></rect><rect x="160" y="130" width="20" height="20"></rect>
         </g>
-        <rect x="80" y="90" width="20" height="20" fill="var(--mc-acid)"></rect>
+        <rect x="80" y="90" width="20" height="20" fill="var(--mc-avatar)"></rect>
         <rect x="120" y="90" width="0" height="0"></rect>
         <rect x="120" y="90" width="20" height="20" fill="currentColor"></rect>
-        <rect x="100" y="90" width="20" height="20" fill="var(--mc-acid)"></rect>
+        <rect x="100" y="90" width="20" height="20" fill="var(--mc-avatar)"></rect>
         <rect x="80" y="90" width="20" height="20" fill="currentColor"></rect>
-        <rect x="60" y="110" width="20" height="20" fill="var(--mc-acid)"></rect>
-        <rect x="120" y="110" width="20" height="20" fill="var(--mc-acid)"></rect>
+        <rect x="60" y="110" width="20" height="20" fill="var(--mc-avatar)"></rect>
+        <rect x="120" y="110" width="20" height="20" fill="var(--mc-avatar)"></rect>
 </svg>

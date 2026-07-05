@@ -27,8 +27,8 @@ defineProps<{
         color: var(--mc-danger);
     }
     &_verified {
-        border: 1px solid var(--mc-acid);
-        color: var(--mc-acid);
+        border: 1px solid var(--mc-alert);
+        color: var(--mc-alert);
     }
 }
 </style>

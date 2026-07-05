@@ -8,8 +8,9 @@ import type { User } from "shared";
 
 const USER_ID = "current-user";
 
+const user = ref<User | null>(null);
+
 export function useUser() {
-    const user = ref<User | null>(null);
     const { read, write } = useIndexedDb(STORES.USER);
 
     async function init(name: string, avatar: string): Promise<void> {

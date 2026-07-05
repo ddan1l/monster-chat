@@ -14,9 +14,6 @@ import ChatKnockModal from "@widgets/ChatKnock/ChatKnockModal.vue";
 import ChatListHeader from "@widgets/ChatList/ChatListHeader.vue";
 import ChatListItem from "@widgets/ChatList/ChatListItem.vue";
 
-declare const __APP_VERSION__: string;
-const version = __APP_VERSION__;
-
 const router = useRouter();
 const route = useRoute();
 const { loadChats } = useChats();
@@ -50,6 +47,12 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
     <div v-if="loaded" class="mc-chat-list">
         <ChatListHeader @new-chat="showNewChat = true" />
 
+        <div v-if="activeChats.length" class="mc-chat-list__section">
+            <span>ВСЕ ЧАТЫ</span>
+            <span class="mc-chat-list__section-line" />
+            <span>{{ activeChats.length }}</span>
+        </div>
+
         <ChatListItem
             v-for="chat in activeChats"
             :key="chat.id"
@@ -61,8 +64,6 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
                     : router.push(`/app/chat/${chat.id}`)
             "
         />
-
-        <div class="mc-chat-list__version">VERSION({{ version }})</div>
     </div>
 
     <ChatKnockModal v-if="showNewChat" @close="showNewChat = false" />
@@ -75,13 +76,22 @@ const activeChats = computed(() => chats.value.filter((c) => c.isActive));
     display: flex;
     flex-direction: column;
 
-    &__version {
-        margin-top: auto;
-        padding: 8px 16px;
-        font-size: 0.6875em;
+    &__section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 16px 8px;
+        font-size: 0.625em;
         font-family: var(--mc-mono);
+        font-weight: 700;
         color: var(--mc-fg-dim);
-        border-top: 1px solid var(--mc-line-hard);
+        letter-spacing: 0.06em;
+
+        &-line {
+            flex: 1;
+            height: 1px;
+            background: var(--mc-line-hard);
+        }
     }
 }
 </style>

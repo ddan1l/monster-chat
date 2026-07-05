@@ -40,22 +40,20 @@ async function cancelChat() {
 
 const handleCancelChat = async (closeModal?: () => void) => {
     await cancelChat();
-
     if (closeModal) {
         closeModal();
+    } else {
+        emit("close");
     }
-
-    emit("close");
 };
 
 const handleApproveChat = async (closeModal?: () => void) => {
     await approveChat(newChatId.value);
-
     if (closeModal) {
         closeModal();
+    } else {
+        emit("close");
     }
-
-    emit("close");
 };
 
 onMounted(() => {

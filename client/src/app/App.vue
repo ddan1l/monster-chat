@@ -18,6 +18,7 @@ import { subscribePush } from "@features/push-notifications/usePushNotifications
 import { usePwa } from "@features/pwa/usePwa";
 
 import AppHeader from "@widgets/AppHeader/AppHeader.vue";
+import AppSidebar from "@widgets/AppSidebar/AppSidebar.vue";
 
 const { connect, connected } = useWs();
 const router = useRouter();
@@ -87,7 +88,10 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
                 </button>
             </div>
             <AppHeader />
-            <RouterView class="mc-view" />
+            <div class="mc-body">
+                <AppSidebar />
+                <RouterView class="mc-view" />
+            </div>
         </div>
     </div>
 </template>
@@ -107,6 +111,16 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
     height: 100%;
     display: flex;
     flex-direction: column;
+}
+.mc-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+}
+.mc-view {
+    flex: 1;
+    min-width: 0;
 }
 .mc-update-banner {
     display: flex;

@@ -3,5 +3,5 @@
         <rect x="78" y="40" width="10" height="40" fill="currentColor"></rect>
         <rect x="98" y="34" width="10" height="46" fill="currentColor"></rect>
         <rect x="118" y="42" width="10" height="38" fill="currentColor"></rect>
-        <path d="M 100 110 L 100 140" stroke="var(--mc-acid)" stroke-width="5" stroke-linecap="round"></path>
+        <path d="M 100 110 L 100 140" stroke="var(--mc-avatar)" stroke-width="5" stroke-linecap="round"></path>
 </svg>

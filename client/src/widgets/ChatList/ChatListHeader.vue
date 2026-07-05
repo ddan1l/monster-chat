@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButtonSmall from "@shared/ui/components/AppButtonSmall.vue";
 import IconPlus from "@shared/ui/icons/IconPlus.vue";
 
 const emit = defineEmits<{ newChat: [] }>();
@@ -6,19 +7,32 @@ const emit = defineEmits<{ newChat: [] }>();
 
 <template>
     <div class="mc-chat-list-header">
-        <h2>ЧАТЫ<span class="color-accent">/</span></h2>
+        <div class="mc-chat-list-header__wrapper">
+            <h2>ЧАТЫ<span class="color-accent">/</span></h2>
 
-        <button class="button-sm" @click="emit('newChat')">
-            <IconPlus />
-        </button>
+            <AppButtonSmall @click="emit('newChat')">
+                <IconPlus />
+            </AppButtonSmall>
+        </div>
+
+        <slot name="search" />
     </div>
 </template>
 
 <style lang="scss" scoped>
 .mc-chat-list-header {
     padding: 20px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    padding-bottom: 0;
+
+    &__wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    &__actions {
+        display: flex;
+        gap: 2px;
+    }
 }
 </style>

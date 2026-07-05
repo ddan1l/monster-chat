@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { watch, ref, onBeforeUnmount } from "vue";
 
+import AppButtonSmall from "@shared/ui/components/AppButtonSmall.vue";
 import IconClose from "@shared/ui/icons/IconClose.vue";
 import IconDot from "@shared/ui/icons/IconDot.vue";
 
@@ -73,9 +74,9 @@ onBeforeUnmount(() => {
                             {{ title }}
                         </h5>
                         <span v-else />
-                        <button class="button-sm" @click="close">
+                        <AppButtonSmall @click="close">
                             <IconClose />
-                        </button>
+                        </AppButtonSmall>
                     </div>
                     <div class="mc-modal__body">
                         <slot :close-modal="closeModal" />

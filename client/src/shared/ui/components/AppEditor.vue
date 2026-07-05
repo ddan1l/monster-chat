@@ -36,9 +36,9 @@ const editor = useEditor({
         Placeholder.configure({ placeholder: props.placeholder }),
     ],
     autofocus: props.autofocus,
-    onUpdate({ editor }) {
+    onUpdate({ editor, transaction }) {
         emit("update:modelValue", editor.getHTML());
-        if (!skipUpdate) emit("input");
+        if (!skipUpdate && transaction.docChanged) emit("input");
     },
     editorProps: {
         handleKeyDown(_, event) {

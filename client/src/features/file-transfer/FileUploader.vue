@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import AppButtonSmall from "@shared/ui/components/AppButtonSmall.vue";
 import IconFile from "@shared/ui/icons/IconFile.vue";
 
 import { useFileUpload } from "@features/file-transfer/useFileUpload";
@@ -115,10 +116,7 @@ defineExpose({ clear });
         </div>
     </div>
 
-    <label
-        class="button-sm file-uploader__btn"
-        :class="{ 'file-uploader__btn_disabled': disabled }"
-    >
+    <AppButtonSmall tag="label" :size="34" :disabled="disabled">
         <IconFile />
         <input
             type="file"
@@ -127,19 +125,5 @@ defineExpose({ clear });
             :disabled="disabled"
             @change="onFileChange"
         />
-    </label>
+    </AppButtonSmall>
 </template>
-
-<style scoped lang="scss">
-.file-uploader__btn {
-    cursor: pointer;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-
-    &_disabled {
-        opacity: 0.4;
-        pointer-events: none;
-    }
-}
-</style>
