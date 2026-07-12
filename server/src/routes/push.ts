@@ -1,5 +1,7 @@
 import { Router } from "express";
 
+import { requireSignature, type AuthedRequest } from "../httpAuth.js";
+
 import type { PushSubscriptionRepository } from "../repositories/PushSubscriptionRepository.js";
 
 export function pushRoutes(subscriptions: PushSubscriptionRepository): Router {
@@ -14,13 +16,15 @@ export function pushRoutes(subscriptions: PushSubscriptionRepository): Router {
         res.json({ key });
     });
 
-    router.post("/subscribe", (req, res) => {
-        const { signPubKey, subscription } = req.body as {
-            signPubKey: string;
+    router.post("/subscribe", requireSignature, (req, res) => {
+        // Ключ берём из подписанного запроса, а не из тела — нельзя подписать
+        // чужой push-endpoint на чужой ключ.
+        const signPubKey = (req as AuthedRequest).signPubKey!;
+        const { subscription } = req.body as {
             subscription: PushSubscriptionJSON;
         };
 
-        if (!signPubKey || !subscription?.endpoint) {
+        if (!subscription?.endpoint) {
             res.status(400).json({ error: "Invalid payload" });
             return;
         }

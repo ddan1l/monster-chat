@@ -1,9 +1,10 @@
+import { signRequest } from "@shared/crypto/signRequest";
 import { useCrypto, toBase64 } from "@shared/crypto/useCrypto";
 
 import type { FileAttachment } from "shared";
 
 export function useFileUpload() {
-    const { exportSignPublicKey, encryptBytes } = useCrypto();
+    const { encryptBytes } = useCrypto();
 
     async function uploadFile(
         file: File,
@@ -12,13 +13,13 @@ export function useFileUpload() {
         const { encrypted, keyRaw, iv } = await encryptBytes(
             await file.arrayBuffer()
         );
-        const signPubKey = await exportSignPublicKey();
+        const url = `/api/files/${chatId}`;
 
-        const response = await fetch(`/api/files/${chatId}`, {
+        const response = await fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/octet-stream",
-                "X-Sign-Key": signPubKey,
+                ...(await signRequest("POST", url)),
             },
             body: encrypted,
         });

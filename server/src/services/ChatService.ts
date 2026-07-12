@@ -5,8 +5,9 @@ import { PendingChatInMemoryRepository } from "../repositories/PendingChatInMemo
 
 import { NotificationService } from "./NotificationService.js";
 
-import type { ChatMessageQueue } from "../queues/ChatMessageQueue.js";
 import type { UserEventQueue } from "../queues/UserEventQueue.js";
+import type { ChatMemberRepository } from "../repositories/ChatMemberRepository.js";
+import type { MessageRepository } from "../repositories/MessageRepository.js";
 import type { Peer } from "../types.js";
 import type {
     ChatMessage,
@@ -14,6 +15,8 @@ import type {
     ServerError,
     ServerChatOpened,
     ServerChatCreated,
+    ServerChatDestroyed,
+    ServerChatDeleted,
     ServerPeerInfo,
     ServerMessageDelivery,
     ServerMessage,
@@ -22,17 +25,38 @@ import type {
 export class ChatService {
     constructor(
         private connectionRepository: ConnectionInMemoryRepository,
-        private queueRepository: ChatMessageQueue,
+        private messageRepository: MessageRepository,
+        private chatMemberRepository: ChatMemberRepository,
         private pendingChatRepository: PendingChatInMemoryRepository,
         private notificationService: NotificationService,
         private userEventQueue: UserEventQueue
     ) {}
 
-    join(chatId: string, signPubKey: string, peer: Peer): void {
+    // Непрочитанные выводим из сообщений и курсора read_seq — отдельного
+    // счётчика нет, дрейфовать нечему.
+    private unreadCount(chatId: string, signPubKey: string): number {
+        const readSeq = this.chatMemberRepository.getReadSeq(
+            chatId,
+            signPubKey
+        );
+        return this.messageRepository.countUnread(chatId, signPubKey, readSeq);
+    }
+
+    // «Прочитано»: двигаем курсор к текущему максимуму чата.
+    markRead(chatId: string, signPubKey: string): void {
+        const maxSeq = this.messageRepository.getMaxSeq(chatId);
+        this.chatMemberRepository.setReadSeq(chatId, signPubKey, maxSeq);
+    }
+
+    join(chatId: string, signPubKey: string, peer: Peer, afterSeq = 0): void {
         peer.chatId = chatId;
 
-        const pending = this.queueRepository.flush(`${chatId}:${signPubKey}`);
-        pending.forEach((msg) => {
+        const missed = this.messageRepository.getAfter(
+            chatId,
+            signPubKey,
+            afterSeq
+        );
+        missed.forEach((msg) => {
             const delivery: ServerMessageDelivery = {
                 type: "message",
                 payload: msg,
@@ -49,18 +73,92 @@ export class ChatService {
         const recipientKey = payload.to;
         const recipient = this.connectionRepository.get(recipientKey);
 
+        // Сохраняем всё (в т.ч. silent — правки/удаления/квитанции), чтобы
+        // оффлайн-пир получил их при следующем open_chat через getAfter.
+        // save() проставляет payload.seq.
+        this.messageRepository.save(payload);
+
+        // ACK отправителю: сообщение персистентно записано, seq присвоен.
+        const sender = this.connectionRepository.get(payload.from);
+        if (
+            sender?.readyState === WebSocket.OPEN &&
+            payload.seq !== undefined
+        ) {
+            this.notificationService.sendEvent(sender, {
+                type: "ack",
+                payload: { nonce: payload.nonce, seq: payload.seq },
+            });
+        }
+
+        // Живая доставка только если пир смотрит именно этот чат; иначе он
+        // подтянет сообщение сам при открытии чата.
         if (
             recipient?.readyState === WebSocket.OPEN &&
             recipient.chatId === chatId
         ) {
             this.notificationService.sendEvent(recipient, delivery);
-        } else {
-            this.queueRepository.push(`${chatId}:${recipientKey}`, payload);
         }
 
-        if (!payload.silent) {
-            this.notificationService.notify(recipientKey, chatId);
+        // Уведомление шлём только участнику: если он удалил чат у себя,
+        // осиротевших непрочитанных быть не должно.
+        if (
+            !payload.silent &&
+            this.chatMemberRepository.isMember(chatId, recipientKey)
+        ) {
+            const unread = this.unreadCount(chatId, recipientKey);
+            this.notificationService.notify(recipientKey, chatId, unread);
         }
+    }
+
+    // Удаление только для себя: снимаем своё членство и счётчик, второму
+    // участнику шлём chat_deleted (у него чат становится read-only). Сообщения
+    // остаются для него; если участников не осталось — чистим.
+    deleteChatForMe(chatId: string, signPubKey: string): void {
+        this.chatMemberRepository.remove(chatId, signPubKey);
+
+        const remaining = this.chatMemberRepository.getMembers(chatId);
+        if (remaining.length === 0) {
+            this.messageRepository.removeByChat(chatId);
+            return;
+        }
+
+        const event: ServerChatDeleted = {
+            type: "chat_deleted",
+            payload: { chatId },
+        };
+        for (const member of remaining) {
+            const conn = this.connectionRepository.get(member);
+            if (conn?.readyState === WebSocket.OPEN) {
+                this.notificationService.sendEvent(conn, event);
+            } else {
+                this.userEventQueue.push(member, event);
+            }
+        }
+    }
+
+    // Удаление для всех: сносим членства и сообщения, остальным шлём
+    // chat_destroyed (или кладём в очередь, если оффлайн).
+    deleteChatForAll(chatId: string, signPubKey: string): void {
+        if (!this.chatMemberRepository.isMember(chatId, signPubKey)) return;
+
+        const members = this.chatMemberRepository.getMembers(chatId);
+        const event: ServerChatDestroyed = {
+            type: "chat_destroyed",
+            payload: { chatId },
+        };
+
+        for (const member of members) {
+            if (member === signPubKey) continue;
+            const recipient = this.connectionRepository.get(member);
+            if (recipient?.readyState === WebSocket.OPEN) {
+                this.notificationService.sendEvent(recipient, event);
+            } else {
+                this.userEventQueue.push(member, event);
+            }
+        }
+
+        this.chatMemberRepository.removeByChat(chatId);
+        this.messageRepository.removeByChat(chatId);
     }
 
     initChat(chatId: string, hostKey: string, peer: Peer): void {
@@ -120,10 +218,14 @@ export class ChatService {
         const knock = pending.knock;
         this.pendingChatRepository.remove(chatId);
 
+        this.chatMemberRepository.add(chatId, pending.hostKey);
+        this.chatMemberRepository.add(chatId, knock.knockerKey);
+
         const chatCreated: ServerChatCreated = {
             type: "chat_created",
             payload: { chatId },
         };
+
         this.sendOrQueue(peer, chatCreated, pending.hostKey);
         this.sendOrQueue(knock.peer, chatCreated, knock.knockerKey);
 
@@ -131,12 +233,12 @@ export class ChatService {
             type: "peer_info",
             payload: { ...peerInfo, chatId },
         };
+
         this.sendOrQueue(knock.peer, aPeerInfo, knock.knockerKey);
     }
 
     relayPeerInfo(
         chatId: string,
-        sender: Peer,
         peerInfo: PeerInfo,
         peerSignPubKey: string
     ): void {

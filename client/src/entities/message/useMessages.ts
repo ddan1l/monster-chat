@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-import { useIndexedDb, STORES, INDEX_CHAT_ID } from "@shared/lib/useIndexedDb";
+import { useIndexedDb, STORES, INDEX_CHAT_ID } from "@shared/storage/useIndexedDb";
 
 import type { ChatMessage, MessageContent } from "shared";
 
@@ -8,6 +8,8 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
     editedAt?: number;
     isRead?: boolean;
     isOwn?: boolean;
+    // Статус доставки исходящего сообщения: pending — ждёт ACK сервера.
+    status?: "pending" | "sent";
 }
 
 export const lastMessageByChat = ref<Record<string, DecryptedMessage>>({});
@@ -15,8 +17,14 @@ export const lastMessageByChat = ref<Record<string, DecryptedMessage>>({});
 export const PAGE_SIZE = 100;
 
 export function useChatMessages() {
-    const { write, readByIndex, readByIndexCursor, readLastByIndex, remove } =
-        useIndexedDb(STORES.MESSAGES);
+    const {
+        read,
+        write,
+        readByIndex,
+        readByIndexCursor,
+        readLastByIndex,
+        remove,
+    } = useIndexedDb(STORES.MESSAGES);
 
     async function saveChatMessage(message: ChatMessage): Promise<void> {
         await write(JSON.parse(JSON.stringify(message)) as ChatMessage);
@@ -24,6 +32,14 @@ export function useChatMessages() {
         if (!current || message.timestamp >= current.timestamp) {
             lastMessageByChat.value[message.chatId] = message;
         }
+    }
+
+    // Помечает исходящее сообщение доставленным на сервер (пришёл ACK).
+    async function markSent(nonce: string, seq: number): Promise<void> {
+        const stored = await read<DecryptedMessage>(nonce);
+        if (!stored) return;
+        const updated: DecryptedMessage = { ...stored, seq, status: "sent" };
+        await saveChatMessage(updated);
     }
 
     async function getByChat(chatId: string): Promise<ChatMessage[]> {
@@ -84,13 +100,22 @@ export function useChatMessages() {
         await Promise.all(msgs.map((m) => remove(m.nonce)));
     }
 
+    async function trimToLastPage(chatId: string): Promise<void> {
+        const all = await getByChat(chatId);
+        if (all.length <= PAGE_SIZE) return;
+        const toDelete = all.slice(0, all.length - PAGE_SIZE);
+        await Promise.all(toDelete.map((m) => remove(m.nonce)));
+    }
+
     return {
         saveChatMessage,
+        markSent,
         getByChat,
         getLastPage,
         getPageBefore,
         getLastMessage,
         removeChatMessage,
         removeAllByChat,
+        trimToLastPage,
     };
 }

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import { useCrypto } from "@shared/crypto/useCrypto";
-import { isTauri } from "@shared/lib/useTauri";
+import { isTauri, setForceWeb } from "@shared/lib/useTauri";
 
 import { useUser } from "@entities/user/useUser";
 
@@ -31,6 +31,16 @@ const router = createRouter({
             component: InboxPage,
             meta: { index: 0 },
         },
+        {
+            path: "/app/web",
+            name: "web",
+            redirect: (to) => {
+                // Явный вход в веб-версию: запоминаем выбор и идём к цели
+                // (?to=/app/join/... сохраняет диплинк) либо в /app.
+                setForceWeb();
+                return (to.query.to as string) ?? "/app";
+            },
+        },
         { path: "/app/setup", name: "setup", component: SetupPage },
         { path: "/app/unlock", name: "unlock", component: UnlockPage },
         { path: "/app/join/:chatId", name: "join", component: ApprovePage },
@@ -42,8 +52,8 @@ router.beforeEach(async (to) => {
 
     if (!to.path.startsWith("/app")) return true;
 
-    const { canInstallApp } = await import("@shared/lib/useTauri");
-    if (canInstallApp && !isTauri) {
+    const { canInstallApp, isForceWeb } = await import("@shared/lib/useTauri");
+    if (canInstallApp && !isTauri && !isForceWeb()) {
         return { path: "/open", query: { to: to.fullPath } };
     }
 

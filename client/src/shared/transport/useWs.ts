@@ -1,5 +1,6 @@
 import { ref } from "vue";
 
+import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
 import { useLog } from "@shared/lib/useLog";
 
 import type { ServerMessage, ClientMessage } from "shared";
@@ -37,6 +38,29 @@ let retryDelay = 1000;
 const endpoint = import.meta.env.VITE_WS_URL as string;
 const log = useLog("useWs");
 
+// Аутентификация (proof-of-possession). Пока не пройдена — connected=false и
+// прикладные сообщения копятся в очереди. Сокет открывается только когда ключ
+// подписи уже разблокирован (см. App.vue), так что challenge всегда есть чем
+// подписать.
+const { sign, exportSignPublicKey } = useCrypto();
+let authed = false;
+
+function rawSend(payload: ClientMessage | { type: string; payload?: unknown }) {
+    if (ws.value?.readyState !== WebSocket.OPEN) return;
+    const str = JSON.stringify(payload);
+    txBytes.value += str.length;
+    ws.value.send(str);
+}
+
+async function answerChallenge(nonce: string): Promise<void> {
+    const signature = await sign(fromBase64(nonce));
+    const signPubKey = await exportSignPublicKey();
+    rawSend({
+        type: "auth",
+        payload: { signPubKey, signature: toBase64(signature) },
+    });
+}
+
 export function useWs(): UseWs {
     function connect(): void {
         if (ws.value) return;
@@ -44,22 +68,35 @@ export function useWs(): UseWs {
         log.info("connecting...");
         ws.value = new WebSocket(endpoint);
         ws.value.onopen = () => {
-            log.info("connected");
-            connected.value = true;
+            log.info("socket open, awaiting challenge");
             reconnecting.value = false;
-            connectedAt.value = Date.now();
             retryDelay = 1000;
-            while (sendQueue.length) send(sendQueue.shift()!);
+            // connected выставим только после аутентификации (authed).
         };
         ws.value.onmessage = ({ data }) => {
             rxBytes.value += (data as string).length;
             const msg: ServerMessage = JSON.parse(data);
             if (msg.type !== "pong") log.info("←", msg.type, msg);
+
+            // Рукопожатие обрабатываем внутри транспорта, наружу не отдаём.
+            if (msg.type === "challenge") {
+                answerChallenge(msg.payload.nonce);
+                return;
+            }
+            if (msg.type === "authed") {
+                authed = true;
+                connected.value = true;
+                connectedAt.value = Date.now();
+                while (sendQueue.length) send(sendQueue.shift()!);
+                return;
+            }
+
             messageHandlers.forEach((h) => h(msg));
         };
         ws.value.onclose = () => {
             log.warn(`disconnected, retrying in ${retryDelay}ms`);
             ws.value = null;
+            authed = false;
             connected.value = false;
             reconnecting.value = true;
             connectedAt.value = null;
@@ -84,7 +121,8 @@ export function useWs(): UseWs {
     }
 
     function send(payload: ClientMessage): void {
-        if (ws.value?.readyState !== WebSocket.OPEN) {
+        // До прохождения аутентификации прикладные сообщения копим в очереди.
+        if (!authed || ws.value?.readyState !== WebSocket.OPEN) {
             sendQueue.push(payload);
             return;
         }

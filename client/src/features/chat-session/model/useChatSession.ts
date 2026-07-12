@@ -1,8 +1,8 @@
 import { ref, watch, onUnmounted, toRaw, nextTick } from "vue";
 
-import { useWs } from "@shared/api/useWs";
-import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import { signRequest } from "@shared/crypto/signRequest";
+import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
+import { useWs } from "@shared/transport/useWs";
 
 import { chats } from "@entities/chat/useChats";
 import {
@@ -10,15 +10,16 @@ import {
     PAGE_SIZE,
     type DecryptedMessage,
 } from "@entities/message/useMessages";
+import { useOutbox } from "@entities/message/useOutbox";
 import { usePeerPresence } from "@entities/peer/usePeerPresence";
 import { peers } from "@entities/peer/usePeers";
 import { useUser } from "@entities/user/useUser";
 
+import { useChatCrypto } from "./useChatCrypto";
 import { useTypingIndicator } from "./useTypingIndicator";
 
 import type {
     Chat,
-    ChatEnvelope,
     ChatMessage,
     MessageContent,
     MessageAction,
@@ -32,23 +33,17 @@ export type { DecryptedMessage };
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
-    const { saveChatMessage, getLastPage, getPageBefore, removeChatMessage } =
+    const { saveChatMessage, getLastPage, removeChatMessage, trimToLastPage } =
         useChatMessages();
+    const { enqueue: enqueueOutbox } = useOutbox();
     const { user, load: loadUser } = useUser();
-    const { send: wsSend, subscribe } = useWs();
-    const {
-        exportSignPublicKey,
-        deriveSharedKey,
-        encrypt,
-        decrypt,
-        sign,
-        verify,
-    } = useCrypto();
+    const { send: wsSend, subscribe, connected } = useWs();
 
-    const { connected } = useWs();
+    const { initPeer, loadMyKey, ready, decryptMessage, buildSignedMessage } =
+        useChatCrypto(chatId);
+
     const { isPeerTyping, sendTyping, sendStopTyping } =
         useTypingIndicator(chatId);
-
     const { isPeerOnline, peerLastSeen } = usePeerPresence(chatId);
 
     const chat = ref<Chat | null>(null);
@@ -57,8 +52,6 @@ export function useChatSession(chatId: string) {
     const hasMoreMessages = ref(false);
     const error = ref<string | null>(null);
 
-    let sharedKey: CryptoKey | null = null;
-    let myKey: string | null = null;
     const seenNonces = new Set<string>();
 
     const unsubs: (() => void)[] = [];
@@ -73,67 +66,10 @@ export function useChatSession(chatId: string) {
 
     onUnmounted(() => unsubs.forEach((fn) => fn()));
 
-    async function initSharedKey(ecdhPubKey: string): Promise<void> {
-        sharedKey = await deriveSharedKey(fromBase64(ecdhPubKey));
-    }
-
-    async function decryptMessage(msg: ChatMessage): Promise<DecryptedMessage> {
-        const envelope: ChatEnvelope = {
-            chatId: msg.chatId,
-            from: msg.from,
-            to: msg.to,
-            nonce: msg.nonce,
-            iv: msg.iv,
-            payload: msg.payload,
-            timestamp: msg.timestamp,
-        };
-
-        const envelopeBytes = new TextEncoder().encode(
-            JSON.stringify(envelope)
-        );
-
-        // Отправителем может быть только один из двух участников чата —
-        // мы сами (загрузка своей истории) или доверенный пир. Любой иной
-        // ключ означает попытку выдать себя за участника.
-        const trustedSender =
-            msg.from === myKey || msg.from === peer.value?.signPubKey;
-
-        const valid =
-            trustedSender &&
-            (await verify(
-                fromBase64(msg.from),
-                envelopeBytes,
-                fromBase64(msg.signature)
-            ));
-
-        if (!valid) {
-            return { ...msg, text: "<i>Invalid message signature</i>" };
-        }
-        if (!sharedKey) {
-            throw new Error("Shared key not initialized");
-        }
-
-        const decrypted = await decrypt(
-            sharedKey,
-            fromBase64(msg.payload),
-            new Uint8Array(fromBase64(msg.iv))
-        );
-
-        const content: MessageContent = JSON.parse(decrypted);
-        const stored = msg as DecryptedMessage;
-        return {
-            ...msg,
-            ...content,
-            // Restore persisted metadata when loading from IDB
-            ...(stored.editedAt !== undefined
-                ? { editedAt: stored.editedAt, text: stored.text }
-                : {}),
-            ...(stored.isRead !== undefined ? { isRead: stored.isRead } : {}),
-            ...(stored.isOwn !== undefined ? { isOwn: stored.isOwn } : {}),
-        };
-    }
-
     function addMessage(msg: DecryptedMessage): void {
+        // Свои сообщения сервер вернёт и нам (getAfter по sender OR recipient) —
+        // помечаем nonce, чтобы повторная загрузка не создала дубль.
+        seenNonces.add(msg.nonce);
         saveChatMessage(msg);
         messages.value.push(msg);
     }
@@ -167,42 +103,12 @@ export function useChatSession(chatId: string) {
         saveChatMessage(updated);
     }
 
-    async function buildSignedMessage(
-        content: MessageContent,
-        silent?: boolean
-    ): Promise<ChatMessage> {
-        const nonce = crypto.randomUUID();
-        const { payload, iv } = await encrypt(
-            sharedKey!,
-            JSON.stringify(content)
-        );
-        const from = await exportSignPublicKey();
-        const envelope: ChatEnvelope = {
-            chatId,
-            from,
-            to: peer.value!.signPubKey,
-            nonce,
-            iv: toBase64(iv),
-            payload: toBase64(payload),
-            timestamp: Date.now(),
-        };
-        const envelopeBytes = new TextEncoder().encode(
-            JSON.stringify(envelope)
-        );
-        const signature = await sign(envelopeBytes);
-        return {
-            ...envelope,
-            signature: toBase64(signature),
-            ...(silent ? { silent: true } : {}),
-        };
-    }
-
     async function sendMessage(
         text: string,
         files?: FileAttachment[],
         originalNonce?: string
     ): Promise<void> {
-        if (!user.value || !peer.value || !sharedKey) return;
+        if (!user.value || !peer.value || !ready()) return;
 
         const content: MessageContent = {
             text,
@@ -212,10 +118,19 @@ export function useChatSession(chatId: string) {
                 : {}),
         };
         const msg = await buildSignedMessage(content, !!originalNonce);
-        wsSend({ type: "message", payload: msg });
         if (!content.action) {
-            addMessage({ ...msg, ...content, isOwn: true, isRead: false });
+            // Кладём в outbox до ACK и оптимистично показываем как pending;
+            // wsSend — попытка доставить сразу, флаш на реконнекте — гарантия.
+            await enqueueOutbox(chatId, msg);
+            addMessage({
+                ...msg,
+                ...content,
+                isOwn: true,
+                isRead: false,
+                status: "pending",
+            });
         }
+        wsSend({ type: "message", payload: msg });
     }
 
     async function editMessage(nonce: string, newText: string): Promise<void> {
@@ -244,7 +159,7 @@ export function useChatSession(chatId: string) {
         action: MessageAction,
         targetNonce?: string
     ): Promise<void> {
-        if (!peer.value || !sharedKey) return;
+        if (!peer.value || !ready()) return;
         const content: MessageContent = {
             action,
             ...(targetNonce ? { targetNonce } : {}),
@@ -264,9 +179,17 @@ export function useChatSession(chatId: string) {
             error.value = msg.message;
         });
 
+        // ACK сервера — помечаем исходящее доставленным (реактивно в открытом
+        // чате; outbox глобально дочищает и обновляет IDB).
+        on("ack", (msg) => {
+            updateMessage(msg.payload.nonce, {
+                status: "sent",
+                seq: msg.payload.seq,
+            });
+        });
+
         on("message", async (msg) => {
-            // Replay-защита: отбрасываем уже виденные nonce и сообщения
-            // с временной меткой вне допустимого окна.
+            // Replay-защита: отбрасываем уже виденные nonce.
             const { nonce } = msg.payload;
             if (seenNonces.has(nonce)) return;
             seenNonces.add(nonce);
@@ -296,14 +219,14 @@ export function useChatSession(chatId: string) {
                 async (peerInfo) => {
                     if (!peerInfo) return;
                     peer.value = peerInfo;
-                    await initSharedKey(peerInfo.ecdhPubKey);
+                    await initPeer(peerInfo);
                 }
             )
         );
 
         if (!user.value) await loadUser();
 
-        myKey = await exportSignPublicKey();
+        await loadMyKey();
 
         const [loadedChat, loadedPeer] = await Promise.all([
             read<Chat>(chatId),
@@ -318,9 +241,9 @@ export function useChatSession(chatId: string) {
 
         unsubs.push(
             watch(
-                () => chats.value.find((c) => c.id === chatId)?.isActive,
-                (isActive) => {
-                    if (isActive) loadChat();
+                () => chats.value.find((c) => c.id === chatId)?.established,
+                (established) => {
+                    if (established) loadChat();
                 },
                 { immediate: true }
             )
@@ -337,25 +260,48 @@ export function useChatSession(chatId: string) {
     }
 
     async function loadChat(): Promise<void> {
-        const [signPubKey, msgs, activePeer] = await Promise.all([
-            exportSignPublicKey(),
+        const [cached, activePeer] = await Promise.all([
             getLastPage(chatId),
             readPeer<PeerInfo>(chatId),
         ]);
         chat.value = chats.value.find((c) => c.id === chatId) ?? null;
         peer.value = activePeer;
-        if (activePeer) await initSharedKey(activePeer.ecdhPubKey);
-        messages.value = await Promise.all(msgs.map(decryptMessage));
-        hasMoreMessages.value = msgs.length === PAGE_SIZE;
+        if (activePeer) await initPeer(activePeer);
+
+        // Show cached messages immediately, pre-populate seenNonces to avoid duplicates
+        messages.value = await Promise.all(cached.map(decryptMessage));
+        cached.forEach((m) => seenNonces.add(m.nonce));
+        hasMoreMessages.value = cached.length >= PAGE_SIZE;
+
         if (connected.value) {
-            wsSend({ type: "open_chat", payload: { chatId, signPubKey } });
+            // Курсор — серверный монотонный seq, а не клиентский timestamp.
+            const afterSeq = cached.reduce(
+                (max, m) => Math.max(max, m.seq ?? 0),
+                0
+            );
+            wsSend({
+                type: "open_chat",
+                payload: { chatId, afterSeq },
+            });
         }
     }
 
     async function loadMoreMessages(): Promise<void> {
         if (!hasMoreMessages.value || messages.value.length === 0) return;
-        const oldest = messages.value[0].timestamp;
-        const older = await getPageBefore(chatId, oldest);
+        const oldestSeq = messages.value[0].seq ?? 0;
+        const wsUrl = import.meta.env.VITE_WS_URL as string;
+        const apiBase = wsUrl.replace(/^ws(s?):\/\//, "http$1://");
+        const url = `${apiBase}/api/messages/${chatId}?before=${oldestSeq}&limit=${PAGE_SIZE}`;
+
+        const res = await fetch(url, {
+            headers: await signRequest("GET", url),
+        });
+        if (!res.ok) return;
+        const older: ChatMessage[] = await res.json();
+
+        await Promise.all(older.map((m) => saveChatMessage(m)));
+        await trimToLastPage(chatId);
+
         const decrypted = await Promise.all(older.map(decryptMessage));
         if (decrypted.length < PAGE_SIZE) hasMoreMessages.value = false;
         messages.value = [...decrypted, ...messages.value];

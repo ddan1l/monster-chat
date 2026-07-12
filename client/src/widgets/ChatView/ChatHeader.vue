@@ -26,6 +26,7 @@ const statusText = computed(() => {
 const emit = defineEmits<{
     openPanel: [];
     deleteChat: [];
+    deleteChatForAll: [];
 }>();
 
 const showDeleteMenu = ref(false);
@@ -61,7 +62,16 @@ const showDeleteMenu = ref(false);
                             showDeleteMenu = false;
                         "
                     >
-                        Удалить чат
+                        Удалить у себя
+                    </button>
+                    <button
+                        class="chat-header__menu-item chat-header__menu-item_danger"
+                        @click="
+                            emit('deleteChatForAll');
+                            showDeleteMenu = false;
+                        "
+                    >
+                        Удалить у всех
                     </button>
                 </div>
             </div>

@@ -7,11 +7,12 @@ import DOMPurify from "dompurify";
 import AppMenu from "@shared/ui/components/AppMenu.vue";
 import AppMenuItem from "@shared/ui/components/AppMenuItem.vue";
 import IconCheck from "@shared/ui/icons/IconCheck.vue";
+import IconClock from "@shared/ui/icons/IconClock.vue";
 
 import UserAvatar from "@entities/user/ui/UserAvatar.vue";
 
+import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 import { useFileDownload } from "@features/file-transfer/useFileDownload";
-import type { DecryptedMessage } from "@features/send-message/useChatSession";
 
 import type { PeerInfo } from "shared";
 
@@ -92,7 +93,11 @@ const menu = ref<InstanceType<typeof AppMenu> | null>(null);
                     <span class="mc-message__time">{{
                         format(msg.timestamp, "HH:mm")
                     }}</span>
-                    <IconCheck v-if="isSelf" :double="msg.isRead" />
+                    <IconClock
+                        v-if="isSelf && msg.status === 'pending'"
+                        class="mc-message__pending"
+                    />
+                    <IconCheck v-else-if="isSelf" :double="msg.isRead" />
                 </span>
             </div>
         </div>

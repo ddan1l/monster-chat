@@ -3,7 +3,7 @@ import type { Ref } from "vue";
 
 import { useVisibility } from "@shared/lib/useVisibility";
 
-import type { DecryptedMessage } from "@features/send-message/useChatSession";
+import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 
 import type { PeerInfo } from "shared";
 

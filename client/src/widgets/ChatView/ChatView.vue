@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
-import { useWs } from "@shared/api/useWs";
+import { useDebounce } from "@shared/lib/useDebounce";
+import { useWs } from "@shared/transport/useWs";
 
 import { useChatNotification } from "@entities/chat/useChatNotification";
-import { activeChatId, useChats } from "@entities/chat/useChats";
+import { activeChatId, chats, useChats } from "@entities/chat/useChats";
 
-import { useChatSession } from "@features/send-message/useChatSession";
+import { useChatSession } from "@features/chat-session/model/useChatSession";
 import SafetyNumbers from "@features/verify-identity/SafetyNumbers.vue";
 import { useSafetyNumbers } from "@features/verify-identity/useSafetyNumbers";
 
@@ -50,7 +51,13 @@ const {
     removeVerification,
 } = useSafetyNumbers(props.chatId);
 
-const { deleteChat } = useChats();
+const { deleteChat, deleteChatForAll } = useChats();
+
+// Read-only состояние берём из реактивного стора, а не из локального chat —
+// событие chat_deleted обновляет именно массив chats.
+const isLefted = computed(
+    () => chats.value.find((c) => c.id === props.chatId)?.lefted ?? false
+);
 
 watch(
     peer,
@@ -62,6 +69,9 @@ watch(
 
 const { clearUnread } = useChatNotification();
 
+const { schedule: debouncedClearUnread, cancel: cancelClearUnread } =
+    useDebounce(() => clearUnread(props.chatId), 300);
+
 onMounted(async () => {
     activeChatId.value = props.chatId;
     await clearUnread(props.chatId);
@@ -70,6 +80,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
     activeChatId.value = null;
+    cancelClearUnread();
 });
 
 function handleEditStart(nonce: string, text: string) {
@@ -92,7 +103,7 @@ async function handleEditSubmit(nonce: string, newText: string) {
     <div class="chat-view">
         <p v-if="error" class="chat-view__error">{{ error }}</p>
 
-        <template v-if="chat?.isActive">
+        <template v-if="chat?.established">
             <ChatHeader
                 v-if="peer"
                 :peer="peer"
@@ -102,6 +113,7 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 :key-changed="keyChanged"
                 @open-panel="safetyPanelOpen = true"
                 @delete-chat="deleteChat(props.chatId)"
+                @delete-chat-for-all="deleteChatForAll(props.chatId)"
             />
 
             <SafetyNumbers
@@ -126,7 +138,12 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 @edit-start="handleEditStart"
                 @delete-for-me="deleteMessageForMe"
                 @delete-for-all="deleteMessageForAll"
-                @read="markAsRead"
+                @read="
+                    (nonce: string) => {
+                        markAsRead(nonce);
+                        debouncedClearUnread();
+                    }
+                "
             />
 
             <div v-if="verified === false" class="chat-view__verify-hint">
@@ -139,19 +156,24 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 </button>
             </div>
 
-            <ChatEditor
-                v-if="connected"
-                :disabled="!!error || verified !== true"
-                :chat-id="props.chatId"
-                :editing-nonce="editingNonce"
-                :editing-text="editingText"
-                @send="sendMessage"
-                @edit-submit="handleEditSubmit"
-                @edit-cancel="handleEditCancel"
-                @typing="sendTyping"
-                @stop-typing="sendStopTyping"
-            />
-            <div v-else class="chat-view__offline">Оффлайн режим</div>
+            <div v-if="isLefted" class="chat-view__lefted">
+                Собеседник покинул чат
+            </div>
+            <template v-else>
+                <ChatEditor
+                    v-if="connected"
+                    :disabled="!!error || verified !== true"
+                    :chat-id="props.chatId"
+                    :editing-nonce="editingNonce"
+                    :editing-text="editingText"
+                    @send="sendMessage"
+                    @edit-submit="handleEditSubmit"
+                    @edit-cancel="handleEditCancel"
+                    @typing="sendTyping"
+                    @stop-typing="sendStopTyping"
+                />
+                <div v-else class="chat-view__offline">Оффлайн режим</div>
+            </template>
         </template>
     </div>
 </template>
@@ -189,6 +211,14 @@ async function handleEditSubmit(nonce: string, newText: string) {
         padding: 12px 16px;
         font-size: 13px;
         color: var(--mc-fg-dim);
+        text-align: center;
+        border-top: 1px solid var(--mc-line-hard);
+    }
+
+    &__lefted {
+        padding: 14px 16px;
+        font-size: 13px;
+        color: var(--mc-fg-mute);
         text-align: center;
         border-top: 1px solid var(--mc-line-hard);
     }

@@ -1,7 +1,12 @@
 // Messages sent from client to server
+export interface AuthMessage {
+    type: "auth";
+    payload: { signPubKey: string; signature: string }; // подпись challenge-nonce
+}
+
 export interface OpenChatMessage {
     type: "open_chat";
-    payload: { chatId: string; signPubKey: string };
+    payload: { chatId: string; afterSeq?: number };
 }
 
 export interface SendMessage {
@@ -11,12 +16,12 @@ export interface SendMessage {
 
 export interface OnlineMessage {
     type: "online";
-    payload: { signPubKey: string; peers: string[] };
+    payload: { peers: string[] };
 }
 
 export interface InitChatMessage {
     type: "init_chat";
-    payload: { chatId: string; hostKey: string };
+    payload: { chatId: string };
 }
 
 export interface ApproveChatMessage {
@@ -54,6 +59,21 @@ export interface CancelChatMessage {
     payload: { chatId: string };
 }
 
+export interface MarkReadMessage {
+    type: "mark_read";
+    payload: { chatId: string };
+}
+
+export interface DeleteChatMessage {
+    type: "delete_chat";
+    payload: { chatId: string };
+}
+
+export interface DeleteChatForAllMessage {
+    type: "delete_chat_for_all";
+    payload: { chatId: string };
+}
+
 export interface PingMessage {
     type: "ping";
     payload: { ts: number };
@@ -68,6 +88,7 @@ export interface SetOnlineMessage {
 }
 
 export type ClientMessage =
+    | AuthMessage
     | OpenChatMessage
     | SendMessage
     | OnlineMessage
@@ -78,6 +99,9 @@ export type ClientMessage =
     | TypingMessage
     | StopTypingMessage
     | CancelChatMessage
+    | MarkReadMessage
+    | DeleteChatMessage
+    | DeleteChatForAllMessage
     | PingMessage
     | SetAwayMessage
     | SetOnlineMessage;
@@ -92,7 +116,44 @@ export type NotificationType = "chat_notification";
 
 export interface ServerNotification {
     type: "notification";
-    payload: { chatId: string; notificationType: NotificationType; silent?: boolean };
+    payload: {
+        chatId: string;
+        notificationType: NotificationType;
+        silent?: boolean;
+        unreadCount?: number;
+    };
+}
+
+export interface ServerUnread {
+    type: "unread";
+    payload: { counts: Record<string, number> };
+}
+
+export interface ServerChatDestroyed {
+    type: "chat_destroyed";
+    payload: { chatId: string };
+}
+
+export interface ServerChatDeleted {
+    type: "chat_deleted";
+    payload: { chatId: string };
+}
+
+// Подтверждение, что сообщение записано на сервере (для outbox отправителя).
+export interface ServerAck {
+    type: "ack";
+    payload: { nonce: string; seq: number };
+}
+
+// Challenge для proof-of-possession: клиент подписывает nonce своим ключом.
+export interface ServerChallenge {
+    type: "challenge";
+    payload: { nonce: string };
+}
+
+// Аутентификация пройдена — клиент может слать остальные сообщения.
+export interface ServerAuthed {
+    type: "authed";
 }
 
 export interface ServerChatOpened {
@@ -132,7 +193,7 @@ export interface ServerPeerOnline {
 
 export interface ServerPeerOffline {
     type: "peer_offline";
-    payload: { signPubKey: string };
+    payload: { signPubKey: string; lastSeen?: number };
 }
 
 export interface ServerPeerTyping {
@@ -150,6 +211,13 @@ export interface ServerPong {
     payload: { ts: number };
 }
 
+export interface ServerChatList {
+    type: "chat_list";
+    // lefted — чаты, где остался только текущий пользователь (собеседник
+    // удалил чат у себя). У них клиент держит read-only даже после переустановки.
+    payload: { chatIds: string[]; lefted: string[] };
+}
+
 export type ServerMessage =
     | ServerChatOpened
     | ServerChatCreated
@@ -162,13 +230,23 @@ export type ServerMessage =
     | ServerPeerOffline
     | ServerPeerTyping
     | ServerPeerStopTyping
-    | ServerPong;
+    | ServerPong
+    | ServerChatList
+    | ServerUnread
+    | ServerChatDestroyed
+    | ServerChatDeleted
+    | ServerAck
+    | ServerChallenge
+    | ServerAuthed;
 
 export interface Chat {
     id: string;
-    isActive: boolean;
+    // Оба участника присоединились (handshake завершён approve_chat).
+    established: boolean;
     joinLink?: string;
     createdAt: number;
+    // Собеседник покинул чат (удалил у себя): историю читать можно, писать нельзя.
+    lefted?: boolean;
 }
 
 export interface User {
@@ -223,4 +301,7 @@ export interface ChatEnvelope {
 export interface ChatMessage extends ChatEnvelope {
     signature: string; // base64
     silent?: boolean;
+    // Серверный монотонный курсор (rowid). Проставляется сервером при приёме,
+    // в подпись конверта не входит. Клиент использует его для синхронизации.
+    seq?: number;
 }

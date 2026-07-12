@@ -16,9 +16,9 @@ const knocked = ref(false);
 const error = ref<string | null>(null);
 
 watch(
-    () => chats.value.find((c) => c.id === chatId)?.isActive,
-    (isActive) => {
-        if (isActive) router.push(`/app/chat/${chatId}`);
+    () => chats.value.find((c) => c.id === chatId)?.established,
+    (established) => {
+        if (established) router.push(`/app/chat/${chatId}`);
     }
 );
 

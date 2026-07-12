@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-import { useWs } from "@shared/api/useWs";
+import { useWs } from "@shared/transport/useWs";
 
 import { isTauri } from "./useTauri";
 

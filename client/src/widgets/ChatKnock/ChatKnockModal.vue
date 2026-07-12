@@ -33,7 +33,7 @@ async function handleCreateNewChat() {
 async function cancelChat() {
     const chat = chats.value.find((c) => c.id === newChatId.value);
 
-    if (chat && !chat.isActive) {
+    if (chat && !chat.established) {
         await cancelPendingChat(newChatId.value);
     }
 }

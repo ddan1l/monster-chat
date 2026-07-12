@@ -1,6 +1,6 @@
 import { computed } from "vue";
 
-import { useWs } from "@shared/api/useWs";
+import { useWs } from "@shared/transport/useWs";
 import { useDebounce } from "@shared/lib/useDebounce";
 
 import { peers, typingStatus } from "@entities/peer/usePeers";

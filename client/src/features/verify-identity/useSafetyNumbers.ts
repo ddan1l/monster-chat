@@ -1,7 +1,7 @@
 import { ref } from "vue";
 
 import { useCrypto, fromBase64 } from "@shared/crypto/useCrypto";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
 
 import { peers, usePeers } from "@entities/peer/usePeers";
 import type { StoredPeer } from "@entities/peer/usePeers";

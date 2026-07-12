@@ -1,6 +1,6 @@
 import { computed } from "vue";
 
-import type { DecryptedMessage } from "@features/send-message/useChatSession";
+import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 
 export type ChatItem =
     | { type: "divider"; ts: number; key: string }

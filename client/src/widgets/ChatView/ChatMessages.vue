@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-import type { DecryptedMessage } from "@features/send-message/useChatSession";
+import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 
 import ChatDateDivider from "./ChatDateDivider.vue";
 import ChatMessage from "./ChatMessage.vue";

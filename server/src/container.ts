@@ -1,12 +1,10 @@
 import Database from "better-sqlite3";
 
-import { ChatMessageInMemoryQueue } from "./queues/ChatMessageInMemoryQueue.js";
-import { ChatMessageSQLiteQueue } from "./queues/ChatMessageSQLiteQueue.js";
-import { UserEventInMemoryQueue } from "./queues/UserEventInMemoryQueue.js";
 import { UserEventSQLiteQueue } from "./queues/UserEventSQLiteQueue.js";
+import { ChatMemberSQLiteRepository } from "./repositories/ChatMemberSQLiteRepository.js";
 import { ConnectionInMemoryRepository } from "./repositories/ConnectionInMemoryRepository.js";
+import { MessageSQLiteRepository } from "./repositories/MessageSQLiteRepository.js";
 import { PendingChatInMemoryRepository } from "./repositories/PendingChatInMemoryRepository.js";
-import { PushSubscriptionInMemoryRepository } from "./repositories/PushSubscriptionInMemoryRepository.js";
 import { PushSubscriptionSQLiteRepository } from "./repositories/PushSubscriptionSQLiteRepository.js";
 import { ChatService } from "./services/ChatService.js";
 import { FileService } from "./services/FileService.js";
@@ -14,27 +12,15 @@ import { NotificationService } from "./services/NotificationService.js";
 import { PresenceService } from "./services/PresenceService.js";
 import { LocalFileStorage } from "./storage/LocalFileStorage.js";
 
-import type { ChatMessageQueue } from "./queues/ChatMessageQueue.js";
-import type { UserEventQueue } from "./queues/UserEventQueue.js";
-import type { PushSubscriptionRepository } from "./repositories/PushSubscriptionRepository.js";
+const db = new Database(process.env.DB_PATH ?? "./data.db");
 
-const driver = process.env.STORAGE_DRIVER ?? "memory";
+const userEventQueue = new UserEventSQLiteQueue(db);
+const pushSubscriptionRepository = new PushSubscriptionSQLiteRepository(db);
+export const messageRepository = new MessageSQLiteRepository(db);
+export const chatMemberRepository = new ChatMemberSQLiteRepository(db);
 
-let chatMessageQueue: ChatMessageQueue;
-let userEventQueue: UserEventQueue;
-let pushSubscriptionRepository: PushSubscriptionRepository;
-
-if (driver === "sqlite") {
-    const db = new Database(process.env.DB_PATH ?? "./data.db");
-    chatMessageQueue = new ChatMessageSQLiteQueue(db);
-    userEventQueue = new UserEventSQLiteQueue(db);
-    pushSubscriptionRepository = new PushSubscriptionSQLiteRepository(db);
-} else {
-    chatMessageQueue = new ChatMessageInMemoryQueue();
-    userEventQueue = new UserEventInMemoryQueue();
-    pushSubscriptionRepository = new PushSubscriptionInMemoryRepository();
-}
-
+// Живые WebSocket-подключения и незавершённые handshake'и хранятся только в
+// памяти — персистить их нельзя.
 const connectionRepository = new ConnectionInMemoryRepository();
 const pendingChatRepository = new PendingChatInMemoryRepository();
 
@@ -53,7 +39,8 @@ const notificationService = new NotificationService(
 export const fileService = new FileService(fileStorage);
 export const chatService = new ChatService(
     connectionRepository,
-    chatMessageQueue,
+    messageRepository,
+    chatMemberRepository,
     pendingChatRepository,
     notificationService,
     userEventQueue
@@ -61,5 +48,7 @@ export const chatService = new ChatService(
 export const presenceService = new PresenceService(
     connectionRepository,
     userEventQueue,
-    notificationService
+    notificationService,
+    chatMemberRepository,
+    messageRepository
 );

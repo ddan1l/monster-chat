@@ -40,7 +40,7 @@ onMounted(async () => {
 });
 
 const showNewChat = ref(false);
-const activeChats = computed(() => chats.value.filter((c) => c.isActive));
+const activeChats = computed(() => chats.value.filter((c) => c.established));
 </script>
 
 <template>

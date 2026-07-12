@@ -1,5 +1,12 @@
+import { ref } from "vue";
+
 import { isToday, isYesterday, format, formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
+
+const now = ref(Date.now());
+setInterval(() => {
+    now.value = Date.now();
+}, 60_000);
 
 export function useDate() {
     return {
@@ -10,6 +17,7 @@ export function useDate() {
             return format(d, "d MMM", { locale: ru });
         },
         formatLastSeen: (ts: number): string => {
+            void now.value;
             return `был(а) в сети ${formatDistanceToNow(ts, { addSuffix: true, locale: ru })}`;
         },
     };

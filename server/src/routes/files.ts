@@ -1,17 +1,19 @@
 import express, { Router } from "express";
 
-import { fileService, presenceService } from "../container.js";
+import { chatMemberRepository, fileService } from "../container.js";
+import { requireSignature, type AuthedRequest } from "../httpAuth.js";
 
 const router = Router();
 
 router.post(
     "/:chatId",
+    requireSignature,
     express.raw({ type: "application/octet-stream", limit: "100mb" }),
     (req, res) => {
-        const { chatId } = req.params;
-        const signPubKey = req.headers["x-sign-key"] as string;
+        const chatId = req.params.chatId as string;
+        const signPubKey = (req as AuthedRequest).signPubKey!;
 
-        if (!signPubKey || !presenceService.isRegistered(signPubKey)) {
+        if (!chatMemberRepository.isMember(chatId, signPubKey)) {
             res.status(403).json({ error: "Forbidden" });
             return;
         }
@@ -21,8 +23,16 @@ router.post(
     }
 );
 
-router.get("/:chatId/:fileId", (req, res) => {
-    const { chatId, fileId } = req.params;
+router.get("/:chatId/:fileId", requireSignature, (req, res) => {
+    const chatId = req.params.chatId as string;
+    const fileId = req.params.fileId as string;
+    const signPubKey = (req as AuthedRequest).signPubKey!;
+
+    if (!chatMemberRepository.isMember(chatId, signPubKey)) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+    }
+
     try {
         const data = fileService.read(chatId, fileId);
         res.setHeader("Content-Type", "application/octet-stream");

@@ -2,7 +2,7 @@ import { ref } from "vue";
 
 import { nanoid } from "nanoid";
 
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
 
 import type { User } from "shared";
 

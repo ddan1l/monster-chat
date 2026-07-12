@@ -1,10 +1,15 @@
 import { WebSocketServer } from "ws";
 
+import { generateNonce } from "../crypto.js";
 import { onApproveChat } from "../handlers/onApproveChat.js";
+import { onAuth } from "../handlers/onAuth.js";
 import { onCancelChat } from "../handlers/onCancelChat.js";
 import { onClose } from "../handlers/onClose.js";
+import { onDeleteChat } from "../handlers/onDeleteChat.js";
+import { onDeleteChatForAll } from "../handlers/onDeleteChatForAll.js";
 import { onInitChat } from "../handlers/onInitChat.js";
 import { onKnockChat } from "../handlers/onKnockChat.js";
+import { onMarkRead } from "../handlers/onMarkRead.js";
 import { onMessage } from "../handlers/onMessage.js";
 import { onOnline } from "../handlers/onOnline.js";
 import { onOpenChat } from "../handlers/onOpenChat.js";
@@ -18,6 +23,7 @@ import type { Peer, ClientMessage } from "../types.js";
 import type { Server, IncomingMessage } from "http";
 
 const handlers = {
+    auth: onAuth,
     online: onOnline,
     open_chat: onOpenChat,
     init_chat: onInitChat,
@@ -28,6 +34,9 @@ const handlers = {
     typing: onTyping,
     stop_typing: onTyping,
     cancel_chat: onCancelChat,
+    mark_read: onMarkRead,
+    delete_chat: onDeleteChat,
+    delete_chat_for_all: onDeleteChatForAll,
     ping: onPing,
     set_away: onSetAway,
     set_online: onSetOnline,
@@ -45,6 +54,16 @@ export function attachWebSocket(server: Server) {
         ws.ip =
             (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ??
             req.socket.remoteAddress;
+
+        // Proof-of-possession: до подписи challenge личность не установлена.
+        ws.authNonce = generateNonce();
+        ws.send(
+            JSON.stringify({
+                type: "challenge",
+                payload: { nonce: ws.authNonce },
+            })
+        );
+
         ws.on("message", (raw) => {
             let data: ClientMessage;
             try {
@@ -58,6 +77,12 @@ export function attachWebSocket(server: Server) {
 
             if (!handler) {
                 ws.close(1003, "Unknown message type");
+                return;
+            }
+
+            // До аутентификации разрешены только auth и ping.
+            if (!ws.authed && data.type !== "auth" && data.type !== "ping") {
+                ws.close(4401, "Unauthenticated");
                 return;
             }
 

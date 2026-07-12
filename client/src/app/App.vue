@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, watch } from "vue";
 
 import { useRouter } from "vue-router";
 
-import { useWs } from "@shared/api/useWs";
+import { useWs } from "@shared/transport/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
 import { requestNotificationPermission } from "@shared/lib/useNotifications";
 import { isTauri } from "@shared/lib/useTauri";
@@ -12,6 +12,7 @@ import { checkForUpdates, useUpdater } from "@shared/lib/useUpdater";
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useChats } from "@entities/chat/useChats";
 import { useKnocks } from "@entities/chat/usePendingKnocks";
+import { useOutbox } from "@entities/message/useOutbox";
 import { usePeers } from "@entities/peer/usePeers";
 
 import { subscribePush } from "@features/push-notifications/usePushNotifications";
@@ -36,21 +37,25 @@ onUnmounted(() =>
     navigator.serviceWorker?.removeEventListener("message", onSwMessage)
 );
 
-const { signKeyPair, exportSignPublicKey } = useCrypto();
+const { signKeyPair } = useCrypto();
 const peers = usePeers();
 const { loadChats } = useChats();
 
 useChats().startSync();
 useKnocks().startSync();
 useChatNotification().startSync();
+useOutbox().startSync();
 
 loadChats();
 peers.startSync();
 const { isPwa } = usePwa();
 const { updateAvailable, installUpdate } = useUpdater();
 
+// Подключаемся к WS только когда ключ подписи разблокирован — иначе нечем
+// подписать challenge. connect() идемпотентен.
+watch(signKeyPair, (keys) => keys && connect(), { immediate: true });
+
 onMounted(async () => {
-    connect();
     requestNotificationPermission();
     checkForUpdates();
 
@@ -72,8 +77,7 @@ onMounted(async () => {
 watch([connected, signKeyPair], async ([isConnected, keys]) => {
     if (isConnected && keys) {
         peers.announceOnline();
-        const signPubKey = await exportSignPublicKey();
-        subscribePush(signPubKey);
+        subscribePush();
     }
 });
 </script>

@@ -6,6 +6,7 @@ import express from "express";
 import { pushSubscriptions } from "../container.js";
 import { downloadRouter } from "../routes/download.js";
 import { fileRoutes } from "../routes/files.js";
+import { messageRoutes } from "../routes/messages.js";
 import { pushRoutes } from "../routes/push.js";
 import { updatesRouter } from "../routes/updates.js";
 
@@ -17,6 +18,7 @@ export function attachHttp(server: Server) {
     );
 
     app.use("/api/files", fileRoutes);
+    app.use("/api/messages", messageRoutes);
     app.use("/api/push", pushRoutes(pushSubscriptions));
     app.use("/api/updates", updatesRouter);
     app.use("/api/download", downloadRouter);

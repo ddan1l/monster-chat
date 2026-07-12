@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-import { useWsStats } from "@shared/api/useWsStats";
+import { useWsStats } from "@shared/transport/useWsStats";
 import { useDragScroll } from "@shared/lib/useDragScroll";
 import AppModal from "@shared/ui/components/AppModal.vue";
 

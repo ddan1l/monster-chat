@@ -1,4 +1,4 @@
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
 
 import { useKeyWrap } from "./useKeyWrap";
 

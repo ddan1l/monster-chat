@@ -1,10 +1,12 @@
 import { useRegisterSW } from "virtual:pwa-register/vue";
 
+import { signRequest } from "@shared/crypto/signRequest";
+
 export function usePushNotifications() {
     useRegisterSW({ immediate: true });
 }
 
-export async function subscribePush(signPubKey: string): Promise<void> {
+export async function subscribePush(): Promise<void> {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
     const permission = await Notification.requestPermission();
@@ -25,8 +27,11 @@ export async function subscribePush(signPubKey: string): Promise<void> {
 
     await fetch("/api/push/subscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signPubKey, subscription }),
+        headers: {
+            "Content-Type": "application/json",
+            ...(await signRequest("POST", "/api/push/subscribe")),
+        },
+        body: JSON.stringify({ subscription }),
     });
 }
 

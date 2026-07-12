@@ -29,18 +29,21 @@ export class NotificationService {
         peer.send(JSON.stringify(msg));
     }
 
-    notify(recipientKey: string, chatId: string): void {
+    notify(recipientKey: string, chatId: string, unreadCount: number): void {
         const recipient = this.connectionRepository.get(recipientKey);
+
         const notification: ServerNotification = {
             type: "notification",
-            payload: { chatId, notificationType: "chat_notification" },
+            payload: {
+                chatId,
+                notificationType: "chat_notification",
+                unreadCount,
+            },
         };
 
         if (recipient?.readyState === WebSocket.OPEN) {
             this.sendEvent(recipient, notification);
         } else {
-            notification.payload.silent = true;
-            this.userEventQueue.push(recipientKey, notification);
             this.sendWebPush(recipientKey, chatId);
         }
     }

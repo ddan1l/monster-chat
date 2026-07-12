@@ -2,10 +2,10 @@ import { ref } from "vue";
 
 import { PeerInfo } from "shared";
 
-import { useWs } from "@shared/api/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
 import { useDebounce } from "@shared/lib/useDebounce";
-import { STORES, useIndexedDb } from "@shared/lib/useIndexedDb";
+import { STORES, useIndexedDb } from "@shared/storage/useIndexedDb";
+import { useWs } from "@shared/transport/useWs";
 
 import { useUser } from "@entities/user/useUser";
 
@@ -70,12 +70,11 @@ export function usePeers() {
     // которым его можно пересылать. Сервер — тупой релей, он не проверяет
     // верификацию; авторизация целиком на клиенте.
     async function announceOnline(): Promise<void> {
-        const signPubKey = await exportSignPublicKey();
         const peerKeys = Object.values(peers.value)
             .filter((peer) => peer.verified && peer.signPubKey)
             .map((peer) => peer.signPubKey);
 
-        send({ type: "online", payload: { signPubKey, peers: peerKeys } });
+        send({ type: "online", payload: { peers: peerKeys } });
     }
 
     async function startSync(): Promise<void> {
@@ -107,7 +106,7 @@ export function usePeers() {
             const chatId = chatIdByKey(msg.payload.signPubKey);
             if (!chatId) return;
             onlineStatus.value[chatId] = false;
-            const ts = Date.now();
+            const ts = msg.payload.lastSeen ?? Date.now();
             const updated = { ...peers.value[chatId], lastSeen: ts };
             peers.value[chatId] = updated;
             write(updated, chatId);

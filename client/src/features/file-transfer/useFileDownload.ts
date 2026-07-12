@@ -1,3 +1,4 @@
+import { signRequest } from "@shared/crypto/signRequest";
 import { useCrypto, fromBase64 } from "@shared/crypto/useCrypto";
 
 import type { FileAttachment } from "shared";
@@ -6,7 +7,9 @@ export function useFileDownload() {
     const { decryptBytes } = useCrypto();
 
     async function downloadFile(attachment: FileAttachment): Promise<void> {
-        const response = await fetch(attachment.url);
+        const response = await fetch(attachment.url, {
+            headers: await signRequest("GET", attachment.url),
+        });
         if (!response.ok) {
             throw new Error("Failed to download file");
         }

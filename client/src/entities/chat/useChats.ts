@@ -3,9 +3,9 @@ import { ref, toRaw } from "vue";
 import { nanoid } from "nanoid";
 import { useRouter } from "vue-router";
 
-import { useWs } from "@shared/api/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
-import { useIndexedDb, STORES } from "@shared/lib/useIndexedDb";
+import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
+import { useWs } from "@shared/transport/useWs";
 
 import { useKnocks, pendingKnocks } from "@entities/chat/usePendingKnocks";
 import { useChatMessages } from "@entities/message/useMessages";
@@ -42,8 +42,8 @@ export function useChats() {
             const existing = await readChat<Chat>(chatId);
 
             const updated: Chat = existing
-                ? { ...existing, isActive: true }
-                : { id: chatId, isActive: true, createdAt: Date.now() };
+                ? { ...existing, established: true }
+                : { id: chatId, established: true, createdAt: Date.now() };
 
             await saveChat(updated);
 
@@ -54,6 +54,43 @@ export function useChats() {
             } else {
                 chats.value.push(updated);
             }
+        });
+
+        subscribe("chat_list", async (msg) => {
+            const leftedSet = new Set(msg.payload.lefted);
+            for (const chatId of msg.payload.chatIds) {
+                const lefted = leftedSet.has(chatId);
+                const existing = await readChat<Chat>(chatId);
+                if (!existing) {
+                    const chat: Chat = {
+                        id: chatId,
+                        established: true,
+                        createdAt: 0,
+                        lefted,
+                    };
+                    await saveChat(chat);
+                    chats.value.push(chat);
+                } else if (
+                    !existing.established ||
+                    !!existing.lefted !== lefted
+                ) {
+                    const updated = { ...existing, established: true, lefted };
+                    await saveChat(updated);
+                    const idx = chats.value.findIndex((c) => c.id === chatId);
+                    if (idx !== -1) chats.value[idx] = updated;
+                    else chats.value.push(updated);
+                }
+            }
+        });
+
+        // Второй участник удалил чат для всех — чистим локально.
+        subscribe("chat_destroyed", async (msg) => {
+            await cleanupChat(msg.payload.chatId);
+        });
+
+        // Второй участник покинул чат — переводим в read-only.
+        subscribe("chat_deleted", async (msg) => {
+            await markChatLefted(msg.payload.chatId);
         });
     }
 
@@ -66,7 +103,7 @@ export function useChats() {
 
         const chat: Chat = {
             id: chatId,
-            isActive: false,
+            established: false,
             joinLink,
             createdAt: Date.now(),
         };
@@ -74,7 +111,7 @@ export function useChats() {
         await saveChat(chat);
         chats.value.push(chat);
 
-        wsSend({ type: "init_chat", payload: { chatId, hostKey } });
+        wsSend({ type: "init_chat", payload: { chatId } });
 
         return chat;
     }
@@ -118,8 +155,32 @@ export function useChats() {
         }
     }
 
+    // Собеседник покинул чат (удалил у себя): чат остаётся, но становится read-only.
+    async function markChatLefted(chatId: string): Promise<void> {
+        const existing = await readChat<Chat>(chatId);
+        if (!existing) return;
+        const updated: Chat = { ...existing, lefted: true };
+        await saveChat(updated);
+        const idx = chats.value.findIndex((c) => c.id === chatId);
+        if (idx !== -1) chats.value[idx] = updated;
+    }
+
     async function cancelPendingChat(chatId: string): Promise<void> {
         wsSend({ type: "cancel_chat", payload: { chatId } });
+        await cleanupChat(chatId);
+    }
+
+    // Удаление только у себя: снимаем членство на сервере и полностью чистим
+    // локально (чат, сообщения, ключи пира). Второму участнику сервер пришлёт
+    // chat_deleted, и у него чат станет read-only.
+    async function deleteChat(chatId: string): Promise<void> {
+        wsSend({ type: "delete_chat", payload: { chatId } });
+        await cleanupChat(chatId);
+    }
+
+    // Удаление для обоих: сервер снесёт данные и уведомит второго участника.
+    async function deleteChatForAll(chatId: string): Promise<void> {
+        wsSend({ type: "delete_chat_for_all", payload: { chatId } });
         await cleanupChat(chatId);
     }
 
@@ -131,7 +192,8 @@ export function useChats() {
         createChat,
         knockChat,
         approveChat,
-        deleteChat: cleanupChat,
+        deleteChat,
+        deleteChatForAll,
         cancelPendingChat,
     };
 }

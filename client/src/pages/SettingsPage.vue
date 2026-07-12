@@ -15,7 +15,7 @@ const confirmDelete = ref(false);
 
 async function deleteAllData() {
     localStorage.clear();
-    const { deleteDb } = await import("@shared/lib/useIndexedDb");
+    const { deleteDb } = await import("@shared/storage/useIndexedDb");
     await deleteDb();
     location.reload();
 }

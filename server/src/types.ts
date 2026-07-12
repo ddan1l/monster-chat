@@ -5,10 +5,13 @@ export type Peer = WebSocket & {
     signPubKey?: string;
     ip?: string;
     watchedPeers?: string[];
+    authNonce?: string; // challenge, ожидающий подписи
+    authed?: boolean; // владение ключом доказано
 };
 
 export type {
     ClientMessage,
+    AuthMessage,
     OpenChatMessage,
     SendMessage,
     OnlineMessage,
@@ -19,4 +22,7 @@ export type {
     TypingMessage,
     StopTypingMessage,
     CancelChatMessage,
+    MarkReadMessage,
+    DeleteChatMessage,
+    DeleteChatForAllMessage,
 } from "shared";

@@ -51,6 +51,9 @@ function openApp() {
                 >
                     Скачать для Mac
                 </a>
+                <RouterLink to="/app/web" style="font-size: 14px; color: #888">
+                    Продолжить в браузере
+                </RouterLink>
             </div>
         </template>
 

@@ -3,7 +3,7 @@ import { computed, onMounted } from "vue";
 
 import { useRouter, useRoute } from "vue-router";
 
-import { useWs } from "@shared/api/useWs";
+import { useWs } from "@shared/transport/useWs";
 import AppButtonSmall from "@shared/ui/components/AppButtonSmall.vue";
 import AppModal from "@shared/ui/components/AppModal.vue";
 import IconArchive from "@shared/ui/icons/IconArchive.vue";
