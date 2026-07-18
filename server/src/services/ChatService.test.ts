@@ -71,6 +71,22 @@ test("deliver to a non-member (deleted-for-me) does not notify", () => {
     assert.equal(notif.notified.length, 0);
 });
 
+test("deliver by a non-member is dropped: nothing persists or is sent", () => {
+    const { svc, messages, conns, notif } = setup();
+    // Никого не добавляем в c1 — отправитель A не участник чата.
+    const peerA = fakePeer({ signPubKey: "A", chatId: "c1" });
+    const peerB = fakePeer({ signPubKey: "B", chatId: "c1" });
+    conns.set("A", peerA);
+    conns.set("B", peerB);
+
+    svc.deliver("c1", makeMsg({ from: "A", to: "B" }));
+
+    assert.equal(messages.getMaxSeq("c1"), 0); // не сохранено
+    assert.deepEqual(notif.typesTo(peerA), []); // нет ACK отправителю
+    assert.deepEqual(notif.typesTo(peerB), []); // нет live-доставки
+    assert.equal(notif.notified.length, 0);
+});
+
 test("markRead moves the read cursor so unread drops", () => {
     const { svc, members, notif } = setup();
     members.add("c1", "A");

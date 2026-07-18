@@ -1,5 +1,7 @@
 import { WebSocket } from "ws";
 
+import type { TokenBucket } from "./rateLimit.js";
+
 export type Peer = WebSocket & {
     chatId?: string;
     signPubKey?: string;
@@ -7,6 +9,7 @@ export type Peer = WebSocket & {
     watchedPeers?: string[];
     authNonce?: string; // challenge, ожидающий подписи
     authed?: boolean; // владение ключом доказано
+    msgBucket?: TokenBucket; // rate-limit персистирующих сообщений
 };
 
 export type {

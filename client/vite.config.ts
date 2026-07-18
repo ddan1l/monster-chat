@@ -83,6 +83,13 @@ export default defineConfig({
             "@app": fileURLToPath(new URL("./src/app", import.meta.url)),
         },
     },
+    css: {
+        preprocessorOptions: {
+            scss: {
+                additionalData: '@use "@shared/ui/styles/breakpoints" as bp;',
+            },
+        },
+    },
     server: {
         proxy: {
             "/api": "http://localhost:3000",

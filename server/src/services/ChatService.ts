@@ -69,6 +69,12 @@ export class ChatService {
     }
 
     deliver(chatId: string, payload: ChatMessage): void {
+        // Писать в чат может только его участник. payload.from уже сверен с
+        // аутентифицированным ключом в onMessage, поэтому гейта по from хватает.
+        if (!this.chatMemberRepository.isMember(chatId, payload.from)) {
+            return;
+        }
+
         const delivery: ServerMessageDelivery = { type: "message", payload };
         const recipientKey = payload.to;
         const recipient = this.connectionRepository.get(recipientKey);

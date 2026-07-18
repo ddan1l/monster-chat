@@ -4,8 +4,6 @@ import { computed, ref } from "vue";
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
 
-import AppMenu from "@shared/ui/components/AppMenu.vue";
-import AppMenuItem from "@shared/ui/components/AppMenuItem.vue";
 import IconCheck from "@shared/ui/icons/IconCheck.vue";
 import IconClock from "@shared/ui/icons/IconClock.vue";
 
@@ -13,6 +11,8 @@ import UserAvatar from "@entities/user/ui/UserAvatar.vue";
 
 import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 import { useFileDownload } from "@features/file-transfer/useFileDownload";
+
+import MessageContextMenu from "./MessageContextMenu.vue";
 
 import type { PeerInfo } from "shared";
 
@@ -34,8 +34,6 @@ const emit = defineEmits<{
 
 const isSelf = computed(() => props.msg.from !== props.peer?.signPubKey);
 
-// Текст сообщения приходит от пира как HTML — чистим от любого
-// активного содержимого (script/onerror/...) перед вставкой через v-html.
 const safeText = computed(() =>
     DOMPurify.sanitize(props.msg.text ?? "", {
         ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "code", "span"],
@@ -44,7 +42,12 @@ const safeText = computed(() =>
 );
 
 const bubble = ref<HTMLElement | null>(null);
-const menu = ref<InstanceType<typeof AppMenu> | null>(null);
+const menu = ref<InstanceType<typeof MessageContextMenu> | null>(null);
+
+function onContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    menu.value?.open();
+}
 </script>
 
 <template>
@@ -69,7 +72,7 @@ const menu = ref<InstanceType<typeof AppMenu> | null>(null);
             ref="bubble"
             class="mc-message"
             :class="{ 'mc-message_self': isSelf }"
-            @contextmenu="menu?.openAt($event)"
+            @contextmenu="onContextMenu"
         >
             <div
                 v-for="(file, i) in msg.files"
@@ -102,42 +105,17 @@ const menu = ref<InstanceType<typeof AppMenu> | null>(null);
             </div>
         </div>
 
-        <AppMenu
+        <MessageContextMenu
             ref="menu"
             :anchor="bubble"
+            :is-self="isSelf"
+            :text="msg.text ?? ''"
+            :editing-nonce="editingNonce"
             :placement="isSelf ? 'top-end' : 'top-start'"
-        >
-            <template #default="{ close }">
-                <AppMenuItem
-                    v-if="isSelf"
-                    :disabled="editingNonce !== null"
-                    @click="
-                        emit('editStart', msg.nonce, msg.text ?? '');
-                        close();
-                    "
-                >
-                    ✏️ Редактировать
-                </AppMenuItem>
-                <AppMenuItem
-                    @click="
-                        emit('deleteForMe', msg.nonce);
-                        close();
-                    "
-                >
-                    🗑️ Удалить у меня
-                </AppMenuItem>
-                <AppMenuItem
-                    v-if="isSelf"
-                    variant="danger"
-                    @click="
-                        emit('deleteForAll', msg.nonce);
-                        close();
-                    "
-                >
-                    🗑️ Удалить у всех
-                </AppMenuItem>
-            </template>
-        </AppMenu>
+            @edit-start="emit('editStart', msg.nonce, msg.text ?? '')"
+            @delete-for-me="emit('deleteForMe', msg.nonce)"
+            @delete-for-all="emit('deleteForAll', msg.nonce)"
+        />
     </div>
 </template>
 

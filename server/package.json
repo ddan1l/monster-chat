@@ -8,7 +8,7 @@
         "dev": "tsx watch src/server.ts",
         "start": "tsx src/server.ts",
         "build": "tsc",
-        "test": "node --import tsx --test src/crypto.test.ts src/repositories/MessageSQLiteRepository.test.ts src/repositories/ChatMemberSQLiteRepository.test.ts src/services/ChatService.test.ts"
+        "test": "node --import tsx --test src/crypto.test.ts src/rateLimit.test.ts src/repositories/MessageSQLiteRepository.test.ts src/repositories/ChatMemberSQLiteRepository.test.ts src/services/ChatService.test.ts"
     },
     "dependencies": {
         "better-sqlite3": "^12.10.0",

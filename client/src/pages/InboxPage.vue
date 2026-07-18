@@ -4,12 +4,15 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 
 import { usePermissions } from "@shared/lib/usePermissions";
+import { useScreenSize } from "@shared/lib/useScreenSize";
 import { isTauri } from "@shared/lib/useTauri";
 
 import ChatList from "@widgets/ChatList/ChatList.vue";
 import ChatView from "@widgets/ChatView/ChatView.vue";
 
 const route = useRoute();
+const { isMobile } = useScreenSize();
+
 const chatId = computed(() => route.params.chatId as string | undefined);
 const {
     status: notifStatus,
@@ -31,7 +34,7 @@ const {
         </template>
 
         <div class="mc-inbox-container">
-            <ChatList />
+            <ChatList v-if="!isMobile || !chatId" />
             <ChatView v-if="chatId" :key="chatId" :chat-id="chatId" />
         </div>
     </div>
@@ -48,5 +51,8 @@ const {
     min-height: 0;
     display: grid;
     grid-template-columns: 320px 1fr;
+    @media (max-width: bp.$mobile) {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-import { useWsStats } from "@shared/transport/useWsStats";
 import { useDragScroll } from "@shared/lib/useDragScroll";
+import { useScreenSize } from "@shared/lib/useScreenSize";
+import { useWsStats } from "@shared/transport/useWsStats";
 import AppModal from "@shared/ui/components/AppModal.vue";
 
 import { usePwa } from "@features/pwa/usePwa";
@@ -13,6 +14,7 @@ const version = __APP_VERSION__;
 const isLocal = import.meta.env.DEV;
 
 const { isPwa } = usePwa();
+const { isMobile } = useScreenSize();
 
 const open = ref(false);
 const {
@@ -37,7 +39,7 @@ const {
 
 <template>
     <header class="mc-app-header">
-        <div v-if="!isPwa" class="mc-app-header__title-row">
+        <div v-if="!isPwa && !isMobile" class="mc-app-header__title-row">
             <button class="mc-app-header__title" @click="open = true">
                 {{ name }}{{ isLocal ? " · LOCAL" : "" }} · VERSION({{
                     version

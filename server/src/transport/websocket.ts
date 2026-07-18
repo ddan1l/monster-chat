@@ -47,8 +47,15 @@ const handlers = {
     ) => void;
 };
 
+const MAX_WS_MESSAGE_BYTES = Number(
+    process.env.MAX_WS_MESSAGE_BYTES ?? 256 * 1024
+);
+
 export function attachWebSocket(server: Server) {
-    const wss = new WebSocketServer({ server });
+    const wss = new WebSocketServer({
+        server,
+        maxPayload: MAX_WS_MESSAGE_BYTES,
+    });
 
     wss.on("connection", (ws: Peer, req: IncomingMessage) => {
         ws.ip =

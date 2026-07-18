@@ -3,11 +3,11 @@ import { onMounted, onUnmounted, watch } from "vue";
 
 import { useRouter } from "vue-router";
 
-import { useWs } from "@shared/transport/useWs";
 import { useCrypto } from "@shared/crypto/useCrypto";
 import { requestNotificationPermission } from "@shared/lib/useNotifications";
 import { isTauri } from "@shared/lib/useTauri";
 import { checkForUpdates, useUpdater } from "@shared/lib/useUpdater";
+import { useWs } from "@shared/transport/useWs";
 
 import { useChatNotification } from "@entities/chat/useChatNotification";
 import { useChats } from "@entities/chat/useChats";
@@ -108,6 +108,9 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
     &_pwa {
         padding: 0;
     }
+    @media (max-width: bp.$mobile) {
+        padding: 0;
+    }
 }
 .mc-app-container {
     border: 1px solid var(--mc-line-hard);
@@ -121,6 +124,9 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
     min-height: 0;
     display: flex;
     flex-direction: row;
+    @media (max-width: bp.$mobile) {
+        flex-direction: column-reverse;
+    }
 }
 .mc-view {
     flex: 1;

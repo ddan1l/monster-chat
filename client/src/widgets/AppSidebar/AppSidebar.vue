@@ -148,9 +148,21 @@ $indicator-offset: 4px;
     padding: 12px 0;
     gap: 2px;
 
+    @media (max-width: bp.$mobile) {
+        width: 100%;
+        flex-direction: row;
+        justify-content: center;
+        height: 62px;
+        border-right: none;
+        border-top: 1px solid var(--mc-line);
+    }
+
     &__avatar {
         position: relative;
         margin-bottom: 12px;
+        @media (max-width: bp.$mobile) {
+            display: none;
+        }
     }
 
     &__status {
@@ -180,8 +192,13 @@ $indicator-offset: 4px;
             }
         }
 
-        &_active svg {
-            color: var(--mc-acid);
+        &_active {
+            svg {
+                color: var(--mc-acid);
+            }
+            @media (max-width: bp.$mobile) {
+                background-color: var(--mc-bg-sel);
+            }
         }
 
         &::before {
@@ -194,6 +211,9 @@ $indicator-offset: 4px;
             background: var(--mc-acid);
             box-shadow: 0 0 6px var(--mc-acid);
             opacity: 0;
+            @media (max-width: bp.$mobile) {
+                content: none;
+            }
         }
 
         &_active::before {
