@@ -189,6 +189,23 @@ async function setupWithPassword() {
             <button :disabled="!name.trim()" @click="goToAuth">
                 Get started
             </button>
+            <!-- Второй сценарий: не создавать аккаунт, а привязать это
+                 устройство к уже существующему (модель A). -->
+            <button
+                style="
+                    display: block;
+                    margin-top: 16px;
+                    background: none;
+                    border: none;
+                    color: #888;
+                    cursor: pointer;
+                    text-decoration: underline;
+                    font-size: 13px;
+                "
+                @click="router.push('/app/link')"
+            >
+                Уже есть аккаунт? Привязать это устройство
+            </button>
         </template>
 
         <template v-else-if="step === 'password-backup'">

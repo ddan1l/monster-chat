@@ -47,13 +47,48 @@ function resetLockout(): void {
 }
 
 export function useAuth() {
-    const { generateKeyPairs, setKeys, encryptionKeyPair, signKeyPair } =
-        useCrypto();
+    const {
+        generateKeyPairs,
+        setKeys,
+        encryptionKeyPair,
+        signKeyPair,
+        storageKey,
+        generateStorageKey,
+        setStorageKey,
+    } = useCrypto();
     const storage = useKeyStorage();
     const { randomBytes, importAesGcm, deriveFromPin } = useKeyWrap();
     const session = useSession();
 
+    // Ключ устройства (#5): у существующих пользователей его ещё нет —
+    // при входе генерим и сохраняем под текущим методом (миграция).
+    async function loadOrMigrateStorageKey(
+        wrappingKey: CryptoKey,
+        method: AuthMethod
+    ): Promise<CryptoKey> {
+        let sk = await storage.loadStorageKey(wrappingKey, method);
+        if (!sk) {
+            sk = await generateStorageKey();
+            await storage.storeEncryptedStorageKey(sk, wrappingKey, method);
+        }
+        setStorageKey(sk);
+        return sk;
+    }
+
     async function registerPrf(name: string): Promise<void> {
+        const { ecdh, sign } = await generateKeyPairs();
+        await linkWithPrf(name, ecdh, sign);
+    }
+
+    // Настройка биометрии (WebAuthn PRF) поверх ГОТОВЫХ identity-ключей — для
+    // новой регистрации (только что сгенерированы) и для привязанного устройства
+    // (импортированы из бандла). Регистрирует СВОЙ credential на этом устройстве
+    // и оборачивает ключи + свой storageKey под его PRF-output.
+    async function linkWithPrf(
+        name: string,
+        ecdh: CryptoKeyPair,
+        sign: CryptoKeyPair
+    ): Promise<void> {
         const credential = (await navigator.credentials.create({
             publicKey: {
                 challenge: randomBytes(32),
@@ -97,18 +132,31 @@ export function useAuth() {
             prfOutput = output;
         }
 
-        const { ecdh, sign } = await generateKeyPairs();
         const wrappingKey = await importAesGcm(prfOutput);
         await storage.storeEncryptedKeys(ecdh, sign, wrappingKey, "prf");
         await storage.storePublicKeys(ecdh, sign);
         await storage.storeCredentialId(new Uint8Array(credential.rawId));
         await storage.setAuthMethods(["prf"]);
         setKeys(ecdh, sign);
-        await session.save(ecdh, sign);
+        const sk = await generateStorageKey();
+        await storage.storeEncryptedStorageKey(sk, wrappingKey, "prf");
+        setStorageKey(sk);
+        await session.save(ecdh, sign, sk);
     }
 
     async function registerPassword(password: string): Promise<void> {
         const { ecdh, sign } = await generateKeyPairs();
+        await linkWithPassword(password, ecdh, sign);
+    }
+
+    // Настройка PIN-входа поверх ГОТОВЫХ identity-ключей — для новой регистрации
+    // (ключи только что сгенерированы) и для привязанного устройства (ключи
+    // импортированы из бандла). storageKey у каждого устройства свой (per-device).
+    async function linkWithPassword(
+        password: string,
+        ecdh: CryptoKeyPair,
+        sign: CryptoKeyPair
+    ): Promise<void> {
         const salt = randomBytes(16);
         const wrappingKey = await deriveFromPin(password, salt);
         await storage.storeEncryptedKeys(ecdh, sign, wrappingKey, "pin");
@@ -116,7 +164,10 @@ export function useAuth() {
         await storage.storePinSalt(salt);
         await storage.setAuthMethods(["pin"]);
         setKeys(ecdh, sign);
-        await session.save(ecdh, sign);
+        const sk = await generateStorageKey();
+        await storage.storeEncryptedStorageKey(sk, wrappingKey, "pin");
+        setStorageKey(sk);
+        await session.save(ecdh, sign, sk);
     }
 
     async function addPasswordFallback(password: string): Promise<void> {
@@ -131,6 +182,15 @@ export function useAuth() {
             wrappingKey,
             "pin"
         );
+        // Тот же ключ устройства — под новый метод, чтобы обе разблокировки
+        // давали один storageKey (иначе стор, зашифрованный им, не прочитается).
+        if (storageKey.value) {
+            await storage.storeEncryptedStorageKey(
+                storageKey.value,
+                wrappingKey,
+                "pin"
+            );
+        }
         await storage.storePinSalt(salt);
         const methods = await storage.getAuthMethods();
         if (!methods.includes("pin")) {
@@ -158,7 +218,8 @@ export function useAuth() {
         const wrappingKey = await importAesGcm(prfOutput);
         const { ecdh, sign } = await storage.loadKeys(wrappingKey, "prf");
         setKeys(ecdh, sign);
-        await session.save(ecdh, sign);
+        const sk = await loadOrMigrateStorageKey(wrappingKey, "prf");
+        await session.save(ecdh, sign, sk);
     }
 
     async function authenticateWithPassword(password: string): Promise<void> {
@@ -170,7 +231,8 @@ export function useAuth() {
             const { ecdh, sign } = await storage.loadKeys(wrappingKey, "pin");
             resetLockout();
             setKeys(ecdh, sign);
-            await session.save(ecdh, sign);
+            const sk = await loadOrMigrateStorageKey(wrappingKey, "pin");
+            await session.save(ecdh, sign, sk);
         } catch (e) {
             if (e instanceof Error && e.message.startsWith("LOCKED:")) throw e;
             recordFailure();
@@ -183,6 +245,8 @@ export function useAuth() {
         getAuthMethods: storage.getAuthMethods,
         registerPrf,
         registerPassword,
+        linkWithPassword,
+        linkWithPrf,
         addPasswordFallback,
         authenticate,
         authenticateWithPassword,

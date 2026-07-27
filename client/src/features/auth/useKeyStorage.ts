@@ -6,7 +6,8 @@ export type AuthMethod = "prf" | "pin";
 
 export function useKeyStorage() {
     const { read, write } = useIndexedDb(STORES.KEYS);
-    const { encryptKey, decryptKey } = useKeyWrap();
+    const { encryptKey, decryptKey, encryptRawKey, decryptRawKey } =
+        useKeyWrap();
 
     async function hasKeys(): Promise<boolean> {
         return (await read("auth_methods")) !== null;
@@ -52,6 +53,33 @@ export function useKeyStorage() {
             write(signEnc.data, `sign_enc_${method}`),
             write(signEnc.iv, `sign_iv_${method}`),
         ]);
+    }
+
+    // Ключ устройства (#5) — обёрнут тем же wrappingKey, что и приватные ключи,
+    // и хранится под каждый метод входа, чтобы был доступен независимо от того,
+    // разблокировались через PRF или PIN.
+    async function storeEncryptedStorageKey(
+        storageKey: CryptoKey,
+        wrappingKey: CryptoKey,
+        method: AuthMethod
+    ): Promise<void> {
+        const enc = await encryptRawKey(storageKey, wrappingKey);
+        await Promise.all([
+            write(enc.data, `storage_enc_${method}`),
+            write(enc.iv, `storage_iv_${method}`),
+        ]);
+    }
+
+    async function loadStorageKey(
+        wrappingKey: CryptoKey,
+        method: AuthMethod
+    ): Promise<CryptoKey | null> {
+        const [data, iv] = await Promise.all([
+            read<ArrayBuffer>(`storage_enc_${method}`),
+            read<ArrayBuffer>(`storage_iv_${method}`),
+        ]);
+        if (!data || !iv) return null;
+        return decryptRawKey(data, iv, wrappingKey);
     }
 
     async function storePublicKeys(
@@ -140,6 +168,8 @@ export function useKeyStorage() {
         getPinSalt,
         storePinSalt,
         storeEncryptedKeys,
+        storeEncryptedStorageKey,
+        loadStorageKey,
         storePublicKeys,
         loadKeys,
     };

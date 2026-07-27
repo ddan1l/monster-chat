@@ -15,13 +15,15 @@ import { useKnocks } from "@entities/chat/usePendingKnocks";
 import { useOutbox } from "@entities/message/useOutbox";
 import { usePeers } from "@entities/peer/usePeers";
 
+import { useEpochKeys } from "@features/auth/useEpochKeys";
 import { subscribePush } from "@features/push-notifications/usePushNotifications";
 import { usePwa } from "@features/pwa/usePwa";
 
 import AppHeader from "@widgets/AppHeader/AppHeader.vue";
 import AppSidebar from "@widgets/AppSidebar/AppSidebar.vue";
 
-const { connect, connected } = useWs();
+const { connect, connected, send } = useWs();
+const { exportSignedPrekey } = useEpochKeys();
 const router = useRouter();
 
 function onSwMessage(event: MessageEvent) {
@@ -77,7 +79,12 @@ onMounted(async () => {
 watch([connected, signKeyPair], async ([isConnected, keys]) => {
     if (isConnected && keys) {
         peers.announceOnline();
+        // Ре-шеринг peer-инфо своим устройствам — чтобы отставшие сошлись.
+        peers.reshareOwnPeers();
         subscribePush();
+        // Публикуем текущий эпохальный prekey устройства (FS): пиры будут
+        // шифровать входящие под него. Пока сообщения v1 — это аддитивно.
+        send({ type: "publish_prekey", payload: await exportSignedPrekey() });
     }
 });
 </script>

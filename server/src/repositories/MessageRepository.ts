@@ -8,14 +8,28 @@ export interface MessageRepository {
         signPubKey: string,
         afterSeq: number
     ): ChatMessage[];
-    getPage(
-        chatId: string,
-        signPubKey: string,
-        beforeSeq: number,
-        limit: number
-    ): ChatMessage[];
     getMaxSeq(chatId: string): number;
     // Кол-во непрочитанных: сообщения, адресованные signPubKey, с seq > afterSeq.
     countUnread(chatId: string, signPubKey: string, afterSeq: number): number;
     removeByChat(chatId: string): void;
+
+    // Транзитная модель: устройство подтвердило курсором, что имеет всё до seq —
+    // удаляем его копии с сервера (локальный стор клиента — дом истории).
+    deleteDeviceDeliveredUpTo(
+        chatId: string,
+        deviceId: string,
+        seq: number
+    ): void;
+    // TTL-бэкстоп: удаляет всё старше указанного времени (для устройств, которые
+    // так и не вернулись подтвердить).
+    deleteExpired(before: number): void;
+
+    // v2 (FS): синк по копиям, адресованным конкретному устройству. Пагинация
+    // вверх теперь целиком локальная (клиентский стор — дом истории), поэтому
+    // getPage больше не нужен.
+    getAfterForDevice(
+        chatId: string,
+        deviceId: string,
+        afterSeq: number
+    ): ChatMessage[];
 }

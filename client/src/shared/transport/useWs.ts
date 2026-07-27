@@ -1,6 +1,7 @@
 import { ref } from "vue";
 
 import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
+import { getDeviceId } from "@shared/lib/useDeviceId";
 import { useLog } from "@shared/lib/useLog";
 
 import type { ServerMessage, ClientMessage } from "shared";
@@ -57,7 +58,11 @@ async function answerChallenge(nonce: string): Promise<void> {
     const signPubKey = await exportSignPublicKey();
     rawSend({
         type: "auth",
-        payload: { signPubKey, signature: toBase64(signature) },
+        payload: {
+            signPubKey,
+            signature: toBase64(signature),
+            deviceId: getDeviceId(),
+        },
     });
 }
 

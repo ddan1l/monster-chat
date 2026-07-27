@@ -33,10 +33,18 @@ export interface NotifyCall {
     unread: number;
 }
 
-// Рекордер NotificationService: копит sendEvent/notify вместо реальной отправки.
+export interface AccountDelivery {
+    key: string;
+    msg: ServerMessage;
+}
+
+// Рекордер NotificationService: копит sendEvent/notify/deliverToAccount/fanLive
+// вместо реальной отправки.
 export function notifRecorder() {
     const sent: SentEvent[] = [];
     const notified: NotifyCall[] = [];
+    const delivered: AccountDelivery[] = [];
+    const fanned: AccountDelivery[] = [];
     const service = {
         sendEvent(peer: Peer, msg: ServerMessage) {
             sent.push({ peer, msg });
@@ -44,21 +52,39 @@ export function notifRecorder() {
         notify(key: string, chatId: string, unread: number) {
             notified.push({ key, chatId, unread });
         },
+        deliverToAccount(key: string, msg: ServerMessage) {
+            delivered.push({ key, msg });
+        },
+        fanLive(key: string, msg: ServerMessage) {
+            fanned.push({ key, msg });
+        },
     } as unknown as NotificationService;
     const typesTo = (peer: Peer) =>
         sent.filter((e) => e.peer === peer).map((e) => e.msg.type);
-    return { service, sent, notified, typesTo };
+    // Типы событий, доставленных аккаунту (deliverToAccount).
+    const deliveredTo = (key: string) =>
+        delivered.filter((e) => e.key === key).map((e) => e.msg.type);
+    return {
+        service,
+        sent,
+        notified,
+        delivered,
+        fanned,
+        typesTo,
+        deliveredTo,
+    };
 }
 
-// Рекордер UserEventQueue.
+// Рекордер UserEventQueue (per-device).
 export function queueRecorder(): UserEventQueue & {
-    pushed: { key: string; event: ServerMessage }[];
+    pushed: { key: string; deviceId: string; event: ServerMessage }[];
 } {
-    const pushed: { key: string; event: ServerMessage }[] = [];
+    const pushed: { key: string; deviceId: string; event: ServerMessage }[] =
+        [];
     return {
         pushed,
-        push(key, event) {
-            pushed.push({ key, event });
+        push(key, deviceId, event) {
+            pushed.push({ key, deviceId, event });
         },
         flush() {
             return [];

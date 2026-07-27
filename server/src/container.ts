@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import { UserEventSQLiteQueue } from "./queues/UserEventSQLiteQueue.js";
 import { ChatMemberSQLiteRepository } from "./repositories/ChatMemberSQLiteRepository.js";
 import { ConnectionInMemoryRepository } from "./repositories/ConnectionInMemoryRepository.js";
+import { DeviceSQLiteRepository } from "./repositories/DeviceSQLiteRepository.js";
 import { MessageSQLiteRepository } from "./repositories/MessageSQLiteRepository.js";
 import { PendingChatInMemoryRepository } from "./repositories/PendingChatInMemoryRepository.js";
 import { PushSubscriptionSQLiteRepository } from "./repositories/PushSubscriptionSQLiteRepository.js";
@@ -18,6 +19,7 @@ const userEventQueue = new UserEventSQLiteQueue(db);
 const pushSubscriptionRepository = new PushSubscriptionSQLiteRepository(db);
 export const messageRepository = new MessageSQLiteRepository(db);
 export const chatMemberRepository = new ChatMemberSQLiteRepository(db);
+export const deviceRepository = new DeviceSQLiteRepository(db);
 
 // Живые WebSocket-подключения и незавершённые handshake'и хранятся только в
 // памяти — персистить их нельзя.
@@ -33,7 +35,8 @@ const fileStorage = new LocalFileStorage(
 const notificationService = new NotificationService(
     connectionRepository,
     userEventQueue,
-    pushSubscriptionRepository
+    pushSubscriptionRepository,
+    deviceRepository
 );
 
 export const fileService = new FileService(fileStorage);

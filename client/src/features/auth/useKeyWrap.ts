@@ -69,5 +69,48 @@ export function useKeyWrap() {
         return crypto.subtle.importKey("pkcs8", pkcs8, algorithm, true, usages);
     }
 
-    return { randomBytes, importAesGcm, deriveFromPin, encryptKey, decryptKey };
+    // Обёртка симметричного (raw) ключа устройства — в отличие от encryptKey,
+    // который оборачивает pkcs8 приватных ключей.
+    async function encryptRawKey(
+        key: CryptoKey,
+        wrappingKey: CryptoKey
+    ): Promise<{ data: ArrayBuffer; iv: Uint8Array<ArrayBuffer> }> {
+        const raw = await crypto.subtle.exportKey("raw", key);
+        const iv = randomBytes(12);
+        const data = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv },
+            wrappingKey,
+            raw
+        );
+        return { data, iv };
+    }
+
+    async function decryptRawKey(
+        data: ArrayBuffer,
+        iv: ArrayBuffer,
+        wrappingKey: CryptoKey
+    ): Promise<CryptoKey> {
+        const raw = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            wrappingKey,
+            data
+        );
+        return crypto.subtle.importKey(
+            "raw",
+            raw,
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+        );
+    }
+
+    return {
+        randomBytes,
+        importAesGcm,
+        deriveFromPin,
+        encryptKey,
+        decryptKey,
+        encryptRawKey,
+        decryptRawKey,
+    };
 }

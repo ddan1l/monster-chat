@@ -1,13 +1,37 @@
 import { useCrypto, fromBase64, toBase64 } from "@shared/crypto/useCrypto";
+import { getDeviceId } from "@shared/lib/useDeviceId";
 
 import { type DecryptedMessage } from "@entities/message/useMessages";
+
+import { useEpochKeys } from "@features/auth/useEpochKeys";
+import { usePrekeys } from "@features/auth/usePrekeys";
 
 import type {
     ChatEnvelope,
     ChatMessage,
+    MessageBundle,
     MessageContent,
+    MessageCopy,
     PeerInfo,
 } from "shared";
+
+// Канонические байты копии для подписи/проверки. Порядок полей фиксирован —
+// отправитель и получатель строят объект одинаково.
+function copyCanonical(f: {
+    chatId: string;
+    from: string;
+    to: string;
+    nonce: string;
+    timestamp: number;
+    targetDeviceId: string;
+    epochId: number;
+    ephemeralPub: string;
+    iv: string;
+    payload: string;
+    silent: boolean;
+}): Uint8Array<ArrayBuffer> {
+    return new TextEncoder().encode(JSON.stringify(f));
+}
 
 // Крипто-ядро сессии чата: производный ключ, расшифровка входящих и сборка
 // подписанных исходящих. Инкапсулирует sharedKey/myKey/peerKey, чтобы
@@ -16,11 +40,14 @@ export function useChatCrypto(chatId: string) {
     const {
         exportSignPublicKey,
         deriveSharedKey,
+        deriveKeyWith,
         encrypt,
         decrypt,
         sign,
-        verify,
+        verify: verifySignature,
     } = useCrypto();
+    const { loadEpoch } = useEpochKeys();
+    const { fetchPrekeys } = usePrekeys();
 
     let sharedKey: CryptoKey | null = null;
     let myKey: string | null = null;
@@ -40,6 +67,9 @@ export function useChatCrypto(chatId: string) {
         return !!sharedKey && !!peerKey;
     }
 
+    // Расшифровка входящего из сети / с сервера: проверяем подпись (недоверенный
+    // источник) и расшифровываем транспортным sharedKey. Локальный стор читается
+    // отдельно — через decryptStored под ключом устройства.
     async function decryptMessage(msg: ChatMessage): Promise<DecryptedMessage> {
         const envelope: ChatEnvelope = {
             chatId: msg.chatId,
@@ -50,27 +80,23 @@ export function useChatCrypto(chatId: string) {
             payload: msg.payload,
             timestamp: msg.timestamp,
         };
-
         const envelopeBytes = new TextEncoder().encode(
             JSON.stringify(envelope)
         );
-
-        // Отправителем может быть только один из двух участников чата —
-        // мы сами (загрузка своей истории) или доверенный пир. Любой иной
-        // ключ означает попытку выдать себя за участника.
+        // Отправителем может быть только один из двух участников чата — мы сами
+        // или доверенный пир. Любой иной ключ — попытка выдать себя за участника.
         const trustedSender = msg.from === myKey || msg.from === peerKey;
-
         const valid =
             trustedSender &&
-            (await verify(
+            (await verifySignature(
                 fromBase64(msg.from),
                 envelopeBytes,
                 fromBase64(msg.signature)
             ));
-
         if (!valid) {
             return { ...msg, text: "<i>Invalid message signature</i>" };
         }
+
         if (!sharedKey) {
             throw new Error("Shared key not initialized");
         }
@@ -81,18 +107,7 @@ export function useChatCrypto(chatId: string) {
             new Uint8Array(fromBase64(msg.iv))
         );
 
-        const content: MessageContent = JSON.parse(decrypted);
-        const stored = msg as DecryptedMessage;
-        return {
-            ...msg,
-            ...content,
-            // Restore persisted metadata when loading from IDB
-            ...(stored.editedAt !== undefined
-                ? { editedAt: stored.editedAt, text: stored.text }
-                : {}),
-            ...(stored.isRead !== undefined ? { isRead: stored.isRead } : {}),
-            ...(stored.isOwn !== undefined ? { isOwn: stored.isOwn } : {}),
-        };
+        return { ...msg, ...(JSON.parse(decrypted) as MessageContent) };
     }
 
     async function buildSignedMessage(
@@ -125,5 +140,146 @@ export function useChatCrypto(chatId: string) {
         };
     }
 
-    return { initPeer, loadMyKey, ready, decryptMessage, buildSignedMessage };
+    // v2 (FS): собирает бандл — по копии на каждое устройство получателя и на
+    // свои другие устройства. Для каждого: ECIES под его эпохальный prekey
+    // эфемерным ключом (тут же выбрасывается) + подпись копии.
+    async function buildBundle(
+        content: MessageContent,
+        silent?: boolean
+    ): Promise<MessageBundle> {
+        const nonce = crypto.randomUUID();
+        const timestamp = Date.now();
+        const from = await exportSignPublicKey();
+        const to = peerKey!;
+        const contentStr = JSON.stringify(content);
+        const myDeviceId = getDeviceId();
+
+        const [peerDevices, myDevices] = await Promise.all([
+            fetchPrekeys(to),
+            fetchPrekeys(from),
+        ]);
+        const targets = [
+            ...peerDevices.map((p) => ({ p, owner: to })),
+            ...myDevices
+                .filter((p) => p.deviceId !== myDeviceId)
+                .map((p) => ({ p, owner: from })),
+        ];
+
+        const copies: MessageCopy[] = [];
+        for (const { p, owner } of targets) {
+            const epochPubRaw = fromBase64(p.epochPub);
+            // Проверяем, что prekey подписан identity-ключом владельца — иначе
+            // сервер мог подсунуть чужой ключ; такое устройство пропускаем.
+            const authentic = await verifySignature(
+                fromBase64(owner),
+                epochPubRaw,
+                fromBase64(p.signature)
+            );
+            if (!authentic) continue;
+
+            const ephemeral = await crypto.subtle.generateKey(
+                { name: "ECDH", namedCurve: "P-256" },
+                true,
+                ["deriveKey"]
+            );
+            const msgKey = await deriveKeyWith(
+                ephemeral.privateKey,
+                epochPubRaw
+            );
+            const { payload, iv } = await encrypt(msgKey, contentStr);
+            const ephemeralPubRaw = await crypto.subtle.exportKey(
+                "raw",
+                ephemeral.publicKey
+            );
+            const fields = {
+                chatId,
+                from,
+                to,
+                nonce,
+                timestamp,
+                targetDeviceId: p.deviceId,
+                epochId: p.epochId,
+                ephemeralPub: toBase64(ephemeralPubRaw),
+                iv: toBase64(iv),
+                payload: toBase64(payload),
+                silent: !!silent,
+            };
+            const signature = await sign(copyCanonical(fields));
+            copies.push({
+                targetDeviceId: fields.targetDeviceId,
+                epochId: fields.epochId,
+                ephemeralPub: fields.ephemeralPub,
+                iv: fields.iv,
+                payload: fields.payload,
+                signature: toBase64(signature),
+            });
+        }
+
+        return {
+            chatId,
+            from,
+            to,
+            nonce,
+            timestamp,
+            ...(silent ? { silent: true } : {}),
+            copies,
+        };
+    }
+
+    // v2: расшифровка своей копии — проверка подписи + ECIES своим эпохальным
+    // приватником (по epochId) и эфемерным публичным ключом отправителя.
+    async function decryptV2(msg: ChatMessage): Promise<DecryptedMessage> {
+        const trustedSender = msg.from === myKey || msg.from === peerKey;
+        const fields = {
+            chatId: msg.chatId,
+            from: msg.from,
+            to: msg.to,
+            nonce: msg.nonce,
+            timestamp: msg.timestamp,
+            targetDeviceId: msg.targetDeviceId ?? "",
+            epochId: msg.epochId ?? 0,
+            ephemeralPub: msg.ephemeralPub ?? "",
+            iv: msg.iv,
+            payload: msg.payload,
+            silent: msg.silent ?? false,
+        };
+        const valid =
+            trustedSender &&
+            (await verifySignature(
+                fromBase64(msg.from),
+                copyCanonical(fields),
+                fromBase64(msg.signature)
+            ));
+        if (!valid) {
+            return { ...msg, text: "<i>Invalid message signature</i>" };
+        }
+
+        let keyPair: CryptoKeyPair;
+        try {
+            keyPair = await loadEpoch(msg.epochId ?? 0);
+        } catch {
+            // Эпоха уничтожена ротацией — сообщение под ней уже не вскрыть (FS).
+            return { ...msg, text: "<i>Сообщение недоступно</i>" };
+        }
+        const msgKey = await deriveKeyWith(
+            keyPair.privateKey,
+            fromBase64(msg.ephemeralPub ?? "")
+        );
+        const decrypted = await decrypt(
+            msgKey,
+            fromBase64(msg.payload),
+            new Uint8Array(fromBase64(msg.iv))
+        );
+        return { ...msg, ...(JSON.parse(decrypted) as MessageContent) };
+    }
+
+    return {
+        initPeer,
+        loadMyKey,
+        ready,
+        decryptMessage,
+        decryptV2,
+        buildSignedMessage,
+        buildBundle,
+    };
 }

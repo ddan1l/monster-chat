@@ -5,6 +5,7 @@ import type { TokenBucket } from "./rateLimit.js";
 export type Peer = WebSocket & {
     chatId?: string;
     signPubKey?: string;
+    deviceId?: string; // устройство внутри аккаунта signPubKey (модель A)
     ip?: string;
     watchedPeers?: string[];
     authNonce?: string; // challenge, ожидающий подписи
@@ -28,4 +29,7 @@ export type {
     MarkReadMessage,
     DeleteChatMessage,
     DeleteChatForAllMessage,
+    PublishPrekeyMessage,
+    GetPrekeysMessage,
+    SendBundleMessage,
 } from "shared";

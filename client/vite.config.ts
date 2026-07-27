@@ -2,13 +2,31 @@ import { execSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
 
 import vue from "@vitejs/plugin-vue";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import svgLoader from "vite-svg-loader";
 
 import tauriConf from "./src-tauri/tauri.conf.json";
 
 const gitHash = execSync("git rev-parse --short HEAD").toString().trim();
+
+// Ужесточаем CSP web-prod-сборки: убираем 'unsafe-inline' ИЗ script-src (в проде
+// инлайн-скриптов нет — главная защита от XSS). style-src не трогаем (нужен для
+// инлайн-стилей Vue). В Tauri-сборке не трогаем (у webview свои нужды) — по
+// наличию TAURI_ENV_PLATFORM. dev использует мягкий CSP (см. server.headers).
+function prodCsp(): Plugin {
+    return {
+        name: "harden-prod-csp",
+        apply: "build",
+        transformIndexHtml(html) {
+            if (process.env.TAURI_ENV_PLATFORM) return html;
+            return html.replace(
+                "script-src 'self' 'unsafe-inline'",
+                "script-src 'self'"
+            );
+        },
+    };
+}
 
 export default defineConfig({
     build: {
@@ -21,6 +39,7 @@ export default defineConfig({
     plugins: [
         vue(),
         svgLoader(),
+        prodCsp(),
         VitePWA({
             strategies: "injectManifest",
             srcDir: "src",

@@ -77,6 +77,29 @@ export function usePeers() {
         send({ type: "online", payload: { peers: peerKeys } });
     }
 
+    // Ре-шеринг при подключении: переотдаём личность собеседника каждого чата на
+    // свой аккаунт, чтобы отставшие устройства (офлайн на момент approve или
+    // привязанные позже) со временем сошлись. Сервер веером раздаёт своим.
+    async function reshareOwnPeers(): Promise<void> {
+        const mySignPubKey = await exportSignPublicKey();
+        for (const stored of Object.values(peers.value)) {
+            if (!stored.signPubKey) continue;
+            send({
+                type: "peer_info",
+                payload: {
+                    signPubKey: stored.signPubKey,
+                    ecdhPubKey: stored.ecdhPubKey,
+                    name: stored.name,
+                    avatar: stored.avatar,
+                    chatId: stored.chatId,
+                    peerSignPubKey: mySignPubKey,
+                    // Только апгрейд: делимся верификацией, но не сбрасываем чужую.
+                    ...(stored.verified ? { verified: true } : {}),
+                },
+            });
+        }
+    }
+
     async function startSync(): Promise<void> {
         await loadAllPeers();
         subscribe("peer_info", async (msg) => {
@@ -90,6 +113,10 @@ export function usePeers() {
                 : { ...stored, ...peerInfo, chatId };
             await write(updated, chatId);
             peers.value[chatId] = updated;
+
+            // Пришла верификация (синк со своего устройства) — переобъявляемся,
+            // чтобы сервер узнал, что мы наблюдаем этого пира, и отдал его статус.
+            if (updated.verified && !stored?.verified) announceOnline();
         });
 
         subscribe("peer_online", (msg) => {
@@ -141,5 +168,6 @@ export function usePeers() {
         getMyPeerInfo,
         startSync,
         announceOnline,
+        reshareOwnPeers,
     };
 }

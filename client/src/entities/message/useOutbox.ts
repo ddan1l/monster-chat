@@ -5,12 +5,12 @@ import { useWs } from "@shared/transport/useWs";
 
 import { useChatMessages } from "./useMessages";
 
-import type { ChatMessage } from "shared";
+import type { MessageBundle } from "shared";
 
 interface OutboxEntry {
     nonce: string;
     chatId: string;
-    envelope: ChatMessage; // подписанный конверт (без расшифрованных полей)
+    bundle: MessageBundle; // v2-бандл с per-device копиями (до ACK)
 }
 
 export function useOutbox() {
@@ -18,19 +18,19 @@ export function useOutbox() {
     const { send, subscribe, connected } = useWs();
     const { markSent } = useChatMessages();
 
-    // Кладём исходящее сообщение в outbox до получения ACK.
+    // Кладём исходящий бандл в outbox до получения ACK (по логическому nonce).
     async function enqueue(
         chatId: string,
-        envelope: ChatMessage
+        bundle: MessageBundle
     ): Promise<void> {
-        await write({ nonce: envelope.nonce, chatId, envelope });
+        await write({ nonce: bundle.nonce, chatId, bundle });
     }
 
-    // Пересылаем все неподтверждённые сообщения (at-least-once).
+    // Пересылаем все неподтверждённые бандлы (at-least-once).
     async function flush(): Promise<void> {
         const pending = await readAll<OutboxEntry>();
         for (const entry of pending) {
-            send({ type: "message", payload: entry.envelope });
+            send({ type: "message_bundle", payload: entry.bundle });
         }
     }
 

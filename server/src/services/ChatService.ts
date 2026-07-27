@@ -11,6 +11,7 @@ import type { MessageRepository } from "../repositories/MessageRepository.js";
 import type { Peer } from "../types.js";
 import type {
     ChatMessage,
+    MessageBundle,
     PeerInfo,
     ServerError,
     ServerChatOpened,
@@ -48,14 +49,38 @@ export class ChatService {
         this.chatMemberRepository.setReadSeq(chatId, signPubKey, maxSeq);
     }
 
-    join(chatId: string, signPubKey: string, peer: Peer, afterSeq = 0): void {
+    join(
+        chatId: string,
+        signPubKey: string,
+        deviceId: string,
+        peer: Peer,
+        afterSeq = 0
+    ): void {
         peer.chatId = chatId;
 
-        const missed = this.messageRepository.getAfter(
-            chatId,
-            signPubKey,
-            afterSeq
-        );
+        // Транзит: курсор afterSeq подтверждает, что устройство имеет всё до него
+        // (у клиента durable-стор — дом истории), поэтому его копии до afterSeq на
+        // сервере больше не нужны — удаляем. deviceId пуст только у легаси-клиента
+        // без v2 — тогда полагаемся на TTL.
+        if (deviceId) {
+            this.messageRepository.deleteDeviceDeliveredUpTo(
+                chatId,
+                deviceId,
+                afterSeq
+            );
+        }
+
+        // Пропущенное: v1 (адресовано аккаунту) + v2 (копии этого устройства),
+        // в порядке seq — единое пространство курсора.
+        const missed = [
+            ...this.messageRepository.getAfter(chatId, signPubKey, afterSeq),
+            ...this.messageRepository.getAfterForDevice(
+                chatId,
+                deviceId,
+                afterSeq
+            ),
+        ].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+
         missed.forEach((msg) => {
             const delivery: ServerMessageDelivery = {
                 type: "message",
@@ -68,51 +93,134 @@ export class ChatService {
         this.notificationService.sendEvent(peer, joined);
     }
 
-    deliver(chatId: string, payload: ChatMessage): void {
+    // v2 (FS): разворачивает бандл в per-device конверты, сохраняет каждую копию
+    // (device-scoped) и доставляет её целевому устройству, если оно онлайн;
+    // остальные подтянут через getAfterForDevice при open_chat.
+    deliverBundle(bundle: MessageBundle, senderDeviceId?: string): void {
+        if (!this.chatMemberRepository.isMember(bundle.chatId, bundle.from)) {
+            return;
+        }
+
+        for (const copy of bundle.copies) {
+            const msg: ChatMessage = {
+                v: 2,
+                chatId: bundle.chatId,
+                from: bundle.from,
+                to: bundle.to,
+                nonce: bundle.nonce,
+                timestamp: bundle.timestamp,
+                silent: bundle.silent,
+                targetDeviceId: copy.targetDeviceId,
+                epochId: copy.epochId,
+                ephemeralPub: copy.ephemeralPub,
+                iv: copy.iv,
+                payload: copy.payload,
+                signature: copy.signature,
+            };
+            this.messageRepository.save(msg);
+
+            // Целевое устройство — под аккаунтом получателя или отправителя
+            // (своё другое устройство). Доставляем вживую, если оно онлайн.
+            const conn =
+                this.connectionRepository.getDevice(
+                    bundle.to,
+                    copy.targetDeviceId
+                ) ??
+                this.connectionRepository.getDevice(
+                    bundle.from,
+                    copy.targetDeviceId
+                );
+            // Вживую — только если устройство смотрит этот чат (как в v1);
+            // иначе подтянет свою копию через getAfterForDevice при open_chat.
+            if (
+                conn?.readyState === WebSocket.OPEN &&
+                conn.chatId === bundle.chatId
+            ) {
+                this.notificationService.sendEvent(conn, {
+                    type: "message",
+                    payload: msg,
+                });
+            }
+        }
+
+        // ACK один раз отправившему устройству (по логическому nonce).
+        // Отправленные сообщения — локальные, серверного seq у них нет; курсор
+        // устройства считается по полученным копиям, поэтому seq номинальный.
+        const senderConn = senderDeviceId
+            ? this.connectionRepository.getDevice(bundle.from, senderDeviceId)
+            : undefined;
+        if (senderConn?.readyState === WebSocket.OPEN) {
+            this.notificationService.sendEvent(senderConn, {
+                type: "ack",
+                payload: { nonce: bundle.nonce, seq: 0 },
+            });
+        }
+    }
+
+    deliver(
+        chatId: string,
+        payload: ChatMessage,
+        senderDeviceId?: string
+    ): void {
         // Писать в чат может только его участник. payload.from уже сверен с
         // аутентифицированным ключом в onMessage, поэтому гейта по from хватает.
         if (!this.chatMemberRepository.isMember(chatId, payload.from)) {
             return;
         }
 
-        const delivery: ServerMessageDelivery = { type: "message", payload };
-        const recipientKey = payload.to;
-        const recipient = this.connectionRepository.get(recipientKey);
-
         // Сохраняем всё (в т.ч. silent — правки/удаления/квитанции), чтобы
-        // оффлайн-пир получил их при следующем open_chat через getAfter.
+        // оффлайн-устройство подтянуло их при следующем open_chat через getAfter.
         // save() проставляет payload.seq.
         this.messageRepository.save(payload);
 
-        // ACK отправителю: сообщение персистентно записано, seq присвоен.
-        const sender = this.connectionRepository.get(payload.from);
+        // ACK — только отправившему устройству, не остальным устройствам аккаунта.
+        const senderConn = senderDeviceId
+            ? this.connectionRepository.getDevice(payload.from, senderDeviceId)
+            : this.connectionRepository.get(payload.from);
         if (
-            sender?.readyState === WebSocket.OPEN &&
+            senderConn?.readyState === WebSocket.OPEN &&
             payload.seq !== undefined
         ) {
-            this.notificationService.sendEvent(sender, {
+            this.notificationService.sendEvent(senderConn, {
                 type: "ack",
                 payload: { nonce: payload.nonce, seq: payload.seq },
             });
         }
 
-        // Живая доставка только если пир смотрит именно этот чат; иначе он
-        // подтянет сообщение сам при открытии чата.
-        if (
-            recipient?.readyState === WebSocket.OPEN &&
-            recipient.chatId === chatId
-        ) {
-            this.notificationService.sendEvent(recipient, delivery);
-        }
+        const delivery: ServerMessageDelivery = { type: "message", payload };
+        // Веер: все устройства получателя + другие устройства отправителя (эхо),
+        // которые смотрят этот чат. Остальные подтянут сами через getAfter.
+        this.fanOutLive(payload.to, chatId, delivery);
+        this.fanOutLive(payload.from, chatId, delivery, senderDeviceId);
 
-        // Уведомление шлём только участнику: если он удалил чат у себя,
-        // осиротевших непрочитанных быть не должно.
+        // Уведомление шлём только участнику-получателю (на все его устройства).
         if (
             !payload.silent &&
-            this.chatMemberRepository.isMember(chatId, recipientKey)
+            this.chatMemberRepository.isMember(chatId, payload.to)
         ) {
-            const unread = this.unreadCount(chatId, recipientKey);
-            this.notificationService.notify(recipientKey, chatId, unread);
+            const unread = this.unreadCount(chatId, payload.to);
+            this.notificationService.notify(payload.to, chatId, unread);
+        }
+    }
+
+    // Живая доставка события на все устройства аккаунта, открывшие этот чат.
+    // exceptDeviceId исключает отправившее устройство (чтобы не эхнуть само себе).
+    private fanOutLive(
+        accountKey: string,
+        chatId: string,
+        event: ServerMessage,
+        exceptDeviceId?: string
+    ): void {
+        for (const conn of this.connectionRepository.getDevices(accountKey)) {
+            if (
+                exceptDeviceId !== undefined &&
+                conn.deviceId === exceptDeviceId
+            ) {
+                continue;
+            }
+            if (conn.readyState === WebSocket.OPEN && conn.chatId === chatId) {
+                this.notificationService.sendEvent(conn, event);
+            }
         }
     }
 
@@ -133,12 +241,7 @@ export class ChatService {
             payload: { chatId },
         };
         for (const member of remaining) {
-            const conn = this.connectionRepository.get(member);
-            if (conn?.readyState === WebSocket.OPEN) {
-                this.notificationService.sendEvent(conn, event);
-            } else {
-                this.userEventQueue.push(member, event);
-            }
+            this.notificationService.deliverToAccount(member, event);
         }
     }
 
@@ -155,12 +258,7 @@ export class ChatService {
 
         for (const member of members) {
             if (member === signPubKey) continue;
-            const recipient = this.connectionRepository.get(member);
-            if (recipient?.readyState === WebSocket.OPEN) {
-                this.notificationService.sendEvent(recipient, event);
-            } else {
-                this.userEventQueue.push(member, event);
-            }
+            this.notificationService.deliverToAccount(member, event);
         }
 
         this.chatMemberRepository.removeByChat(chatId);
@@ -206,7 +304,8 @@ export class ChatService {
             type: "chat_knock" as const,
             payload: { chatId, peerInfo, ip, timezone },
         };
-        this.sendOrQueue(pending.peer, event, pending.peer.signPubKey!);
+        // Стук — на все устройства хоста, чтобы одобрить можно было с любого.
+        this.notificationService.deliverToAccount(pending.hostKey, event);
     }
 
     approveChat(chatId: string, peerInfo: PeerInfo, peer: Peer): void {
@@ -231,16 +330,26 @@ export class ChatService {
             type: "chat_created",
             payload: { chatId },
         };
+        // chat_created — на все устройства обоих аккаунтов (мультидевайс: остальные
+        // устройства должны узнать о новом чате, а не только активное).
+        this.notificationService.deliverToAccount(pending.hostKey, chatCreated);
+        this.notificationService.deliverToAccount(
+            knock.knockerKey,
+            chatCreated
+        );
 
-        this.sendOrQueue(peer, chatCreated, pending.hostKey);
-        this.sendOrQueue(knock.peer, chatCreated, knock.knockerKey);
-
-        const aPeerInfo: ServerPeerInfo = {
+        // peer_info раздаём КРЕСТ-НАКРЕСТ всем устройствам: личность approver'а —
+        // всем устройствам knocker'а, и личность knocker'а — всем устройствам
+        // approver'а. Иначе другое устройство не знает собеседника и отвергает
+        // его сообщения («Invalid signature»).
+        this.notificationService.deliverToAccount(knock.knockerKey, {
             type: "peer_info",
             payload: { ...peerInfo, chatId },
-        };
-
-        this.sendOrQueue(knock.peer, aPeerInfo, knock.knockerKey);
+        });
+        this.notificationService.deliverToAccount(pending.hostKey, {
+            type: "peer_info",
+            payload: { ...knock.peerInfo, chatId },
+        });
     }
 
     relayPeerInfo(
@@ -248,28 +357,9 @@ export class ChatService {
         peerInfo: PeerInfo,
         peerSignPubKey: string
     ): void {
-        const event: ServerPeerInfo = {
+        this.notificationService.deliverToAccount(peerSignPubKey, {
             type: "peer_info",
             payload: { ...peerInfo, chatId },
-        };
-        const recipient = this.connectionRepository.get(peerSignPubKey);
-
-        if (recipient?.readyState === WebSocket.OPEN) {
-            this.notificationService.sendEvent(recipient, event);
-        } else {
-            this.userEventQueue.push(peerSignPubKey, event);
-        }
-    }
-
-    private sendOrQueue(
-        peer: Peer,
-        event: ServerMessage,
-        signPubKey: string
-    ): void {
-        if (peer.readyState === WebSocket.OPEN) {
-            this.notificationService.sendEvent(peer, event);
-        } else {
-            this.userEventQueue.push(signPubKey, event);
-        }
+        });
     }
 }

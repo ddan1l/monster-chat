@@ -1,6 +1,5 @@
 import { ref, watch, onUnmounted, toRaw, nextTick } from "vue";
 
-import { signRequest } from "@shared/crypto/signRequest";
 import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
 import { useWs } from "@shared/transport/useWs";
 
@@ -33,14 +32,25 @@ export type { DecryptedMessage };
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
-    const { saveChatMessage, getLastPage, removeChatMessage, trimToLastPage } =
-        useChatMessages();
+    const {
+        saveChatMessage,
+        decryptStored,
+        getLastPage,
+        getPageBefore,
+        removeChatMessage,
+    } = useChatMessages();
     const { enqueue: enqueueOutbox } = useOutbox();
     const { user, load: loadUser } = useUser();
     const { send: wsSend, subscribe, connected } = useWs();
 
-    const { initPeer, loadMyKey, ready, decryptMessage, buildSignedMessage } =
-        useChatCrypto(chatId);
+    const {
+        initPeer,
+        loadMyKey,
+        ready,
+        decryptMessage,
+        decryptV2,
+        buildBundle,
+    } = useChatCrypto(chatId);
 
     const { isPeerTyping, sendTyping, sendStopTyping } =
         useTypingIndicator(chatId);
@@ -117,24 +127,35 @@ export function useChatSession(chatId: string) {
                 ? { action: "edit_message", targetNonce: originalNonce }
                 : {}),
         };
-        const msg = await buildSignedMessage(content, !!originalNonce);
+        // v2 (FS): бандл с per-device копиями (ECIES под prekey каждого).
+        const bundle = await buildBundle(content, !!originalNonce);
         if (!content.action) {
-            // Кладём в outbox до ACK и оптимистично показываем как pending;
-            // wsSend — попытка доставить сразу, флаш на реконнекте — гарантия.
-            await enqueueOutbox(chatId, msg);
+            // Кладём в outbox до ACK и оптимистично показываем как pending.
+            // Свою копию храним локально: транспортных iv/payload у бандла нет,
+            // контент уходит в store под ключом устройства (см. saveChatMessage).
+            await enqueueOutbox(chatId, bundle);
             addMessage({
-                ...msg,
+                chatId: bundle.chatId,
+                from: bundle.from,
+                to: bundle.to,
+                nonce: bundle.nonce,
+                iv: "",
+                payload: "",
+                signature: "",
+                timestamp: bundle.timestamp,
                 ...content,
                 isOwn: true,
                 isRead: false,
                 status: "pending",
             });
         }
-        wsSend({ type: "message", payload: msg });
+        wsSend({ type: "message_bundle", payload: bundle });
     }
 
     async function editMessage(nonce: string, newText: string): Promise<void> {
         await sendMessage(newText, undefined, nonce);
+        // Контент под ключом устройства пересобирается в saveChatMessage —
+        // достаточно обновить text.
         updateMessage(nonce, { text: newText, editedAt: Date.now() });
     }
 
@@ -164,8 +185,9 @@ export function useChatSession(chatId: string) {
             action,
             ...(targetNonce ? { targetNonce } : {}),
         };
-        const msg = await buildSignedMessage(content, true);
-        wsSend({ type: "message", payload: msg });
+        // Действия (read/edit/delete) тоже v2: веером на все устройства.
+        const bundle = await buildBundle(content, true);
+        wsSend({ type: "message_bundle", payload: bundle });
     }
 
     async function deleteMessageForAll(nonce: string): Promise<void> {
@@ -194,7 +216,11 @@ export function useChatSession(chatId: string) {
             if (seenNonces.has(nonce)) return;
             seenNonces.add(nonce);
 
-            const decrypted = await decryptMessage(msg.payload);
+            // v2-конверт расшифровываем эпохальным ключом, v1 — транспортным.
+            const decrypted =
+                msg.payload.v === 2
+                    ? await decryptV2(msg.payload)
+                    : await decryptMessage(msg.payload);
             if (decrypted.action === "edit_message" && decrypted.targetNonce) {
                 applyEdit(decrypted);
             } else if (
@@ -268,8 +294,9 @@ export function useChatSession(chatId: string) {
         peer.value = activePeer;
         if (activePeer) await initPeer(activePeer);
 
-        // Show cached messages immediately, pre-populate seenNonces to avoid duplicates
-        messages.value = await Promise.all(cached.map(decryptMessage));
+        // Локальный стор читаем через decryptStored (ключ устройства) — без
+        // per-chat sharedKey и без проверки подписи (данные уже доверенные).
+        messages.value = await Promise.all(cached.map((m) => decryptStored(m)));
         cached.forEach((m) => seenNonces.add(m.nonce));
         hasMoreMessages.value = cached.length >= PAGE_SIZE;
 
@@ -288,22 +315,12 @@ export function useChatSession(chatId: string) {
 
     async function loadMoreMessages(): Promise<void> {
         if (!hasMoreMessages.value || messages.value.length === 0) return;
-        const oldestSeq = messages.value[0].seq ?? 0;
-        const wsUrl = import.meta.env.VITE_WS_URL as string;
-        const apiBase = wsUrl.replace(/^ws(s?):\/\//, "http$1://");
-        const url = `${apiBase}/api/messages/${chatId}?before=${oldestSeq}&limit=${PAGE_SIZE}`;
-
-        const res = await fetch(url, {
-            headers: await signRequest("GET", url),
-        });
-        if (!res.ok) return;
-        const older: ChatMessage[] = await res.json();
-
-        await Promise.all(older.map((m) => saveChatMessage(m)));
-        await trimToLastPage(chatId);
-
-        const decrypted = await Promise.all(older.map(decryptMessage));
-        if (decrypted.length < PAGE_SIZE) hasMoreMessages.value = false;
+        // Локальный стор — дом истории: страницу вверх берём из IDB, не с сервера.
+        const oldestTimestamp = messages.value[0].timestamp;
+        const older = await getPageBefore(chatId, oldestTimestamp);
+        if (older.length < PAGE_SIZE) hasMoreMessages.value = false;
+        if (older.length === 0) return;
+        const decrypted = await Promise.all(older.map((m) => decryptStored(m)));
         messages.value = [...decrypted, ...messages.value];
     }
 

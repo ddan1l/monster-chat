@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 
 import { isTauri } from "@shared/lib/useTauri";
+import QrCode from "@shared/ui/components/QrCode.vue";
 
 import {
     useSettings,
@@ -9,9 +10,27 @@ import {
     type Language,
 } from "@entities/settings/useSettings";
 
+import { useLinking } from "@features/auth/useLinking";
+
 const { settings, setTheme, setLanguage, setNotifications } = useSettings();
+const { exportBundle } = useLinking();
 
 const confirmDelete = ref(false);
+
+const linkTransfer = ref<string | null>(null);
+const linkCode = ref<string | null>(null);
+const linkLoading = ref(false);
+
+async function generateLink() {
+    linkLoading.value = true;
+    try {
+        const { transfer, code } = await exportBundle();
+        linkTransfer.value = transfer;
+        linkCode.value = code;
+    } finally {
+        linkLoading.value = false;
+    }
+}
 
 async function deleteAllData() {
     localStorage.clear();
@@ -118,6 +137,66 @@ const languages: { value: Language; label: string }[] = [
                 >
                     {{ l.label }}
                 </button>
+            </div>
+        </section>
+
+        <!-- Devices / linking -->
+        <section style="display: flex; flex-direction: column; gap: 12px">
+            <h2 style="margin: 0; font-size: 15px">Устройства</h2>
+            <p style="font-size: 12px; color: var(--mc-fg-mute); margin: 0">
+                Привяжите второе устройство к этому аккаунту. Код одноразовый —
+                не передавайте строку и код никому.
+            </p>
+            <div v-if="!linkTransfer" style="display: flex">
+                <button
+                    :disabled="linkLoading"
+                    :style="{
+                        padding: '8px 16px',
+                        border: '2px solid var(--mc-acid)',
+                        background: 'transparent',
+                        color: 'var(--mc-acid)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                    }"
+                    @click="generateLink"
+                >
+                    {{ linkLoading ? "..." : "Привязать устройство" }}
+                </button>
+            </div>
+            <div v-else style="display: flex; flex-direction: column; gap: 8px">
+                <span style="font-size: 13px; color: var(--mc-fg)">
+                    Код:
+                    <strong
+                        style="
+                            font-family: var(--mc-mono);
+                            letter-spacing: 0.12em;
+                        "
+                        >{{ linkCode }}</strong
+                    >
+                </span>
+                <!-- QR со строкой переноса — отсканировать на новом устройстве.
+                     Код вводится отдельно (не в QR). -->
+                <QrCode :data="linkTransfer" :size="220" />
+                <span style="font-size: 12px; color: var(--mc-fg-mute)">
+                    Отсканируйте QR на новом устройстве и введите код. Или
+                    скопируйте строку ниже.
+                </span>
+                <textarea
+                    :value="linkTransfer"
+                    readonly
+                    rows="4"
+                    style="
+                        width: 100%;
+                        box-sizing: border-box;
+                        font-family: monospace;
+                        font-size: 11px;
+                    "
+                    @focus="($event.target as HTMLTextAreaElement).select()"
+                />
+                <span style="font-size: 12px; color: var(--mc-fg-mute)">
+                    На новом устройстве: «Уже есть аккаунт? Привязать это
+                    устройство» → вставьте строку и код.
+                </span>
             </div>
         </section>
 

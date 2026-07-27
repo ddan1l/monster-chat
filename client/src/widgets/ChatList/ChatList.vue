@@ -18,22 +18,20 @@ const router = useRouter();
 const route = useRoute();
 const { loadChats } = useChats();
 const { announceOnline } = usePeers();
-const { getLastMessage } = useChatMessages();
+const { getLastMessage, decryptStored } = useChatMessages();
 const loaded = ref(false);
 
 onMounted(async () => {
     await loadChats();
 
-    const entries = await Promise.all(
+    // Контент в IDB под ключом устройства — расшифровываем для превью
+    // (чат-независимо, per-chat ключ не нужен).
+    await Promise.all(
         chats.value.map(async (c) => {
             const last = await getLastMessage(c.id);
-            return { id: c.id, last };
+            if (last) lastMessageByChat.value[c.id] = await decryptStored(last);
         })
     );
-
-    for (const { id, last } of entries) {
-        if (last) lastMessageByChat.value[id] = last;
-    }
 
     announceOnline();
     loaded.value = true;

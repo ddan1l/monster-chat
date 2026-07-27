@@ -10,6 +10,7 @@ import { useAuth } from "@features/auth/useAuth";
 import ApprovePage from "@pages/ApprovePage.vue";
 import InboxPage from "@pages/InboxPage.vue";
 import LandingPage from "@pages/LandingPage.vue";
+import LinkDevicePage from "@pages/LinkDevicePage.vue";
 import OpenPage from "@pages/OpenPage.vue";
 import SetupPage from "@pages/SetupPage.vue";
 import UnlockPage from "@pages/UnlockPage.vue";
@@ -42,6 +43,8 @@ const router = createRouter({
             },
         },
         { path: "/app/setup", name: "setup", component: SetupPage },
+        // Привязка этого устройства к существующему аккаунту (мультидевайс).
+        { path: "/app/link", name: "link", component: LinkDevicePage },
         { path: "/app/unlock", name: "unlock", component: UnlockPage },
         { path: "/app/join/:chatId", name: "join", component: ApprovePage },
     ],
@@ -57,7 +60,13 @@ router.beforeEach(async (to) => {
         return { path: "/open", query: { to: to.fullPath } };
     }
 
-    if (to.path === "/app/setup" || to.path === "/app/unlock") return true;
+    if (
+        to.path === "/app/setup" ||
+        to.path === "/app/link" ||
+        to.path === "/app/unlock"
+    ) {
+        return true;
+    }
 
     const [hasKeys, hasUser] = await Promise.all([
         useAuth().hasKeys(),

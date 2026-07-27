@@ -1,13 +1,15 @@
 import { useCrypto, toBase64, fromBase64 } from "@shared/crypto/useCrypto";
 
 const KEYS = ["_sc_ep", "_sc_eu", "_sc_sp", "_sc_su"] as const;
+const SK_KEY = "_sc_sk"; // ключ устройства (#5) в sessionStorage
 
 export function useSession() {
-    const { setKeys } = useCrypto();
+    const { setKeys, setStorageKey } = useCrypto();
 
     async function save(
         ecdhPair: CryptoKeyPair,
-        signPair: CryptoKeyPair
+        signPair: CryptoKeyPair,
+        storageKey?: CryptoKey
     ): Promise<void> {
         const [ecdhPriv, ecdhPub, signPriv, signPub] = await Promise.all([
             crypto.subtle.exportKey("pkcs8", ecdhPair.privateKey),
@@ -20,6 +22,10 @@ export function useSession() {
         sessionStorage.setItem(eu, toBase64(ecdhPub));
         sessionStorage.setItem(sp, toBase64(signPriv));
         sessionStorage.setItem(su, toBase64(signPub));
+        if (storageKey) {
+            const raw = await crypto.subtle.exportKey("raw", storageKey);
+            sessionStorage.setItem(SK_KEY, toBase64(raw));
+        }
     }
 
     async function restore(): Promise<boolean> {
@@ -61,6 +67,22 @@ export function useSession() {
                 { privateKey: ecdhPrivate, publicKey: ecdhPublic },
                 { privateKey: signPrivate, publicKey: signPublic }
             );
+            const skRaw = sessionStorage.getItem(SK_KEY);
+            if (!skRaw) {
+                // Сессия без ключа устройства (до storageKey) — форсим ре-логин,
+                // чтобы получить его миграцией при полном входе.
+                clear();
+                return false;
+            }
+            setStorageKey(
+                await crypto.subtle.importKey(
+                    "raw",
+                    fromBase64(skRaw),
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["encrypt", "decrypt"]
+                )
+            );
             return true;
         } catch {
             clear();
@@ -70,6 +92,7 @@ export function useSession() {
 
     function clear(): void {
         KEYS.forEach((k) => sessionStorage.removeItem(k));
+        sessionStorage.removeItem(SK_KEY);
     }
 
     return { save, restore, clear };

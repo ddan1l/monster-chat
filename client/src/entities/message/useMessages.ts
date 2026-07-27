@@ -1,6 +1,11 @@
 import { ref } from "vue";
 
-import { useIndexedDb, STORES, INDEX_CHAT_ID } from "@shared/storage/useIndexedDb";
+import { useCrypto, toBase64, fromBase64 } from "@shared/crypto/useCrypto";
+import {
+    useIndexedDb,
+    STORES,
+    INDEX_CHAT_ID,
+} from "@shared/storage/useIndexedDb";
 
 import type { ChatMessage, MessageContent } from "shared";
 
@@ -10,6 +15,10 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
     isOwn?: boolean;
     // Статус доставки исходящего сообщения: pending — ждёт ACK сервера.
     status?: "pending" | "sent";
+    // Контент, зашифрованный ключом устройства (#5). Источник для чтения из
+    // локального стора — не зависит от транспортного/эпохального ключа.
+    store?: string;
+    storeIv?: string;
 }
 
 export const lastMessageByChat = ref<Record<string, DecryptedMessage>>({});
@@ -25,13 +34,57 @@ export function useChatMessages() {
         readLastByIndex,
         remove,
     } = useIndexedDb(STORES.MESSAGES);
+    const { storageKey, encrypt, decrypt } = useCrypto();
 
     async function saveChatMessage(message: ChatMessage): Promise<void> {
-        await write(JSON.parse(JSON.stringify(message)) as ChatMessage);
+        const msg = message as DecryptedMessage;
+        // Контент шифруем ключом устройства (#5) → store; он переживёт ротацию
+        // эпох. Транспортный payload/iv и плейнтекст на диск не пишем. Если
+        // контента нет (обновление метаданных), существующий store сохраняем.
+        const stored: Record<string, unknown> = { ...msg };
+        const hasContent =
+            msg.text !== undefined ||
+            msg.files !== undefined ||
+            msg.action !== undefined;
+        if (hasContent && storageKey.value) {
+            const content: MessageContent = {};
+            if (msg.text !== undefined) content.text = msg.text;
+            if (msg.files) content.files = msg.files;
+            if (msg.action) content.action = msg.action;
+            if (msg.targetNonce) content.targetNonce = msg.targetNonce;
+            const enc = await encrypt(
+                storageKey.value,
+                JSON.stringify(content)
+            );
+            stored.store = toBase64(enc.payload);
+            stored.storeIv = toBase64(enc.iv);
+        }
+        delete stored.text;
+        delete stored.files;
+        delete stored.action;
+        delete stored.targetNonce;
+        delete stored.payload;
+        delete stored.iv;
+        await write(JSON.parse(JSON.stringify(stored)));
         const current = lastMessageByChat.value[message.chatId];
         if (!current || message.timestamp >= current.timestamp) {
-            lastMessageByChat.value[message.chatId] = message;
+            // В памяти держим полный объект (с text) — для превью в списке чатов.
+            lastMessageByChat.value[message.chatId] = msg;
         }
+    }
+
+    // Расшифровывает сообщение из локального стора ключом устройства (#5).
+    // Чат-независимо — не нужен per-chat sharedKey.
+    async function decryptStored(
+        msg: DecryptedMessage
+    ): Promise<DecryptedMessage> {
+        if (!storageKey.value || !msg.store || !msg.storeIv) return msg;
+        const raw = await decrypt(
+            storageKey.value,
+            fromBase64(msg.store),
+            new Uint8Array(fromBase64(msg.storeIv))
+        );
+        return { ...msg, ...(JSON.parse(raw) as MessageContent) };
     }
 
     // Помечает исходящее сообщение доставленным на сервер (пришёл ACK).
@@ -100,15 +153,9 @@ export function useChatMessages() {
         await Promise.all(msgs.map((m) => remove(m.nonce)));
     }
 
-    async function trimToLastPage(chatId: string): Promise<void> {
-        const all = await getByChat(chatId);
-        if (all.length <= PAGE_SIZE) return;
-        const toDelete = all.slice(0, all.length - PAGE_SIZE);
-        await Promise.all(toDelete.map((m) => remove(m.nonce)));
-    }
-
     return {
         saveChatMessage,
+        decryptStored,
         markSent,
         getByChat,
         getLastPage,
@@ -116,6 +163,5 @@ export function useChatMessages() {
         getLastMessage,
         removeChatMessage,
         removeAllByChat,
-        trimToLastPage,
     };
 }

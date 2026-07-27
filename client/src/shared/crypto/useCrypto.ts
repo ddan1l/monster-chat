@@ -2,6 +2,9 @@ import { ref } from "vue";
 
 const encryptionKeyPair = ref<CryptoKeyPair | null>(null);
 const signKeyPair = ref<CryptoKeyPair | null>(null);
+// Ключ устройства (#5): шифрует локальный стор at-rest. Не выводится из чата —
+// переживает ротацию эпох, поэтому старую историю читаем даже после смерти эпох.
+const storageKey = ref<CryptoKey | null>(null);
 
 export function useCrypto() {
     async function generateKeyPairs(): Promise<{
@@ -28,6 +31,18 @@ export function useCrypto() {
         signKeyPair.value = sign;
     }
 
+    async function generateStorageKey(): Promise<CryptoKey> {
+        return crypto.subtle.generateKey(
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+        );
+    }
+
+    function setStorageKey(key: CryptoKey): void {
+        storageKey.value = key;
+    }
+
     async function exportPublicKey(key: CryptoKey): Promise<string> {
         const raw = await crypto.subtle.exportKey("raw", key);
         return toBase64(raw);
@@ -39,6 +54,28 @@ export function useCrypto() {
 
     async function exportSignPublicKey(): Promise<string> {
         return exportPublicKey(signKeyPair.value!.publicKey);
+    }
+
+    // ECIES-вывод (FS): ECDH любым приватным ключом (эфемерным отправителя или
+    // эпохальным получателя) с чужим публичным → симметричный AES-GCM ключ.
+    async function deriveKeyWith(
+        privateKey: CryptoKey,
+        theirPublicKeyRaw: ArrayBuffer
+    ): Promise<CryptoKey> {
+        const theirPublicKey = await crypto.subtle.importKey(
+            "raw",
+            theirPublicKeyRaw,
+            { name: "ECDH", namedCurve: "P-256" },
+            false,
+            []
+        );
+        return crypto.subtle.deriveKey(
+            { name: "ECDH", public: theirPublicKey },
+            privateKey,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["encrypt", "decrypt"]
+        );
     }
 
     async function deriveSharedKey(
@@ -154,11 +191,15 @@ export function useCrypto() {
     return {
         encryptionKeyPair,
         signKeyPair,
+        storageKey,
         generateKeyPairs,
         setKeys,
+        generateStorageKey,
+        setStorageKey,
         exportEncryptionPublicKey,
         exportSignPublicKey,
         deriveSharedKey,
+        deriveKeyWith,
         encrypt,
         encryptBytes,
         decrypt,

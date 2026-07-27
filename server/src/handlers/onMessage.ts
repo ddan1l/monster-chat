@@ -14,5 +14,5 @@ export function onMessage(ws: Peer, data: SendMessage) {
     ws.msgBucket ??= { tokens: BURST, lastRefill: Date.now() };
     if (!allowMessage(ws.msgBucket)) return;
 
-    chatService.deliver(payload.chatId, payload);
+    chatService.deliver(payload.chatId, payload, ws.deviceId);
 }

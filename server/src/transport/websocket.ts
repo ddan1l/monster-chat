@@ -7,14 +7,17 @@ import { onCancelChat } from "../handlers/onCancelChat.js";
 import { onClose } from "../handlers/onClose.js";
 import { onDeleteChat } from "../handlers/onDeleteChat.js";
 import { onDeleteChatForAll } from "../handlers/onDeleteChatForAll.js";
+import { onGetPrekeys } from "../handlers/onGetPrekeys.js";
 import { onInitChat } from "../handlers/onInitChat.js";
 import { onKnockChat } from "../handlers/onKnockChat.js";
 import { onMarkRead } from "../handlers/onMarkRead.js";
 import { onMessage } from "../handlers/onMessage.js";
+import { onMessageBundle } from "../handlers/onMessageBundle.js";
 import { onOnline } from "../handlers/onOnline.js";
 import { onOpenChat } from "../handlers/onOpenChat.js";
 import { onPeerInfo } from "../handlers/onPeerInfo.js";
 import { onPing } from "../handlers/onPing.js";
+import { onPublishPrekey } from "../handlers/onPublishPrekey.js";
 import { onSetAway } from "../handlers/onSetAway.js";
 import { onSetOnline } from "../handlers/onSetOnline.js";
 import { onTyping } from "../handlers/onTyping.js";
@@ -31,6 +34,7 @@ const handlers = {
     knock_chat: onKnockChat,
     peer_info: onPeerInfo,
     message: onMessage,
+    message_bundle: onMessageBundle,
     typing: onTyping,
     stop_typing: onTyping,
     cancel_chat: onCancelChat,
@@ -40,6 +44,8 @@ const handlers = {
     ping: onPing,
     set_away: onSetAway,
     set_online: onSetOnline,
+    publish_prekey: onPublishPrekey,
+    get_prekeys: onGetPrekeys,
 } satisfies {
     [K in ClientMessage["type"]]: (
         ws: Peer,

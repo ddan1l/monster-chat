@@ -1,7 +1,9 @@
 // Messages sent from client to server
 export interface AuthMessage {
     type: "auth";
-    payload: { signPubKey: string; signature: string }; // подпись challenge-nonce
+    // подпись challenge-nonce + идентификатор устройства (модель A: один аккаунт
+    // signPubKey, много устройств — deviceId различает соединения/очереди).
+    payload: { signPubKey: string; signature: string; deviceId: string };
 }
 
 export interface OpenChatMessage {
@@ -12,6 +14,33 @@ export interface OpenChatMessage {
 export interface SendMessage {
     type: "message";
     payload: ChatMessage;
+}
+
+// v2 (FS): одно логическое сообщение = N per-device копий. Отправитель шлёт их
+// одним бандлом; сервер разворачивает в per-device конверты и хранит по паре
+// (nonce, targetDeviceId). nonce общий — логический id для дедупа/правок.
+export interface MessageCopy {
+    targetDeviceId: string;
+    epochId: number;
+    ephemeralPub: string; // base64 raw ECDH pub эфемерного ключа отправителя
+    iv: string;
+    payload: string; // base64, зашифровано ECIES-ключом под prekey устройства
+    signature: string; // base64, подпись конверта этой копии
+}
+
+export interface MessageBundle {
+    chatId: string;
+    from: string;
+    to: string;
+    nonce: string;
+    timestamp: number;
+    silent?: boolean;
+    copies: MessageCopy[];
+}
+
+export interface SendBundleMessage {
+    type: "message_bundle";
+    payload: MessageBundle;
 }
 
 export interface OnlineMessage {
@@ -41,7 +70,13 @@ export interface KnockChatMessage {
 
 export interface PeerInfoMessage {
     type: "peer_info";
-    payload: PeerInfo & { chatId: string; peerSignPubKey: string };
+    // verified — синк статуса верификации между СВОИМИ устройствами (safety
+    // number считается по общим identity-ключам, поэтому валиден для всех).
+    payload: PeerInfo & {
+        chatId: string;
+        peerSignPubKey: string;
+        verified?: boolean;
+    };
 }
 
 export interface TypingMessage {
@@ -87,6 +122,19 @@ export interface SetOnlineMessage {
     type: "set_online";
 }
 
+// Публикация текущего эпохального prekey устройства (FS, Фаза 4). epochPub
+// подписан identity-sign-ключом — получатель доверяет ему как ключу аккаунта.
+export interface PublishPrekeyMessage {
+    type: "publish_prekey";
+    payload: { epochId: number; epochPub: string; signature: string };
+}
+
+// Запрос prekey всех устройств аккаунта — отправитель шифрует под каждый.
+export interface GetPrekeysMessage {
+    type: "get_prekeys";
+    payload: { signPubKey: string };
+}
+
 export type ClientMessage =
     | AuthMessage
     | OpenChatMessage
@@ -104,7 +152,10 @@ export type ClientMessage =
     | DeleteChatForAllMessage
     | PingMessage
     | SetAwayMessage
-    | SetOnlineMessage;
+    | SetOnlineMessage
+    | PublishPrekeyMessage
+    | GetPrekeysMessage
+    | SendBundleMessage;
 
 // Messages sent from server to client
 export interface ServerMessageDelivery {
@@ -156,6 +207,20 @@ export interface ServerAuthed {
     type: "authed";
 }
 
+// Эпохальный prekey одного устройства (FS, Фаза 4).
+export interface DevicePrekey {
+    deviceId: string;
+    epochId: number;
+    epochPub: string; // base64 raw ECDH-публичный ключ эпохи
+    signature: string; // base64, подпись epochPub identity-sign-ключом аккаунта
+}
+
+// Ответ на get_prekeys: текущие prekey всех устройств аккаунта.
+export interface ServerPrekeys {
+    type: "prekeys";
+    payload: { signPubKey: string; devices: DevicePrekey[] };
+}
+
 export interface ServerChatOpened {
     type: "chat_opened";
 }
@@ -172,7 +237,7 @@ export interface ServerChatCreated {
 
 export interface ServerPeerInfo {
     type: "peer_info";
-    payload: PeerInfo & { chatId: string };
+    payload: PeerInfo & { chatId: string; verified?: boolean };
 }
 
 export interface ServerChatKnock {
@@ -237,6 +302,7 @@ export type ServerMessage =
     | ServerChatDeleted
     | ServerAck
     | ServerChallenge
+    | ServerPrekeys
     | ServerAuthed;
 
 export interface Chat {
@@ -304,4 +370,11 @@ export interface ChatMessage extends ChatEnvelope {
     // Серверный монотонный курсор (rowid). Проставляется сервером при приёме,
     // в подпись конверта не входит. Клиент использует его для синхронизации.
     seq?: number;
+    // v2 (FS): конверт адресован конкретному устройству, payload зашифрован под
+    // его эпохальный prekey эфемерным ключом отправителя. Отсутствие v2-полей =
+    // v1 (статический sharedKey).
+    v?: 2;
+    targetDeviceId?: string;
+    epochId?: number;
+    ephemeralPub?: string; // base64 raw ECDH pub эфемерного ключа отправителя
 }

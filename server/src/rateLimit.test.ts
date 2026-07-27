@@ -3,6 +3,9 @@ import { test } from "node:test";
 
 import { allowMessage, BURST, type TokenBucket } from "./rateLimit.js";
 
+// Токен-бакет: полный бакет пропускает BURST подряд и блокирует следующее;
+// со временем дозаправляется, но не выше BURST.
+
 test("a full bucket allows BURST messages, then blocks", () => {
     const t0 = 1_000_000;
     const bucket: TokenBucket = { tokens: BURST, lastRefill: t0 };

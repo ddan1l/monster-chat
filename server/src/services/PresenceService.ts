@@ -25,7 +25,11 @@ export class PresenceService {
     register(signPubKey: string, peer: Peer, peerKeys: string[]): void {
         peer.signPubKey = signPubKey;
         peer.watchedPeers = peerKeys;
-        this.connectionRepository.set(signPubKey, peer);
+        this.connectionRepository.set(
+            signPubKey,
+            peer.deviceId ?? signPubKey,
+            peer
+        );
 
         const chatIds = this.chatMemberRepository.getChatIds(signPubKey);
         // Чаты, где кроме нас никого не осталось — собеседник вышел.
@@ -56,50 +60,55 @@ export class PresenceService {
             payload: { counts },
         });
 
-        const pending = this.userEventQueue.flush(signPubKey);
+        // Забираем очередь ЭТОГО устройства (per-device) — не чужую.
+        const pending = this.userEventQueue.flush(
+            signPubKey,
+            peer.deviceId ?? ""
+        );
         pending.forEach((event) =>
             this.notificationService.sendEvent(peer, event)
         );
 
         this.relay(signPubKey, peerKeys, "peer_online");
+
+        // И наоборот — сообщаем ЭТОМУ устройству текущий онлайн его наблюдаемых
+        // пиров (presence иначе шлётся только на переходы, и свежеподключённое
+        // или свежеверифицированное устройство не узнало бы актуальный статус).
+        for (const watchedKey of peerKeys) {
+            if (this.isRegistered(watchedKey)) {
+                this.notificationService.sendEvent(peer, {
+                    type: "peer_online",
+                    payload: { signPubKey: watchedKey },
+                });
+            }
+        }
     }
 
     unregister(peer: Peer): void {
         if (!peer.signPubKey) return;
-        if (this.connectionRepository.get(peer.signPubKey) !== peer) return;
-
         const signPubKey = peer.signPubKey;
-        const lastSeen = Date.now();
+        const deviceId = peer.deviceId ?? signPubKey;
+        // Удаляем только своё соединение — не затираем переподключившийся сокет.
+        if (
+            this.connectionRepository.getDevice(signPubKey, deviceId) !== peer
+        ) {
+            return;
+        }
+        this.connectionRepository.delete(signPubKey, deviceId);
 
-        // Live relay онлайн-пирам.
+        // Аккаунт уходит в оффлайн только когда отключилось последнее устройство.
+        if (this.connectionRepository.getDevices(signPubKey).length > 0) return;
+
+        const lastSeen = Date.now();
+        // Presence эфемерна: только живым устройствам собеседников, без очереди
+        // (протухший «оффлайн» в очереди вводил бы в заблуждение; при реконнекте
+        // статус пересчитывается через announce-обмен).
         for (const recipientKey of peer.watchedPeers ?? []) {
-            const conn = this.connectionRepository.get(recipientKey);
-            if (conn?.readyState !== WebSocket.OPEN) continue;
-            this.notificationService.sendEvent(conn, {
+            this.notificationService.fanLive(recipientKey, {
                 type: "peer_offline",
                 payload: { signPubKey, lastSeen },
             });
         }
-
-        // Оффлайн-пирам кладём в очередь — получат при подключении.
-        const chatIds = this.chatMemberRepository.getChatIds(signPubKey);
-        const queued = new Set<string>();
-        for (const chatId of chatIds) {
-            for (const memberKey of this.chatMemberRepository.getMembers(
-                chatId
-            )) {
-                if (memberKey === signPubKey || queued.has(memberKey)) continue;
-                const conn = this.connectionRepository.get(memberKey);
-                if (conn?.readyState === WebSocket.OPEN) continue;
-                queued.add(memberKey);
-                this.userEventQueue.push(memberKey, {
-                    type: "peer_offline",
-                    payload: { signPubKey, lastSeen },
-                });
-            }
-        }
-
-        this.connectionRepository.delete(signPubKey);
     }
 
     setAway(signPubKey: string, peerKeys: string[]): void {
@@ -119,21 +128,20 @@ export class PresenceService {
     }
 
     isRegistered(signPubKey: string): boolean {
-        const peer = this.connectionRepository.get(signPubKey);
-        return peer?.readyState === WebSocket.OPEN;
+        return this.connectionRepository
+            .getDevices(signPubKey)
+            .some((p) => p.readyState === WebSocket.OPEN);
     }
 
-    // Пересылает событие о senderKey каждому из перечисленных подключённых
-    // получателей. Авторизацию (верифицирован ли отправитель) решает клиент.
+    // Пересылает presence о senderKey на ВСЕ живые устройства каждого получателя.
+    // Авторизацию (верифицирован ли отправитель) решает клиент.
     private relay(
         senderKey: string,
         recipientKeys: string[],
         type: PresenceType
     ): void {
         for (const recipientKey of recipientKeys) {
-            const conn = this.connectionRepository.get(recipientKey);
-            if (conn?.readyState !== WebSocket.OPEN) continue;
-            this.notificationService.sendEvent(conn, {
+            this.notificationService.fanLive(recipientKey, {
                 type,
                 payload: { signPubKey: senderKey },
             });

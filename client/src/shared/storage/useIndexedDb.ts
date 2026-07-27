@@ -1,5 +1,5 @@
 const DB_NAME = "monster-chat";
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 
 export const STORES = {
     KEYS: "keys",
@@ -40,7 +40,7 @@ export function openDb(): Promise<IDBDatabase> {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = () => {
+        req.onupgradeneeded = (event) => {
             const db = req.result;
 
             if (!db.objectStoreNames.contains(STORES.KEYS)) {
@@ -73,13 +73,24 @@ export function openDb(): Promise<IDBDatabase> {
                 db.createObjectStore(STORES.OUTBOX, { keyPath: "nonce" });
             }
 
-            if (db.objectStoreNames.contains(STORES.MESSAGES)) {
+            // Разовый сброс при переходе на формат storageKey (v12): старые
+            // записи под транспортным ключом стираются, история пересинкается с
+            // сервера в новом формате. Дальше MESSAGES durable — не дропаем.
+            if (
+                event.oldVersion < 12 &&
+                db.objectStoreNames.contains(STORES.MESSAGES)
+            ) {
                 db.deleteObjectStore(STORES.MESSAGES);
             }
-            const messageStore = db.createObjectStore(STORES.MESSAGES, {
-                keyPath: "nonce",
-            });
-            messageStore.createIndex(INDEX_CHAT_ID, ["chatId", "timestamp"]);
+            if (!db.objectStoreNames.contains(STORES.MESSAGES)) {
+                const messageStore = db.createObjectStore(STORES.MESSAGES, {
+                    keyPath: "nonce",
+                });
+                messageStore.createIndex(INDEX_CHAT_ID, [
+                    "chatId",
+                    "timestamp",
+                ]);
+            }
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);

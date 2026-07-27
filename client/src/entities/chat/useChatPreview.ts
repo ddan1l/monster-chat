@@ -1,5 +1,7 @@
 import { computed, type Ref } from "vue";
 
+import DOMPurify from "dompurify";
+
 import { unreadChatNotifications } from "@entities/chat/useChatNotification";
 import { lastMessageByChat } from "@entities/message/useMessages";
 import { typingStatus } from "@entities/peer/usePeers";
@@ -34,10 +36,11 @@ export function useChatPreview(chatId: string, isActive: Ref<boolean>) {
             return `📎 ${message.files[0].name}`;
         }
 
-        const raw = message.text ?? "";
-        const div = document.createElement("div");
-        div.innerHTML = raw;
-        return div.textContent ?? "";
+        // Только текст для превью — вырезаем все теги без innerHTML.
+        return DOMPurify.sanitize(message.text ?? "", {
+            ALLOWED_TAGS: [],
+            ALLOWED_ATTR: [],
+        });
     });
 
     const isOwn = computed(() => lastMessage.value?.isOwn ?? false);

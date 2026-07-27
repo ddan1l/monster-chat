@@ -16,6 +16,14 @@ import MessageContextMenu from "./MessageContextMenu.vue";
 
 import type { PeerInfo } from "shared";
 
+// Форсим rel="noopener noreferrer" на внешних ссылках — против reverse-tabnabbing
+// (открытая страница не получит доступ к window.opener). Хук глобальный, один раз.
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
+        node.setAttribute("rel", "noopener noreferrer");
+    }
+});
+
 const { downloadFile } = useFileDownload();
 
 const props = defineProps<{
