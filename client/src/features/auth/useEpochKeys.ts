@@ -7,7 +7,12 @@ import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
 // открытую его не покидают. Ротация/уничтожение старых — в 4.4.
 const CURRENT_KEY = "epoch_current";
 const ROTATION_INTERVAL_MS = 24 * 60 * 60 * 1000; // сутки
-const RETENTION = 3; // держим N последних эпох для расшифровки отложенного
+// Держим N последних эпох для расшифровки отложенного. Окно W = RETENTION ×
+// ROTATION = 7 дней === серверный MSG_TTL. Ротация идёт максимум раз в сутки
+// (getCurrentEpoch), поэтому 7 эпох ≥ 7 дней wall-clock: любое сообщение,
+// которое сервер ещё хранит (≤W), гарантированно вскрывается своей эпохой.
+// Больше окно ⇒ дольше офлайн-доступность, но слабее forward secrecy.
+const RETENTION = 7;
 
 export function useEpochKeys() {
     const { storageKey, encrypt, decrypt, sign } = useCrypto();

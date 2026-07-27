@@ -1,153 +1,191 @@
-import { nextTick, onMounted, onUnmounted, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { useVisibility } from "@shared/lib/useVisibility";
 
-import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
+import type { ScrollTarget } from "@features/chat-session/model/useChatSession";
 
+import type { ChatItem } from "./useChatItems";
 import type { PeerInfo } from "shared";
+import type { VListHandle } from "virtua/vue";
 
+// Порог у краёв (px), при котором запускаем подгрузку.
+const EDGE = 400;
+// Насколько близко к низу считаем «внизу» (для follow новых сообщений).
+const BOTTOM = 80;
+
+// Контроллер прокрутки для виртуализированного списка (virtua). Работает по
+// индексам/офсету через VListHandle — без DOM-слушателей и querySelector.
 export function useChatScroll(
-    listEl: Ref<HTMLElement | null>,
-    messages: () => DecryptedMessage[],
+    vlist: Ref<VListHandle | null>,
+    items: () => ChatItem[],
     peer: () => PeerInfo | null,
-    isPeerTyping: () => boolean,
     onRead: (nonce: string) => void,
-    onLoadMore: () => Promise<void>
-) {
+    onLoadMore: () => Promise<void>,
+    onLoadMoreBelow: () => Promise<void>,
+    hasMoreBelow: () => boolean,
+    scrollTarget: () => ScrollTarget,
+    onScrollHandled: () => void,
+    shiftMode: Ref<boolean>
+): {
+    onScroll: (offset: number) => void;
+    onScrollEnd: () => void;
+    atBottom: Ref<boolean>;
+    topIndex: Ref<number>;
+} {
     const { isVisible } = useVisibility();
-    const observedNonces = new Set<string>();
-    let observer: IntersectionObserver | null = null;
-    let initialScrollDone = false;
-    let loadingMore = false;
+    let loading = false;
+    let initialDone = false;
+    // Внизу ли мы (для кнопки «вниз») и индекс верхнего видимого элемента (для
+    // плавающей плашки текущей даты — sticky-заголовок при виртуализации).
+    const atBottom = ref(true);
+    const topIndex = ref(0);
 
-    function scrollToBottom(smooth = false) {
-        if (!listEl.value) return;
-        if (smooth) {
-            listEl.value.scrollTo({ top: listEl.value.scrollHeight });
-        } else {
-            listEl.value.scrollTop = listEl.value.scrollHeight;
-        }
+    const lastIndex = () => items().length - 1;
+
+    function refreshMarkers(): void {
+        const h = vlist.value;
+        if (!h) return;
+        atBottom.value =
+            h.scrollSize - h.scrollOffset - h.viewportSize < BOTTOM;
+        topIndex.value = h.findItemIndex(h.scrollOffset);
     }
 
-    function isNearBottom() {
-        if (!listEl.value) return true;
-        const { scrollTop, scrollHeight, clientHeight } = listEl.value;
-        return scrollHeight - scrollTop - clientHeight < 100;
-    }
-
-    function observePendingMessages() {
-        if (!observer || !peer() || !listEl.value) return;
-        for (const msg of messages()) {
+    // Помечаем прочитанными видимые сейчас сообщения собеседника. Диапазон видимых
+    // индексов берём у virtua (findItemIndex по офсету) — узлы вне окна размонтированы.
+    function markVisibleRead(): void {
+        const h = vlist.value;
+        if (!h || !isVisible.value) return;
+        const start = h.findItemIndex(h.scrollOffset);
+        const end = h.findItemIndex(h.scrollOffset + h.viewportSize);
+        const its = items();
+        for (
+            let i = Math.max(0, start);
+            i <= Math.min(its.length - 1, end);
+            i++
+        ) {
+            const it = its[i];
             if (
-                msg.from !== peer()!.signPubKey ||
-                msg.isRead ||
-                observedNonces.has(msg.nonce)
-            )
-                continue;
-            const el = listEl.value.querySelector<HTMLElement>(
-                `[data-nonce="${msg.nonce}"]`
-            );
-            if (el) {
-                observedNonces.add(msg.nonce);
-                observer.observe(el);
+                it.type === "message" &&
+                !it.msg.isRead &&
+                it.msg.from === peer()?.signPubKey
+            ) {
+                onRead(it.msg.nonce);
             }
         }
     }
 
-    async function onScroll() {
-        if (!listEl.value || loadingMore) return;
-        if (listEl.value.scrollTop < 300) {
-            loadingMore = true;
-            const prevScrollTop = listEl.value.scrollTop;
-            const prevHeight = listEl.value.scrollHeight;
+    async function onScroll(offset: number): Promise<void> {
+        const h = vlist.value;
+        if (!h) return;
+        const fromBottom = h.scrollSize - offset - h.viewportSize;
+        atBottom.value = fromBottom < BOTTOM;
+        topIndex.value = h.findItemIndex(offset);
+        if (loading) return;
+
+        // Вверх: prepend старее. shift=true держит позицию при добавлении сверху.
+        if (offset < EDGE) {
+            loading = true;
+            shiftMode.value = true;
             await onLoadMore();
             await nextTick();
-            requestAnimationFrame(() => {
-                if (!listEl.value) return;
-                const delta = listEl.value.scrollHeight - prevHeight;
-                listEl.value.scrollTop = prevScrollTop + delta;
-                loadingMore = false;
-            });
+            shiftMode.value = false;
+            loading = false;
+            return;
+        }
+        // Вниз (из истории): append новее. Позицию virtua держит сам (растёт снизу).
+        if (hasMoreBelow() && h.scrollSize - offset - h.viewportSize < EDGE) {
+            loading = true;
+            await onLoadMoreBelow();
+            await nextTick();
+            loading = false;
         }
     }
 
-    onMounted(() => {
-        observer = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                if (!entry.isIntersecting) continue;
-                if (!isVisible.value) continue;
-                const nonce = (entry.target as HTMLElement).dataset.nonce!;
-                observer!.unobserve(entry.target);
-                onRead(nonce);
-            }
-        });
-        listEl.value?.addEventListener("scroll", onScroll, { passive: true });
-    });
+    function onScrollEnd(): void {
+        markVisibleRead();
+    }
 
-    onUnmounted(() => {
-        observer?.disconnect();
-        listEl.value?.removeEventListener("scroll", onScroll);
-    });
-
-    watch(
-        () => messages().length,
-        async (newLen, oldLen) => {
-            await nextTick();
-            observePendingMessages();
-            if (loadingMore) return;
-            if (!initialScrollDone && newLen > 0) {
-                initialScrollDone = true;
-                scrollToBottom();
-            } else if (newLen > (oldLen ?? 0) && isNearBottom()) {
-                scrollToBottom(true);
-            }
-        }
-    );
-
-    watch(
-        () => peer(),
-        async () => {
-            await nextTick();
-            observePendingMessages();
-        }
-    );
-
-    watch(isVisible, (visible) => {
-        if (!visible || !observer || !listEl.value) return;
-        for (const msg of messages()) {
-            if (
-                msg.from !== peer()?.signPubKey ||
-                msg.isRead ||
-                !observedNonces.has(msg.nonce)
-            )
-                continue;
-            const el = listEl.value.querySelector<HTMLElement>(
-                `[data-nonce="${msg.nonce}"]`
-            );
-            if (el) {
-                const rect = el.getBoundingClientRect();
-                const inView =
-                    rect.top >= 0 &&
-                    rect.bottom <=
-                        (window.innerHeight ||
-                            document.documentElement.clientHeight);
-                if (inView) {
-                    observedNonces.delete(msg.nonce);
-                    observer.unobserve(el);
-                    onRead(msg.nonce);
-                }
-            }
-        }
-    });
-
-    watch(
-        () => isPeerTyping(),
-        async (val) => {
-            if (val && isNearBottom()) {
+    // Дозаполнение вьюпорта: если после смены окна список короче экрана, скролла
+    // нет → onScroll не сработает и подгрузка не стартует. Догружаем (сначала
+    // старее, потом новее), пока не станет прокручиваемым или пока есть что грузить.
+    async function fillViewport(): Promise<void> {
+        const h = vlist.value;
+        if (!h || loading) return;
+        loading = true;
+        try {
+            for (let i = 0; i < 12; i++) {
                 await nextTick();
-                scrollToBottom(true);
+                if (h.scrollSize > h.viewportSize + 4) return; // уже прокручивается
+                const before = items().length;
+                shiftMode.value = true;
+                await onLoadMore(); // старее (prepend)
+                await nextTick();
+                shiftMode.value = false;
+                if (items().length !== before) continue;
+                // Старее нет — пробуем новее (append).
+                const mid = items().length;
+                await onLoadMoreBelow();
+                await nextTick();
+                if (items().length === mid) return; // грузить больше нечего
+            }
+        } finally {
+            loading = false;
+        }
+    }
+
+    // Позиционирование после смены окна (прыжок по дате / возврат к настоящему).
+    watch(scrollTarget, async (target) => {
+        if (!target) return;
+        await nextTick();
+        const h = vlist.value;
+        if (h) {
+            if (target === "bottom") {
+                h.scrollToIndex(lastIndex(), { align: "end" });
+            } else {
+                const idx = items().findIndex(
+                    (it) =>
+                        it.type === "message" && it.msg.nonce === target.nonce
+                );
+                if (idx >= 0) h.scrollToIndex(idx, { align: "start" });
+            }
+            await nextTick();
+            await fillViewport();
+            refreshMarkers();
+            markVisibleRead();
+        }
+        onScrollHandled();
+    });
+
+    watch(
+        () => items().length,
+        async (len, old) => {
+            await nextTick();
+            const h = vlist.value;
+            if (!h) return;
+            if (!initialDone && len > 0) {
+                // Первая загрузка — открываем на последних.
+                initialDone = true;
+                h.scrollToIndex(lastIndex(), { align: "end" });
+                await nextTick();
+                await fillViewport();
+                h.scrollToIndex(lastIndex(), { align: "end" });
+                refreshMarkers();
+                markVisibleRead();
+            } else if (
+                len > (old ?? 0) &&
+                atBottom.value &&
+                !hasMoreBelow() &&
+                !loading
+            ) {
+                // Новое входящее и мы внизу — доезжаем к нему (follow).
+                h.scrollToIndex(lastIndex(), { align: "end" });
+                await nextTick();
+                refreshMarkers();
+                markVisibleRead();
             }
         }
     );
+
+    return { onScroll, onScrollEnd, atBottom, topIndex };
 }

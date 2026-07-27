@@ -15,6 +15,9 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
     isOwn?: boolean;
     // Статус доставки исходящего сообщения: pending — ждёт ACK сервера.
     status?: "pending" | "sent";
+    // Провал расшифровки/подписи (возможно транзитный) — такое сообщение НЕ
+    // персистим, показываем транзитно и повторяем при следующей синхронизации.
+    decryptError?: boolean;
     // Контент, зашифрованный ключом устройства (#5). Источник для чтения из
     // локального стора — не зависит от транспортного/эпохального ключа.
     store?: string;
@@ -24,6 +27,21 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
 export const lastMessageByChat = ref<Record<string, DecryptedMessage>>({});
 
 export const PAGE_SIZE = 100;
+
+// Локальный ключ дня YYYY-MM-DD — единый для календаря прыжка и группировки.
+export function dateKey(ts: number): string {
+    const d = new Date(ts);
+    const m = `${d.getMonth() + 1}`.padStart(2, "0");
+    const day = `${d.getDate()}`.padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// Начало локального дня, в котором лежит ts (для прыжка по дате).
+export function startOfDay(ts: number): number {
+    const d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+}
 
 export function useChatMessages() {
     const {
@@ -136,6 +154,63 @@ export function useChatMessages() {
         return page.reverse();
     }
 
+    // Прыжок по дате: страница сообщений начиная с fromTimestamp (включительно),
+    // по возрастанию. Первое сообщение — ближайшее на/после указанного момента.
+    async function getPageFromDate(
+        chatId: string,
+        fromTimestamp: number
+    ): Promise<ChatMessage[]> {
+        const range = IDBKeyRange.bound(
+            [chatId, fromTimestamp],
+            [chatId, Number.MAX_SAFE_INTEGER]
+        );
+        return readByIndexCursor<ChatMessage>(
+            INDEX_CHAT_ID,
+            range,
+            PAGE_SIZE,
+            "next"
+        );
+    }
+
+    // Подгрузка вниз (новее afterTimestamp) — для скролла из исторического окна
+    // к настоящему. По возрастанию.
+    async function getPageAfter(
+        chatId: string,
+        afterTimestamp: number
+    ): Promise<ChatMessage[]> {
+        const range = IDBKeyRange.bound(
+            [chatId, afterTimestamp],
+            [chatId, Number.MAX_SAFE_INTEGER],
+            true,
+            false
+        );
+        return readByIndexCursor<ChatMessage>(
+            INDEX_CHAT_ID,
+            range,
+            PAGE_SIZE,
+            "next"
+        );
+    }
+
+    // Дни (локальные YYYY-MM-DD), в которые есть сообщения, + границы диапазона —
+    // для календаря прыжка. Один проход по индексу без расшифровки (timestamp
+    // лежит открыто). Тяжело для очень длинных чатов, но только при открытии.
+    async function getMessageDays(
+        chatId: string
+    ): Promise<{ days: Set<string>; min: number; max: number } | null> {
+        const msgs = await getByChat(chatId);
+        if (msgs.length === 0) return null;
+        const days = new Set<string>();
+        let min = Infinity;
+        let max = -Infinity;
+        for (const m of msgs) {
+            days.add(dateKey(m.timestamp));
+            if (m.timestamp < min) min = m.timestamp;
+            if (m.timestamp > max) max = m.timestamp;
+        }
+        return { days, min, max };
+    }
+
     async function getLastMessage(chatId: string): Promise<ChatMessage | null> {
         const range = IDBKeyRange.bound(
             [chatId, 0],
@@ -160,6 +235,9 @@ export function useChatMessages() {
         getByChat,
         getLastPage,
         getPageBefore,
+        getPageFromDate,
+        getPageAfter,
+        getMessageDays,
         getLastMessage,
         removeChatMessage,
         removeAllByChat,

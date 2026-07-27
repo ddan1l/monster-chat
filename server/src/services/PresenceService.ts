@@ -41,18 +41,10 @@ export class PresenceService {
             payload: { chatIds, lefted },
         });
 
-        // Непрочитанные выводим из сообщений и курсора read_seq (без счётчика).
+        // Непрочитанные — из явного счётчика аккаунта (транзитная v2-модель).
         const counts: Record<string, number> = {};
         for (const chatId of chatIds) {
-            const readSeq = this.chatMemberRepository.getReadSeq(
-                chatId,
-                signPubKey
-            );
-            const n = this.messageRepository.countUnread(
-                chatId,
-                signPubKey,
-                readSeq
-            );
+            const n = this.chatMemberRepository.getUnread(chatId, signPubKey);
             if (n > 0) counts[chatId] = n;
         }
         this.notificationService.sendEvent(peer, {

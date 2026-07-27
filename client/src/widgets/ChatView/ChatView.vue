@@ -4,7 +4,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useDebounce } from "@shared/lib/useDebounce";
 import { useWs } from "@shared/transport/useWs";
 
-import { useChatNotification } from "@entities/chat/useChatNotification";
+import {
+    useChatNotification,
+    unreadChatNotifications,
+} from "@entities/chat/useChatNotification";
 import { activeChatId, chats, useChats } from "@entities/chat/useChats";
 
 import { useChatSession } from "@features/chat-session/model/useChatSession";
@@ -31,8 +34,14 @@ const {
     isPeerOnline,
     peerLastSeen,
     isPeerTyping,
+    hasMoreBelow,
+    scrollTarget,
     connect,
     loadMoreMessages,
+    loadMoreBelow,
+    jumpToDate,
+    jumpToLatest,
+    messageDays,
     sendMessage,
     editMessage,
     markAsRead,
@@ -57,6 +66,11 @@ const { deleteChat, deleteChatForAll } = useChats();
 // событие chat_deleted обновляет именно массив chats.
 const isLefted = computed(
     () => chats.value.find((c) => c.id === props.chatId)?.lefted ?? false
+);
+
+// Есть непрочитанные в этом чате (для пульсации кнопки «вниз»).
+const hasNewBelow = computed(
+    () => (unreadChatNotifications.value[props.chatId] ?? 0) > 0
 );
 
 watch(
@@ -134,7 +148,15 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 :peer="peer"
                 :is-peer-typing="isPeerTyping"
                 :editing-nonce="editingNonce"
+                :has-more-below="hasMoreBelow"
+                :has-new-below="hasNewBelow"
+                :scroll-target="scrollTarget"
                 :on-load-more="loadMoreMessages"
+                :on-load-more-below="loadMoreBelow"
+                :on-jump-to-date="jumpToDate"
+                :on-jump-to-latest="jumpToLatest"
+                :on-scroll-handled="() => (scrollTarget = null)"
+                :message-days="messageDays"
                 @edit-start="handleEditStart"
                 @delete-for-me="deleteMessageForMe"
                 @delete-for-all="deleteMessageForAll"

@@ -13,7 +13,10 @@ attachHttp(server);
 
 // TTL-бэкстоп транзитной модели: раз в час чистим сообщения старше TTL (для
 // устройств, которые так и не подтвердили получение курсором).
-const MSG_TTL_MS = Number(process.env.MSG_TTL_MS ?? 30 * 24 * 60 * 60 * 1000);
+// W=7 дней — единое окно: server TTL === окно жизни эпохальных ключей
+// (RETENTION×ROTATION в клиентском useEpochKeys). Инвариант: сервер не хранит
+// копию дольше, чем живёт ключ получателя, иначе она станет нерасшифруемой.
+const MSG_TTL_MS = Number(process.env.MSG_TTL_MS ?? 7 * 24 * 60 * 60 * 1000);
 setInterval(
     () => messageRepository.deleteExpired(Date.now() - MSG_TTL_MS),
     60 * 60 * 1000

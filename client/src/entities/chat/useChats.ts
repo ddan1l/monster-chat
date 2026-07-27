@@ -15,6 +15,10 @@ import type { Chat } from "shared";
 
 export const chats = ref<Chat[]>([]);
 export const activeChatId = ref<string | null>(null);
+// Прокручен ли открытый чат к низу. Нужно уведомлениям: входящее в активном
+// чате считается «увиденным сразу», только если мы внизу; иначе — оно не видно,
+// и уведомление/бейдж/пульс кнопки «вниз» должны сработать.
+export const activeChatAtBottom = ref(true);
 
 export function useChats() {
     const {

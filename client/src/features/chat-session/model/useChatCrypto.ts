@@ -165,15 +165,35 @@ export function useChatCrypto(chatId: string) {
             payload: msg.payload,
             silent: msg.silent ?? false,
         };
-        const valid =
-            trustedSender &&
+        const sigOk =
+            !!msg.signature &&
             (await verifySignature(
                 fromBase64(msg.from),
                 copyCanonical(fields),
                 fromBase64(msg.signature)
-            ));
+            ).catch(() => false));
+        const valid = trustedSender && sigOk;
         if (!valid) {
-            return { ...msg, text: "<i>Invalid message signature</i>" };
+            console.debug("[sig-fail]", {
+                trustedSender,
+                sigOk,
+                fromMatchesMy: msg.from === myKey,
+                fromMatchesPeer: msg.from === peerKey,
+                from: (msg.from ?? "").slice(0, 16),
+                myKey: (myKey ?? "").slice(0, 16),
+                peerKey: (peerKey ?? "").slice(0, 16),
+                hasSig: !!msg.signature,
+                targetDeviceId: msg.targetDeviceId,
+                silent: msg.silent,
+            });
+            // Провал подписи может быть транзитным (peerKey ещё не загружен,
+            // рассинхрон устройств) — помечаем decryptError, чтобы НЕ сохранять в
+            // стор и повторить при следующей синхронизации.
+            return {
+                ...msg,
+                text: "<i>Invalid message signature</i>",
+                decryptError: true,
+            };
         }
 
         let keyPair: CryptoKeyPair;

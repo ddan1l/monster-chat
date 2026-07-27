@@ -1,8 +1,36 @@
+<script lang="ts">
+// Модульный уровень (один раз на приложение, а не на инстанс сообщения).
+import DOMPurify from "dompurify";
+
+// Форсим rel="noopener noreferrer" на внешних ссылках — против reverse-tabnabbing
+// (открытая страница не получит доступ к window.opener).
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
+        node.setAttribute("rel", "noopener noreferrer");
+    }
+});
+
+// Кэш санитизации по nonce, общий для всех инстансов: сообщение неизменно (кроме
+// правки — тогда меняется text), поэтому DOMPurify гоняем один раз, а не на каждый
+// ре-монт (скользящее окно, прыжок по дате). Инвалидация — по несовпадению text.
+const sanitizeCache = new Map<string, { text: string; html: string }>();
+
+export function sanitizeMessage(nonce: string, text: string): string {
+    const cached = sanitizeCache.get(nonce);
+    if (cached && cached.text === text) return cached.html;
+    const html = DOMPurify.sanitize(text, {
+        ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "code", "span"],
+        ALLOWED_ATTR: ["href", "target", "rel"],
+    });
+    sanitizeCache.set(nonce, { text, html });
+    return html;
+}
+</script>
+
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 
 import { format } from "date-fns";
-import DOMPurify from "dompurify";
 
 import IconCheck from "@shared/ui/icons/IconCheck.vue";
 import IconClock from "@shared/ui/icons/IconClock.vue";
@@ -12,17 +40,7 @@ import UserAvatar from "@entities/user/ui/UserAvatar.vue";
 import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 import { useFileDownload } from "@features/file-transfer/useFileDownload";
 
-import MessageContextMenu from "./MessageContextMenu.vue";
-
 import type { PeerInfo } from "shared";
-
-// Форсим rel="noopener noreferrer" на внешних ссылках — против reverse-tabnabbing
-// (открытая страница не получит доступ к window.opener). Хук глобальный, один раз.
-DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
-        node.setAttribute("rel", "noopener noreferrer");
-    }
-});
 
 const { downloadFile } = useFileDownload();
 
@@ -31,30 +49,23 @@ const props = defineProps<{
     peer: PeerInfo | null;
     tail: boolean;
     continued: boolean;
-    editingNonce: string | null;
 }>();
 
+// Контекстное меню одно на список (см. ChatMessages) — отдаём наверх позицию
+// клика и данные сообщения, чтобы не плодить floating-ui на каждую строку.
 const emit = defineEmits<{
-    editStart: [nonce: string, text: string];
-    deleteForMe: [nonce: string];
-    deleteForAll: [nonce: string];
+    contextmenu: [e: MouseEvent, msg: DecryptedMessage, isSelf: boolean];
 }>();
 
 const isSelf = computed(() => props.msg.from !== props.peer?.signPubKey);
 
 const safeText = computed(() =>
-    DOMPurify.sanitize(props.msg.text ?? "", {
-        ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "code", "span"],
-        ALLOWED_ATTR: ["href", "target", "rel"],
-    })
+    sanitizeMessage(props.msg.nonce, props.msg.text ?? "")
 );
-
-const bubble = ref<HTMLElement | null>(null);
-const menu = ref<InstanceType<typeof MessageContextMenu> | null>(null);
 
 function onContextMenu(e: MouseEvent) {
     e.preventDefault();
-    menu.value?.open();
+    emit("contextmenu", e, props.msg, isSelf.value);
 }
 </script>
 
@@ -77,7 +88,6 @@ function onContextMenu(e: MouseEvent) {
             :class="{ 'mc-message-wrapper__avatar_hidden': !tail }"
         />
         <div
-            ref="bubble"
             class="mc-message"
             :class="{ 'mc-message_self': isSelf }"
             @contextmenu="onContextMenu"
@@ -112,18 +122,6 @@ function onContextMenu(e: MouseEvent) {
                 </span>
             </div>
         </div>
-
-        <MessageContextMenu
-            ref="menu"
-            :anchor="bubble"
-            :is-self="isSelf"
-            :text="msg.text ?? ''"
-            :editing-nonce="editingNonce"
-            :placement="isSelf ? 'top-end' : 'top-start'"
-            @edit-start="emit('editStart', msg.nonce, msg.text ?? '')"
-            @delete-for-me="emit('deleteForMe', msg.nonce)"
-            @delete-for-all="emit('deleteForAll', msg.nonce)"
-        />
     </div>
 </template>
 

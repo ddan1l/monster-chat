@@ -11,51 +11,30 @@ function repo() {
     return new MessageSQLiteRepository(new Database(":memory:"));
 }
 
-test("save assigns a monotonic seq and getMaxSeq tracks it", () => {
+test("save assigns a monotonic seq", () => {
     const r = repo();
-    const m1 = makeMsg({ from: "A", to: "B" });
-    const m2 = makeMsg({ from: "B", to: "A" });
+    const m1 = makeMsg({ from: "A", to: "B", targetDeviceId: "d1" });
+    const m2 = makeMsg({ from: "B", to: "A", targetDeviceId: "d1" });
     r.save(m1);
     r.save(m2);
     assert.equal(m1.seq, 1);
     assert.equal(m2.seq, 2);
-    assert.equal(r.getMaxSeq("c1"), 2);
 });
 
-test("save is idempotent by nonce and keeps the original seq", () => {
+test("save is idempotent by (nonce, target) and keeps the original seq", () => {
     const r = repo();
-    const m = makeMsg();
+    const m = makeMsg({ targetDeviceId: "d1" });
     r.save(m);
     const firstSeq = m.seq;
     const dup = { ...m };
     r.save(dup);
     assert.equal(dup.seq, firstSeq); // повтор не создаёт новую строку
-    assert.equal(r.getMaxSeq("c1"), firstSeq);
-});
-
-test("countUnread counts only messages addressed to the user above the cursor", () => {
-    const r = repo();
-    r.save(makeMsg({ from: "A", to: "B" })); // seq 1 → unread for B
-    r.save(makeMsg({ from: "B", to: "A" })); // seq 2 → not for B
-    r.save(makeMsg({ from: "A", to: "B" })); // seq 3 → unread for B
-
-    assert.equal(r.countUnread("c1", "B", 0), 2);
-    assert.equal(r.countUnread("c1", "B", 1), 1); // курсор после seq1
-    assert.equal(r.countUnread("c1", "A", 0), 1); // только seq2 адресовано A
-});
-
-test("countUnread excludes silent messages (edits/reads/deletes)", () => {
-    const r = repo();
-    r.save(makeMsg({ from: "A", to: "B" })); // видимое
-    r.save(makeMsg({ from: "A", to: "B", silent: true })); // квитанция/правка
-    assert.equal(r.countUnread("c1", "B", 0), 1);
 });
 
 test("removeByChat wipes the chat", () => {
     const r = repo();
     r.save(makeMsg({ targetDeviceId: "d1" }));
     r.removeByChat("c1");
-    assert.equal(r.getMaxSeq("c1"), 0);
     assert.equal(r.getAfterForDevice("c1", "d1", 0).length, 0);
 });
 

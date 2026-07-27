@@ -3,6 +3,8 @@ import { computed } from "vue";
 
 const props = defineProps<{ timestamp: number }>();
 
+const emit = defineEmits<{ open: [] }>();
+
 const label = computed(() =>
     new Date(props.timestamp).toLocaleDateString("ru-RU", {
         day: "numeric",
@@ -14,7 +16,13 @@ const label = computed(() =>
 
 <template>
     <div class="mc-date-divider">
-        <span class="mc-date-divider__label">{{ label }}</span>
+        <button
+            class="mc-date-divider__label"
+            title="Перейти к дате"
+            @click="emit('open')"
+        >
+            {{ label }}
+        </button>
     </div>
 </template>
 
@@ -39,6 +47,14 @@ const label = computed(() =>
         text-transform: uppercase;
         background: var(--mc-bg-window);
         border: 1px solid var(--mc-line-hard);
+        // Плашка кликабельна (переход к дате), контейнер — нет.
+        pointer-events: auto;
+        cursor: pointer;
+
+        &:hover {
+            color: var(--mc-fg);
+            border-color: var(--mc-acid);
+        }
     }
 }
 </style>

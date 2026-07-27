@@ -33,10 +33,20 @@ export class ChatService {
         private userEventQueue: UserEventQueue
     ) {}
 
-    // «Прочитано»: двигаем курсор к текущему максимуму чата.
+    // «Прочитано»: обнуляем счётчик непрочитанных аккаунта и синкаем бейджи на
+    // остальные его устройства (прочитал на одном — снялось везде). Оффлайн-
+    // устройства получат 0 из unread-снапшота при реконнекте.
     markRead(chatId: string, signPubKey: string): void {
-        const maxSeq = this.messageRepository.getMaxSeq(chatId);
-        this.chatMemberRepository.setReadSeq(chatId, signPubKey, maxSeq);
+        this.chatMemberRepository.clearUnread(chatId, signPubKey);
+        this.notificationService.fanLive(signPubKey, {
+            type: "notification",
+            payload: {
+                chatId,
+                notificationType: "chat_notification",
+                unreadCount: 0,
+                silent: true,
+            },
+        });
     }
 
     join(chatId: string, deviceId: string, peer: Peer, afterSeq = 0): void {
@@ -117,6 +127,17 @@ export class ChatService {
                     payload: msg,
                 });
             }
+        }
+
+        // Непрочитанные — на аккаунт получателя (не на свои устройства) и только
+        // для видимых сообщений; silent-бандлы (read/edit/delete) не считаем.
+        // notify веером на живые устройства + web-push, если получатель офлайн.
+        if (!bundle.silent) {
+            const count = this.chatMemberRepository.bumpUnread(
+                bundle.chatId,
+                bundle.to
+            );
+            this.notificationService.notify(bundle.to, bundle.chatId, count);
         }
 
         // ACK один раз отправившему устройству (по логическому nonce).

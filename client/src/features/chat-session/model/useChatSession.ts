@@ -7,6 +7,7 @@ import { chats } from "@entities/chat/useChats";
 import {
     useChatMessages,
     PAGE_SIZE,
+    startOfDay,
     type DecryptedMessage,
 } from "@entities/message/useMessages";
 import { useOutbox } from "@entities/message/useOutbox";
@@ -29,6 +30,10 @@ import type {
 
 export type { DecryptedMessage };
 
+// Куда прокрутить список после смены окна сообщений: к конкретному сообщению
+// (прыжок по дате) или в самый низ (возврат к настоящему).
+export type ScrollTarget = { nonce: string } | "bottom" | null;
+
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
@@ -37,6 +42,9 @@ export function useChatSession(chatId: string) {
         decryptStored,
         getLastPage,
         getPageBefore,
+        getPageFromDate,
+        getPageAfter,
+        getMessageDays,
         removeChatMessage,
     } = useChatMessages();
     const { enqueue: enqueueOutbox } = useOutbox();
@@ -54,6 +62,10 @@ export function useChatSession(chatId: string) {
     const peer = ref<PeerInfo | null>(null);
     const messages = ref<DecryptedMessage[]>([]);
     const hasMoreMessages = ref(false);
+    // Виден ли исторический срез (есть сообщения новее загруженного окна). В этом
+    // режиме входящие не подклеиваются в конец — они «внизу», за окном.
+    const hasMoreBelow = ref(false);
+    const scrollTarget = ref<ScrollTarget>(null);
     const error = ref<string | null>(null);
 
     const seenNonces = new Set<string>();
@@ -75,7 +87,9 @@ export function useChatSession(chatId: string) {
         // помечаем nonce, чтобы повторная загрузка не создала дубль.
         seenNonces.add(msg.nonce);
         saveChatMessage(msg);
-        messages.value.push(msg);
+        // В историческом срезе новое сообщение не показываем в конце окна —
+        // оно за пределами загруженного диапазона (кнопка «к последним» вернёт).
+        if (!hasMoreBelow.value) messages.value.push(msg);
     }
 
     function updateMessage(
@@ -212,6 +226,12 @@ export function useChatSession(chatId: string) {
 
             // Расшифровываем копию эпохальным ключом устройства.
             const decrypted = await decryptV2(msg.payload);
+            if (decrypted.decryptError) {
+                // Провал подписи/расшифровки в стор НЕ пишем — показываем
+                // транзитно; при следующей синхронизации попробуем снова.
+                if (!hasMoreBelow.value) messages.value.push(decrypted);
+                return;
+            }
             if (decrypted.action === "edit_message" && decrypted.targetNonce) {
                 applyEdit(decrypted);
             } else if (
@@ -277,6 +297,8 @@ export function useChatSession(chatId: string) {
     }
 
     async function loadChat(): Promise<void> {
+        // Всегда открываем на последних — сбрасываем исторический режим.
+        hasMoreBelow.value = false;
         const [cached, activePeer] = await Promise.all([
             getLastPage(chatId),
             readPeer<PeerInfo>(chatId),
@@ -312,7 +334,54 @@ export function useChatSession(chatId: string) {
         if (older.length < PAGE_SIZE) hasMoreMessages.value = false;
         if (older.length === 0) return;
         const decrypted = await Promise.all(older.map((m) => decryptStored(m)));
+        // Виртуализация (virtua) рендерит только видимые строки — полное окно
+        // держать в DOM не нужно, поэтому prepend без обрезки хвоста.
         messages.value = [...decrypted, ...messages.value];
+    }
+
+    // Подгрузка вниз (новее последнего в окне) — при скролле из истории к концу.
+    async function loadMoreBelow(): Promise<void> {
+        if (!hasMoreBelow.value || messages.value.length === 0) return;
+        const lastTs = messages.value[messages.value.length - 1].timestamp;
+        const newer = await getPageAfter(chatId, lastTs);
+        // Меньше полной страницы ⇒ достигли конца (без лишнего getLastMessage).
+        if (newer.length < PAGE_SIZE) hasMoreBelow.value = false;
+        if (newer.length === 0) return;
+        const decrypted = await Promise.all(newer.map((m) => decryptStored(m)));
+        messages.value = [...messages.value, ...decrypted];
+    }
+
+    // Прыжок по дате: заменяем окно на срез, начинающийся с этого дня, и скроллим
+    // к первому сообщению дня. Всё локально из IDB (история живёт на клиенте).
+    async function jumpToDate(ts: number): Promise<void> {
+        const page = await getPageFromDate(chatId, startOfDay(ts));
+        if (page.length === 0) return jumpToLatest();
+
+        const decrypted = await Promise.all(page.map((m) => decryptStored(m)));
+        messages.value = decrypted;
+        page.forEach((m) => seenNonces.add(m.nonce));
+
+        // Полная страница ⇒ вероятно есть новее (иначе — окно достаёт до конца).
+        hasMoreBelow.value = page.length === PAGE_SIZE;
+        const earlier = await getPageBefore(chatId, page[0].timestamp);
+        hasMoreMessages.value = earlier.length > 0;
+
+        scrollTarget.value = { nonce: decrypted[0].nonce };
+    }
+
+    // Возврат к настоящему: перезагружаем последнюю страницу и скроллим вниз.
+    async function jumpToLatest(): Promise<void> {
+        const page = await getLastPage(chatId);
+        const decrypted = await Promise.all(page.map((m) => decryptStored(m)));
+        messages.value = decrypted;
+        page.forEach((m) => seenNonces.add(m.nonce));
+        hasMoreMessages.value = page.length >= PAGE_SIZE;
+        hasMoreBelow.value = false;
+        scrollTarget.value = "bottom";
+    }
+
+    function messageDays() {
+        return getMessageDays(chatId);
     }
 
     return {
@@ -323,9 +392,15 @@ export function useChatSession(chatId: string) {
         isPeerTyping,
         messages,
         hasMoreMessages,
+        hasMoreBelow,
+        scrollTarget,
         error,
         connect,
         loadMoreMessages,
+        loadMoreBelow,
+        jumpToDate,
+        jumpToLatest,
+        messageDays,
         sendMessage,
         editMessage,
         markAsRead,

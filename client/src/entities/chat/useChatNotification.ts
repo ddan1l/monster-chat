@@ -5,7 +5,7 @@ import { useVisibility } from "@shared/lib/useVisibility";
 import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
 import { useWs } from "@shared/transport/useWs";
 
-import { activeChatId } from "@entities/chat/useChats";
+import { activeChatId, activeChatAtBottom } from "@entities/chat/useChats";
 import { avatarIconUrl } from "@entities/user/useAvatar";
 
 import type { PeerInfo } from "shared";
@@ -64,17 +64,34 @@ export function useChatNotification() {
         subscribe("notification", async (msg) => {
             const { chatId, unreadCount } = msg.payload;
 
-            // Открытый чат читается сразу — держим счётчик на нуле на сервере.
-            if (activeChatId.value === chatId && isVisible.value) {
+            // Тихое уведомление (read-синк с другого устройства аккаунта: счётчик
+            // обнулён) — только гасим бейдж. НЕ отвечаем mark_read, иначе с
+            // серверным fanLive выйдет пинг-понг.
+            if (msg.payload.silent) {
+                if (unreadCount !== undefined)
+                    await setUnread(chatId, unreadCount);
+                return;
+            }
+
+            // «Увидено сразу» — только если это активный чат, окно видимо И мы
+            // внизу (сообщение появится на экране). Тогда viewport-read его
+            // пометит; держим счётчик на нуле. Если чат открыт, но прокручен
+            // вверх (сообщение не видно) — НЕ считаем прочитанным.
+            const seenNow =
+                activeChatId.value === chatId &&
+                isVisible.value &&
+                activeChatAtBottom.value;
+            if (seenNow) {
                 send({ type: "mark_read", payload: { chatId } });
                 await setUnread(chatId, 0);
                 return;
             }
 
+            // Не видно сейчас: обновляем бейдж (сайдбар + пульс кнопки «вниз»).
             if (unreadCount !== undefined) await setUnread(chatId, unreadCount);
 
-            if (msg.payload.silent) return;
-
+            // Уведомление шлём всегда, когда сообщение не увидено сразу: окно
+            // скрыто, открыт другой чат, ИЛИ активный чат прокручен вверх.
             const peer = await readPeer<PeerInfo>(chatId);
             await notify(peer?.name ?? "Monster Chat", {
                 body: "Новое сообщение",

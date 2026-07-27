@@ -153,23 +153,98 @@ test("deleteChatForMe removes membership and delivers chat_deleted to the accoun
 test("deleteChatForMe by the last member wipes the messages", () => {
     const { svc, members, messages } = setup();
     members.add("c1", "A");
-    messages.save(makeMsg({ from: "A", to: "B" }));
+    messages.save(makeMsg({ from: "A", to: "B", targetDeviceId: "dB" }));
 
     svc.deleteChatForMe("c1", "A");
-    assert.equal(messages.getMaxSeq("c1"), 0);
+    assert.equal(messages.getAfterForDevice("c1", "dB", 0).length, 0);
 });
 
 test("deleteChatForAll clears members + messages and notifies others", () => {
     const { svc, members, messages, notif } = setup();
     members.add("c1", "A");
     members.add("c1", "B");
-    messages.save(makeMsg({ from: "A", to: "B" }));
+    messages.save(makeMsg({ from: "A", to: "B", targetDeviceId: "dB" }));
 
     svc.deleteChatForAll("c1", "A");
 
     assert.deepEqual(members.getMembers("c1"), []);
-    assert.equal(messages.getMaxSeq("c1"), 0);
+    assert.equal(messages.getAfterForDevice("c1", "dB", 0).length, 0);
     assert.ok(notif.deliveredTo("B").includes("chat_destroyed"));
+});
+
+test("deliverBundle bumps recipient unread and fires notify", () => {
+    const { svc, members, notif } = setup();
+    members.add("c1", "A");
+    members.add("c1", "B");
+
+    const base = {
+        chatId: "c1",
+        from: "A",
+        to: "B",
+        timestamp: Date.now(),
+        copies: [
+            {
+                targetDeviceId: "dB",
+                epochId: 1,
+                ephemeralPub: "e",
+                iv: "i",
+                payload: "p",
+                signature: "s",
+            },
+        ],
+    };
+    svc.deliverBundle({ ...base, nonce: "n1" }, "dA");
+    svc.deliverBundle({ ...base, nonce: "n2" }, "dA");
+
+    // Счётчик копится на аккаунт B; notify отдаёт актуальное значение.
+    assert.deepEqual(
+        notif.notified.filter((n) => n.key === "B"),
+        [
+            { key: "B", chatId: "c1", unread: 1 },
+            { key: "B", chatId: "c1", unread: 2 },
+        ]
+    );
+});
+
+test("silent bundle does not bump unread nor notify", () => {
+    const { svc, members, notif } = setup();
+    members.add("c1", "A");
+    members.add("c1", "B");
+    svc.deliverBundle(
+        {
+            chatId: "c1",
+            from: "A",
+            to: "B",
+            nonce: "n1",
+            timestamp: Date.now(),
+            silent: true,
+            copies: [
+                {
+                    targetDeviceId: "dB",
+                    epochId: 1,
+                    ephemeralPub: "e",
+                    iv: "i",
+                    payload: "p",
+                    signature: "s",
+                },
+            ],
+        },
+        "dA"
+    );
+    assert.equal(notif.notified.length, 0);
+});
+
+test("markRead clears unread and fans a zero-badge to the account", () => {
+    const { svc, members, notif } = setup();
+    members.add("c1", "B");
+    members.bumpUnread("c1", "B");
+    members.bumpUnread("c1", "B");
+
+    svc.markRead("c1", "B");
+
+    assert.equal(members.getUnread("c1", "B"), 0);
+    const fan = notif.fanned.find((f) => f.key === "B");
+    assert.ok(fan && fan.msg.type === "notification");
 });
 
 test("deleteChatForAll by a non-member is a no-op", () => {

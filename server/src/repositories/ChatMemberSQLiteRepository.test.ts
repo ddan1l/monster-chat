@@ -21,20 +21,24 @@ test("add / getMembers / getChatIds / isMember", () => {
     assert.equal(r.isMember("c1", "X"), false);
 });
 
-test("read_seq defaults to 0 and is settable", () => {
+test("unread defaults to 0, bumps and clears", () => {
     const r = repo();
     r.add("c1", "A");
-    assert.equal(r.getReadSeq("c1", "A"), 0);
-    r.setReadSeq("c1", "A", 7);
-    assert.equal(r.getReadSeq("c1", "A"), 7);
+    assert.equal(r.getUnread("c1", "A"), 0);
+    assert.equal(r.bumpUnread("c1", "A"), 1); // возвращает новое значение
+    assert.equal(r.bumpUnread("c1", "A"), 2);
+    assert.equal(r.getUnread("c1", "A"), 2);
+    r.clearUnread("c1", "A");
+    assert.equal(r.getUnread("c1", "A"), 0);
 });
 
-test("add is idempotent and preserves read_seq", () => {
+test("add is idempotent and preserves unread", () => {
     const r = repo();
     r.add("c1", "A");
-    r.setReadSeq("c1", "A", 5);
-    r.add("c1", "A"); // повтор не должен сбросить курсор
-    assert.equal(r.getReadSeq("c1", "A"), 5);
+    r.bumpUnread("c1", "A");
+    r.bumpUnread("c1", "A");
+    r.add("c1", "A"); // повтор не должен сбросить счётчик
+    assert.equal(r.getUnread("c1", "A"), 2);
     assert.equal(r.getMembers("c1").length, 1);
 });
 

@@ -3,9 +3,10 @@ export interface ChatMemberRepository {
     getChatIds(signPubKey: string): string[];
     getMembers(chatId: string): string[];
     isMember(chatId: string, signPubKey: string): boolean;
-    // Курсор прочтения: seq, до которого пользователь прочитал чат.
-    getReadSeq(chatId: string, signPubKey: string): number;
-    setReadSeq(chatId: string, signPubKey: string, seq: number): void;
+    // Непрочитанные на (чат, аккаунт): явный счётчик (транзитная v2-модель).
+    getUnread(chatId: string, signPubKey: string): number;
+    bumpUnread(chatId: string, signPubKey: string): number;
+    clearUnread(chatId: string, signPubKey: string): void;
     remove(chatId: string, signPubKey: string): void;
     removeByChat(chatId: string): void;
 }

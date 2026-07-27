@@ -27,12 +27,16 @@ function open() {
     menu.value?.open();
 }
 
+function openAt(e: MouseEvent) {
+    menu.value?.openAt(e);
+}
+
 function copyText() {
     navigator.clipboard.writeText(props.text);
     menu.value?.close();
 }
 
-defineExpose({ open });
+defineExpose({ open, openAt });
 </script>
 
 <template>

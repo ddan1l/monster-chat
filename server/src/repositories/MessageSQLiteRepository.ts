@@ -79,27 +79,6 @@ export class MessageSQLiteRepository implements MessageRepository {
         }
     }
 
-    getMaxSeq(chatId: string): number {
-        const row = this.db
-            .prepare(
-                `SELECT MAX(seq) AS max FROM chat_messages
-                 WHERE chat_id = ? AND target_device_id = ''`
-            )
-            .get(chatId) as { max: number | null };
-        return row.max ?? 0;
-    }
-
-    countUnread(chatId: string, signPubKey: string, afterSeq: number): number {
-        const row = this.db
-            .prepare(
-                `SELECT COUNT(*) AS c FROM chat_messages
-                 WHERE chat_id = ? AND target_device_id = ''
-                   AND recipient = ? AND seq > ? AND silent = 0`
-            )
-            .get(chatId, signPubKey, afterSeq) as { c: number };
-        return row.c;
-    }
-
     // --- v2 (device-scoped: копии, адресованные конкретному устройству) ---
 
     getAfterForDevice(
