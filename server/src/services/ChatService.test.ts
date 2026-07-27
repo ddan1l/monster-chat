@@ -35,112 +35,17 @@ function setup() {
     return { svc, messages, members, conns, notif, queue };
 }
 
-test("deliver persists, ACKs the sending device, fans out, and notifies", () => {
-    const { svc, messages, members, conns, notif } = setup();
-    members.add("c1", "A");
-    members.add("c1", "B");
-    const peerA = fakePeer({ signPubKey: "A", deviceId: "dA", chatId: "c1" });
-    const peerB = fakePeer({ signPubKey: "B", deviceId: "dB", chatId: "c1" });
-    conns.set("A", "dA", peerA);
-    conns.set("B", "dB", peerB);
-
-    const msg = makeMsg({ from: "A", to: "B" });
-    svc.deliver("c1", msg, "dA");
-
-    assert.equal(messages.getMaxSeq("c1"), 1);
-    assert.equal(msg.seq, 1);
-    // Отправителю — только ACK (без эха на само себя).
-    assert.deepEqual(notif.typesTo(peerA), ["ack"]);
-    assert.ok(notif.typesTo(peerB).includes("message")); // получателю — доставка
-    assert.deepEqual(notif.notified, [{ key: "B", chatId: "c1", unread: 1 }]);
-});
-
-test("deliver fans out live to all recipient devices", () => {
-    const { svc, members, conns, notif } = setup();
-    members.add("c1", "A");
-    members.add("c1", "B");
-    const b1 = fakePeer({ signPubKey: "B", deviceId: "d1", chatId: "c1" });
-    const b2 = fakePeer({ signPubKey: "B", deviceId: "d2", chatId: "c1" });
-    conns.set("B", "d1", b1);
-    conns.set("B", "d2", b2);
-
-    svc.deliver("c1", makeMsg({ from: "A", to: "B" }), "dA");
-
-    assert.ok(notif.typesTo(b1).includes("message"));
-    assert.ok(notif.typesTo(b2).includes("message"));
-});
-
-test("deliver echoes to the sender's OTHER devices, not the sending one", () => {
-    const { svc, members, conns, notif } = setup();
-    members.add("c1", "A");
-    members.add("c1", "B");
-    const a1 = fakePeer({ signPubKey: "A", deviceId: "dA1", chatId: "c1" });
-    const a2 = fakePeer({ signPubKey: "A", deviceId: "dA2", chatId: "c1" });
-    conns.set("A", "dA1", a1);
-    conns.set("A", "dA2", a2);
-
-    svc.deliver("c1", makeMsg({ from: "A", to: "B" }), "dA1");
-
-    // Отправившее устройство — только ACK; другое устройство аккаунта — эхо.
-    assert.deepEqual(notif.typesTo(a1), ["ack"]);
-    assert.ok(notif.typesTo(a2).includes("message"));
-});
-
-test("deliver of a silent message does not notify", () => {
-    const { svc, members, conns, notif } = setup();
-    members.add("c1", "A");
-    members.add("c1", "B");
-    conns.set("A", "A", fakePeer({ signPubKey: "A", chatId: "c1" }));
-
-    svc.deliver("c1", makeMsg({ from: "A", to: "B", silent: true }));
-    assert.equal(notif.notified.length, 0);
-});
-
-test("deliver to a non-member (deleted-for-me) does not notify", () => {
-    const { svc, members, notif } = setup();
-    members.add("c1", "A"); // B ушёл — не участник
-    svc.deliver("c1", makeMsg({ from: "A", to: "B" }));
-    assert.equal(notif.notified.length, 0);
-});
-
-test("deliver by a non-member is dropped: nothing persists or is sent", () => {
-    const { svc, messages, conns, notif } = setup();
-    // Никого не добавляем в c1 — отправитель A не участник чата.
-    const peerA = fakePeer({ signPubKey: "A", chatId: "c1" });
-    const peerB = fakePeer({ signPubKey: "B", chatId: "c1" });
-    conns.set("A", "A", peerA);
-    conns.set("B", "B", peerB);
-
-    svc.deliver("c1", makeMsg({ from: "A", to: "B" }));
-
-    assert.equal(messages.getMaxSeq("c1"), 0); // не сохранено
-    assert.deepEqual(notif.typesTo(peerA), []); // нет ACK отправителю
-    assert.deepEqual(notif.typesTo(peerB), []); // нет live-доставки
-    assert.equal(notif.notified.length, 0);
-});
-
-test("markRead moves the read cursor so unread drops", () => {
-    const { svc, members, notif } = setup();
-    members.add("c1", "A");
-    members.add("c1", "B");
-
-    svc.deliver("c1", makeMsg({ from: "A", to: "B" })); // unread 1
-    svc.markRead("c1", "B"); // курсор → seq1
-    svc.deliver("c1", makeMsg({ from: "A", to: "B" })); // unread снова 1, не 2
-
-    assert.deepEqual(
-        notif.notified.map((n) => n.unread),
-        [1, 1]
-    );
-});
-
-test("join sets peer.chatId, delivers missed + chat_opened in order", () => {
+test("join delivers this device's missed copies + chat_opened in order", () => {
     const { svc, messages, notif } = setup();
-    messages.save(makeMsg({ from: "A", to: "B" }));
-    messages.save(makeMsg({ from: "B", to: "A" }));
+    messages.save(
+        makeMsg({ from: "A", to: "B", nonce: "m1", targetDeviceId: "dB" })
+    );
+    messages.save(
+        makeMsg({ from: "A", to: "B", nonce: "m2", targetDeviceId: "dB" })
+    );
     const peerB = fakePeer({ signPubKey: "B", deviceId: "dB" });
 
-    svc.join("c1", "B", "dB", peerB, 0);
+    svc.join("c1", "dB", peerB, 0);
 
     assert.equal(peerB.chatId, "c1");
     assert.deepEqual(notif.typesTo(peerB), [
@@ -161,7 +66,7 @@ test("join deletes the device's confirmed copies (transit model)", () => {
     const peerB = fakePeer({ signPubKey: "B", deviceId: "dB" });
 
     // Устройство подтверждает курсором, что имеет seq 1.
-    svc.join("c1", "B", "dB", peerB, 1);
+    svc.join("c1", "dB", peerB, 1);
 
     // seq 1 удалён с сервера (устройство его имеет), seq 2 остался.
     assert.deepEqual(

@@ -11,7 +11,6 @@ import { onGetPrekeys } from "../handlers/onGetPrekeys.js";
 import { onInitChat } from "../handlers/onInitChat.js";
 import { onKnockChat } from "../handlers/onKnockChat.js";
 import { onMarkRead } from "../handlers/onMarkRead.js";
-import { onMessage } from "../handlers/onMessage.js";
 import { onMessageBundle } from "../handlers/onMessageBundle.js";
 import { onOnline } from "../handlers/onOnline.js";
 import { onOpenChat } from "../handlers/onOpenChat.js";
@@ -33,7 +32,6 @@ const handlers = {
     approve_chat: onApproveChat,
     knock_chat: onKnockChat,
     peer_info: onPeerInfo,
-    message: onMessage,
     message_bundle: onMessageBundle,
     typing: onTyping,
     stop_typing: onTyping,

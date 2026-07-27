@@ -11,11 +11,6 @@ export interface OpenChatMessage {
     payload: { chatId: string; afterSeq?: number };
 }
 
-export interface SendMessage {
-    type: "message";
-    payload: ChatMessage;
-}
-
 // v2 (FS): одно логическое сообщение = N per-device копий. Отправитель шлёт их
 // одним бандлом; сервер разворачивает в per-device конверты и хранит по паре
 // (nonce, targetDeviceId). nonce общий — логический id для дедупа/правок.
@@ -138,7 +133,6 @@ export interface GetPrekeysMessage {
 export type ClientMessage =
     | AuthMessage
     | OpenChatMessage
-    | SendMessage
     | OnlineMessage
     | InitChatMessage
     | ApproveChatMessage
@@ -367,13 +361,10 @@ export interface ChatEnvelope {
 export interface ChatMessage extends ChatEnvelope {
     signature: string; // base64
     silent?: boolean;
-    // Серверный монотонный курсор (rowid). Проставляется сервером при приёме,
-    // в подпись конверта не входит. Клиент использует его для синхронизации.
+    // Серверный монотонный курсор (rowid). Проставляется сервером при приёме.
     seq?: number;
-    // v2 (FS): конверт адресован конкретному устройству, payload зашифрован под
-    // его эпохальный prekey эфемерным ключом отправителя. Отсутствие v2-полей =
-    // v1 (статический sharedKey).
-    v?: 2;
+    // Конверт адресован конкретному устройству; payload зашифрован под его
+    // эпохальный prekey эфемерным ключом отправителя (ECIES, forward secrecy).
     targetDeviceId?: string;
     epochId?: number;
     ephemeralPub?: string; // base64 raw ECDH pub эфемерного ключа отправителя

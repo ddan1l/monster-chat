@@ -33,53 +33,30 @@ export class ChatService {
         private userEventQueue: UserEventQueue
     ) {}
 
-    // Непрочитанные выводим из сообщений и курсора read_seq — отдельного
-    // счётчика нет, дрейфовать нечему.
-    private unreadCount(chatId: string, signPubKey: string): number {
-        const readSeq = this.chatMemberRepository.getReadSeq(
-            chatId,
-            signPubKey
-        );
-        return this.messageRepository.countUnread(chatId, signPubKey, readSeq);
-    }
-
     // «Прочитано»: двигаем курсор к текущему максимуму чата.
     markRead(chatId: string, signPubKey: string): void {
         const maxSeq = this.messageRepository.getMaxSeq(chatId);
         this.chatMemberRepository.setReadSeq(chatId, signPubKey, maxSeq);
     }
 
-    join(
-        chatId: string,
-        signPubKey: string,
-        deviceId: string,
-        peer: Peer,
-        afterSeq = 0
-    ): void {
+    join(chatId: string, deviceId: string, peer: Peer, afterSeq = 0): void {
         peer.chatId = chatId;
 
         // Транзит: курсор afterSeq подтверждает, что устройство имеет всё до него
         // (у клиента durable-стор — дом истории), поэтому его копии до afterSeq на
-        // сервере больше не нужны — удаляем. deviceId пуст только у легаси-клиента
-        // без v2 — тогда полагаемся на TTL.
-        if (deviceId) {
-            this.messageRepository.deleteDeviceDeliveredUpTo(
-                chatId,
-                deviceId,
-                afterSeq
-            );
-        }
+        // сервере больше не нужны — удаляем.
+        this.messageRepository.deleteDeviceDeliveredUpTo(
+            chatId,
+            deviceId,
+            afterSeq
+        );
 
-        // Пропущенное: v1 (адресовано аккаунту) + v2 (копии этого устройства),
-        // в порядке seq — единое пространство курсора.
-        const missed = [
-            ...this.messageRepository.getAfter(chatId, signPubKey, afterSeq),
-            ...this.messageRepository.getAfterForDevice(
-                chatId,
-                deviceId,
-                afterSeq
-            ),
-        ].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+        // Пропущенное — копии, адресованные этому устройству, с seq > курсора.
+        const missed = this.messageRepository.getAfterForDevice(
+            chatId,
+            deviceId,
+            afterSeq
+        );
 
         missed.forEach((msg) => {
             const delivery: ServerMessageDelivery = {
@@ -103,7 +80,6 @@ export class ChatService {
 
         for (const copy of bundle.copies) {
             const msg: ChatMessage = {
-                v: 2,
                 chatId: bundle.chatId,
                 from: bundle.from,
                 to: bundle.to,
@@ -154,73 +130,6 @@ export class ChatService {
                 type: "ack",
                 payload: { nonce: bundle.nonce, seq: 0 },
             });
-        }
-    }
-
-    deliver(
-        chatId: string,
-        payload: ChatMessage,
-        senderDeviceId?: string
-    ): void {
-        // Писать в чат может только его участник. payload.from уже сверен с
-        // аутентифицированным ключом в onMessage, поэтому гейта по from хватает.
-        if (!this.chatMemberRepository.isMember(chatId, payload.from)) {
-            return;
-        }
-
-        // Сохраняем всё (в т.ч. silent — правки/удаления/квитанции), чтобы
-        // оффлайн-устройство подтянуло их при следующем open_chat через getAfter.
-        // save() проставляет payload.seq.
-        this.messageRepository.save(payload);
-
-        // ACK — только отправившему устройству, не остальным устройствам аккаунта.
-        const senderConn = senderDeviceId
-            ? this.connectionRepository.getDevice(payload.from, senderDeviceId)
-            : this.connectionRepository.get(payload.from);
-        if (
-            senderConn?.readyState === WebSocket.OPEN &&
-            payload.seq !== undefined
-        ) {
-            this.notificationService.sendEvent(senderConn, {
-                type: "ack",
-                payload: { nonce: payload.nonce, seq: payload.seq },
-            });
-        }
-
-        const delivery: ServerMessageDelivery = { type: "message", payload };
-        // Веер: все устройства получателя + другие устройства отправителя (эхо),
-        // которые смотрят этот чат. Остальные подтянут сами через getAfter.
-        this.fanOutLive(payload.to, chatId, delivery);
-        this.fanOutLive(payload.from, chatId, delivery, senderDeviceId);
-
-        // Уведомление шлём только участнику-получателю (на все его устройства).
-        if (
-            !payload.silent &&
-            this.chatMemberRepository.isMember(chatId, payload.to)
-        ) {
-            const unread = this.unreadCount(chatId, payload.to);
-            this.notificationService.notify(payload.to, chatId, unread);
-        }
-    }
-
-    // Живая доставка события на все устройства аккаунта, открывшие этот чат.
-    // exceptDeviceId исключает отправившее устройство (чтобы не эхнуть само себе).
-    private fanOutLive(
-        accountKey: string,
-        chatId: string,
-        event: ServerMessage,
-        exceptDeviceId?: string
-    ): void {
-        for (const conn of this.connectionRepository.getDevices(accountKey)) {
-            if (
-                exceptDeviceId !== undefined &&
-                conn.deviceId === exceptDeviceId
-            ) {
-                continue;
-            }
-            if (conn.readyState === WebSocket.OPEN && conn.chatId === chatId) {
-                this.notificationService.sendEvent(conn, event);
-            }
         }
     }
 

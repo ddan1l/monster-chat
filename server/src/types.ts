@@ -17,7 +17,6 @@ export type {
     ClientMessage,
     AuthMessage,
     OpenChatMessage,
-    SendMessage,
     OnlineMessage,
     InitChatMessage,
     ApproveChatMessage,

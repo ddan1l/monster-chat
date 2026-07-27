@@ -79,30 +79,6 @@ export class MessageSQLiteRepository implements MessageRepository {
         }
     }
 
-    // --- v1 (account-scoped, только строки target_device_id = '') ---
-
-    getAfter(
-        chatId: string,
-        signPubKey: string,
-        afterSeq: number
-    ): ChatMessage[] {
-        const rows = this.db
-            .prepare(
-                `SELECT seq, message FROM chat_messages
-                 WHERE chat_id = ? AND target_device_id = ''
-                   AND (sender = ? OR recipient = ?) AND seq > ?
-                 ORDER BY seq ASC`
-            )
-            .all(chatId, signPubKey, signPubKey, afterSeq) as {
-            seq: number;
-            message: string;
-        }[];
-        return rows.map((r) => ({
-            ...(JSON.parse(r.message) as ChatMessage),
-            seq: r.seq,
-        }));
-    }
-
     getMaxSeq(chatId: string): number {
         const row = this.db
             .prepare(

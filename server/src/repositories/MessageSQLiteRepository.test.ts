@@ -33,23 +33,6 @@ test("save is idempotent by nonce and keeps the original seq", () => {
     assert.equal(r.getMaxSeq("c1"), firstSeq);
 });
 
-test("getAfter returns messages where user is sender or recipient, seq > cursor", () => {
-    const r = repo();
-    r.save(makeMsg({ from: "A", to: "B" })); // seq 1
-    r.save(makeMsg({ from: "B", to: "A" })); // seq 2
-    r.save(makeMsg({ from: "X", to: "Y" })); // seq 3 — чужой чат-участник
-
-    const forA = r.getAfter("c1", "A", 0);
-    assert.deepEqual(
-        forA.map((m) => m.seq),
-        [1, 2]
-    );
-    assert.deepEqual(
-        r.getAfter("c1", "A", 1).map((m) => m.seq),
-        [2]
-    );
-});
-
 test("countUnread counts only messages addressed to the user above the cursor", () => {
     const r = repo();
     r.save(makeMsg({ from: "A", to: "B" })); // seq 1 → unread for B
@@ -70,10 +53,10 @@ test("countUnread excludes silent messages (edits/reads/deletes)", () => {
 
 test("removeByChat wipes the chat", () => {
     const r = repo();
-    r.save(makeMsg());
+    r.save(makeMsg({ targetDeviceId: "d1" }));
     r.removeByChat("c1");
     assert.equal(r.getMaxSeq("c1"), 0);
-    assert.equal(r.getAfter("c1", "B", 0).length, 0);
+    assert.equal(r.getAfterForDevice("c1", "d1", 0).length, 0);
 });
 
 test("v2: same nonce, different target devices are stored separately", () => {
@@ -103,22 +86,12 @@ test("deleteDeviceDeliveredUpTo removes a device's copies up to the cursor", () 
 
 test("deleteExpired removes messages older than the cutoff", () => {
     const r = repo();
-    r.save(makeMsg({ from: "A", to: "B", nonce: "old", timestamp: 1000 }));
-    r.save(makeMsg({ from: "A", to: "B", nonce: "new", timestamp: 5000 }));
+    r.save(makeMsg({ nonce: "old", targetDeviceId: "d1", timestamp: 1000 }));
+    r.save(makeMsg({ nonce: "new", targetDeviceId: "d1", timestamp: 5000 }));
 
     r.deleteExpired(3000);
 
-    const left = r.getAfter("c1", "A", 0);
+    const left = r.getAfterForDevice("c1", "d1", 0);
     assert.equal(left.length, 1);
     assert.equal(left[0].nonce, "new");
-});
-
-test("v2 device-scoped queries ignore v1 rows and vice versa", () => {
-    const r = repo();
-    r.save(makeMsg({ from: "A", to: "B" })); // v1 (target='')
-    r.save(makeMsg({ from: "A", to: "B", nonce: "n2", targetDeviceId: "d1" }));
-    // v1-метод видит только v1-строку; device-метод — только копию устройства.
-    assert.equal(r.getAfter("c1", "B", 0).length, 1);
-    assert.equal(r.getAfterForDevice("c1", "d1", 0).length, 1);
-    assert.equal(r.getAfterForDevice("c1", "d2", 0).length, 0);
 });

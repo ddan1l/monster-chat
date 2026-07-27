@@ -78,25 +78,6 @@ export function useCrypto() {
         );
     }
 
-    async function deriveSharedKey(
-        theirPublicKeyRaw: ArrayBuffer
-    ): Promise<CryptoKey> {
-        const theirPublicKey = await crypto.subtle.importKey(
-            "raw",
-            theirPublicKeyRaw,
-            { name: "ECDH", namedCurve: "P-256" },
-            false,
-            []
-        );
-        return crypto.subtle.deriveKey(
-            { name: "ECDH", public: theirPublicKey },
-            encryptionKeyPair.value!.privateKey,
-            { name: "AES-GCM", length: 256 },
-            false,
-            ["encrypt", "decrypt"]
-        );
-    }
-
     async function encrypt(
         key: CryptoKey,
         data: string
@@ -198,7 +179,6 @@ export function useCrypto() {
         setStorageKey,
         exportEncryptionPublicKey,
         exportSignPublicKey,
-        deriveSharedKey,
         deriveKeyWith,
         encrypt,
         encryptBytes,

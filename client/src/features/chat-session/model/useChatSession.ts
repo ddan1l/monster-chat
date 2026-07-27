@@ -43,14 +43,8 @@ export function useChatSession(chatId: string) {
     const { user, load: loadUser } = useUser();
     const { send: wsSend, subscribe, connected } = useWs();
 
-    const {
-        initPeer,
-        loadMyKey,
-        ready,
-        decryptMessage,
-        decryptV2,
-        buildBundle,
-    } = useChatCrypto(chatId);
+    const { initPeer, loadMyKey, ready, decryptV2, buildBundle } =
+        useChatCrypto(chatId);
 
     const { isPeerTyping, sendTyping, sendStopTyping } =
         useTypingIndicator(chatId);
@@ -216,11 +210,8 @@ export function useChatSession(chatId: string) {
             if (seenNonces.has(nonce)) return;
             seenNonces.add(nonce);
 
-            // v2-конверт расшифровываем эпохальным ключом, v1 — транспортным.
-            const decrypted =
-                msg.payload.v === 2
-                    ? await decryptV2(msg.payload)
-                    : await decryptMessage(msg.payload);
+            // Расшифровываем копию эпохальным ключом устройства.
+            const decrypted = await decryptV2(msg.payload);
             if (decrypted.action === "edit_message" && decrypted.targetNonce) {
                 applyEdit(decrypted);
             } else if (

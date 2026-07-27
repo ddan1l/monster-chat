@@ -7,7 +7,6 @@ import { useEpochKeys } from "@features/auth/useEpochKeys";
 import { usePrekeys } from "@features/auth/usePrekeys";
 
 import type {
-    ChatEnvelope,
     ChatMessage,
     MessageBundle,
     MessageContent,
@@ -33,13 +32,11 @@ function copyCanonical(f: {
     return new TextEncoder().encode(JSON.stringify(f));
 }
 
-// Крипто-ядро сессии чата: производный ключ, расшифровка входящих и сборка
-// подписанных исходящих. Инкапсулирует sharedKey/myKey/peerKey, чтобы
-// оркестратор не таскал их вручную.
+// Крипто-ядро сессии чата: сборка/расшифровка сообщений (ECIES под эпохальные
+// prekey устройств) + проверка подписи. Инкапсулирует myKey/peerKey.
 export function useChatCrypto(chatId: string) {
     const {
         exportSignPublicKey,
-        deriveSharedKey,
         deriveKeyWith,
         encrypt,
         decrypt,
@@ -49,14 +46,12 @@ export function useChatCrypto(chatId: string) {
     const { loadEpoch } = useEpochKeys();
     const { fetchPrekeys } = usePrekeys();
 
-    let sharedKey: CryptoKey | null = null;
     let myKey: string | null = null;
     let peerKey: string | null = null;
 
-    // Устанавливаем собеседника: его ключ подписи и производный AES-ключ.
+    // Устанавливаем собеседника — его identity-ключ (для проверки подписи).
     async function initPeer(peerInfo: PeerInfo): Promise<void> {
         peerKey = peerInfo.signPubKey;
-        sharedKey = await deriveSharedKey(fromBase64(peerInfo.ecdhPubKey));
     }
 
     async function loadMyKey(): Promise<void> {
@@ -64,83 +59,10 @@ export function useChatCrypto(chatId: string) {
     }
 
     function ready(): boolean {
-        return !!sharedKey && !!peerKey;
+        return !!peerKey;
     }
 
-    // Расшифровка входящего из сети / с сервера: проверяем подпись (недоверенный
-    // источник) и расшифровываем транспортным sharedKey. Локальный стор читается
-    // отдельно — через decryptStored под ключом устройства.
-    async function decryptMessage(msg: ChatMessage): Promise<DecryptedMessage> {
-        const envelope: ChatEnvelope = {
-            chatId: msg.chatId,
-            from: msg.from,
-            to: msg.to,
-            nonce: msg.nonce,
-            iv: msg.iv,
-            payload: msg.payload,
-            timestamp: msg.timestamp,
-        };
-        const envelopeBytes = new TextEncoder().encode(
-            JSON.stringify(envelope)
-        );
-        // Отправителем может быть только один из двух участников чата — мы сами
-        // или доверенный пир. Любой иной ключ — попытка выдать себя за участника.
-        const trustedSender = msg.from === myKey || msg.from === peerKey;
-        const valid =
-            trustedSender &&
-            (await verifySignature(
-                fromBase64(msg.from),
-                envelopeBytes,
-                fromBase64(msg.signature)
-            ));
-        if (!valid) {
-            return { ...msg, text: "<i>Invalid message signature</i>" };
-        }
-
-        if (!sharedKey) {
-            throw new Error("Shared key not initialized");
-        }
-
-        const decrypted = await decrypt(
-            sharedKey,
-            fromBase64(msg.payload),
-            new Uint8Array(fromBase64(msg.iv))
-        );
-
-        return { ...msg, ...(JSON.parse(decrypted) as MessageContent) };
-    }
-
-    async function buildSignedMessage(
-        content: MessageContent,
-        silent?: boolean
-    ): Promise<ChatMessage> {
-        const nonce = crypto.randomUUID();
-        const { payload, iv } = await encrypt(
-            sharedKey!,
-            JSON.stringify(content)
-        );
-        const from = await exportSignPublicKey();
-        const envelope: ChatEnvelope = {
-            chatId,
-            from,
-            to: peerKey!,
-            nonce,
-            iv: toBase64(iv),
-            payload: toBase64(payload),
-            timestamp: Date.now(),
-        };
-        const envelopeBytes = new TextEncoder().encode(
-            JSON.stringify(envelope)
-        );
-        const signature = await sign(envelopeBytes);
-        return {
-            ...envelope,
-            signature: toBase64(signature),
-            ...(silent ? { silent: true } : {}),
-        };
-    }
-
-    // v2 (FS): собирает бандл — по копии на каждое устройство получателя и на
+    // Собирает бандл — по копии на каждое устройство получателя и на
     // свои другие устройства. Для каждого: ECIES под его эпохальный prekey
     // эфемерным ключом (тут же выбрасывается) + подпись копии.
     async function buildBundle(
@@ -277,9 +199,7 @@ export function useChatCrypto(chatId: string) {
         initPeer,
         loadMyKey,
         ready,
-        decryptMessage,
         decryptV2,
-        buildSignedMessage,
         buildBundle,
     };
 }
