@@ -89,9 +89,9 @@ const isLefted = computed(
     () => chats.value.find((c) => c.id === props.chatId)?.lefted ?? false
 );
 
-// Есть непрочитанные в этом чате (для пульсации кнопки «вниз»).
-const hasNewBelow = computed(
-    () => (unreadChatNotifications.value[props.chatId] ?? 0) > 0
+// Число непрочитанных в этом чате (бейдж на кнопке «вниз»).
+const newBelowCount = computed(
+    () => unreadChatNotifications.value[props.chatId] ?? 0
 );
 
 watch(
@@ -223,7 +223,7 @@ function handleSend(text: string, files?: FileAttachment[]) {
                     :is-peer-typing="isPeerTyping"
                     :editing-nonce="editingNonce"
                     :has-more-below="hasMoreBelow"
-                    :has-new-below="hasNewBelow"
+                    :new-below-count="newBelowCount"
                     :scroll-target="scrollTarget"
                     :on-load-more="loadMoreMessages"
                     :on-load-more-below="loadMoreBelow"

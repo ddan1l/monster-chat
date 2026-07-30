@@ -4,9 +4,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { VList } from "virtua/vue";
 
 import { useDebounce } from "@shared/lib/useDebounce";
-import AppButton from "@shared/ui/components/AppButton.vue";
-import AppCheckbox from "@shared/ui/components/AppCheckbox.vue";
-import AppModal from "@shared/ui/components/AppModal.vue";
 
 import { activeChatAtBottom } from "@entities/chat/useChats";
 
@@ -17,7 +14,9 @@ import type {
 
 import ChatDateCalendar from "./ChatDateCalendar.vue";
 import ChatDatePill from "./ChatDatePill.vue";
+import ChatDeleteModal from "./ChatDeleteModal.vue";
 import ChatMessage from "./ChatMessage.vue";
+import ChatScrollDownButton from "./ChatScrollDownButton.vue";
 import ChatTypingIndicator from "./ChatTypingIndicator.vue";
 import MessageContextMenu from "./MessageContextMenu.vue";
 import { useChatItems } from "./useChatItems";
@@ -32,8 +31,8 @@ const props = defineProps<{
     editingNonce: string | null;
     isPeerTyping: boolean;
     hasMoreBelow: boolean;
-    // Есть непрочитанные ниже (для пульсации кнопки «вниз»).
-    hasNewBelow: boolean;
+    // Число непрочитанных ниже (бейдж на кнопке «вниз»).
+    newBelowCount: number;
     scrollTarget: ScrollTarget;
     onLoadMore: () => Promise<void>;
     onLoadMoreBelow: () => Promise<void>;
@@ -92,20 +91,18 @@ function onMessageContext(
 const deleteOpen = ref(false);
 const deleteNonce = ref<string | null>(null);
 const deleteIsSelf = ref(false);
-const deleteAlsoPeer = ref(false);
 function onDeleteRequest() {
     if (!ctxTarget.value) {
         return;
     }
     deleteNonce.value = ctxTarget.value.nonce;
     deleteIsSelf.value = ctxIsSelf.value;
-    deleteAlsoPeer.value = false;
     deleteOpen.value = true;
 }
-function confirmDelete() {
+function onDeleteConfirm(alsoPeer: boolean) {
     const nonce = deleteNonce.value;
     if (nonce) {
-        if (deleteAlsoPeer.value && deleteIsSelf.value) {
+        if (alsoPeer) {
             emit("deleteForAll", nonce);
         } else {
             emit("deleteForMe", nonce);
@@ -348,15 +345,11 @@ onUnmounted(() => (activeChatAtBottom.value = true));
             @pointerdown="onThumbDown"
         />
 
-        <button
+        <ChatScrollDownButton
             v-if="hasMoreBelow || !atBottom"
-            class="mc-chat-messages__to-latest"
-            :class="{ 'mc-chat-messages__to-latest_pulse': hasNewBelow }"
-            title="К последним сообщениям"
+            :count="newBelowCount"
             @click="onToLatest"
-        >
-            ↓
-        </button>
+        />
 
         <MessageContextMenu
             ref="ctxMenu"
@@ -379,24 +372,12 @@ onUnmounted(() => (activeChatAtBottom.value = true));
             @close="activeMenuNonce = null"
         />
 
-        <AppModal
-            :is-visible="deleteOpen"
-            title="Удалить сообщение"
-            :max-width="360"
+        <ChatDeleteModal
+            :visible="deleteOpen"
+            :is-self="deleteIsSelf"
+            @confirm="onDeleteConfirm"
             @close="deleteOpen = false"
-        >
-            <div class="mc-del">
-                <!-- <p class="mc-del__text">Удалить это сообщение?</p> -->
-                <AppCheckbox v-if="deleteIsSelf" v-model="deleteAlsoPeer">
-                    Удалить также у собеседника
-                </AppCheckbox>
-                <div class="mc-del__actions">
-                    <AppButton variant="danger" @click="confirmDelete">
-                        Удалить
-                    </AppButton>
-                </div>
-            </div>
-        </AppModal>
+        />
 
         <ChatDateCalendar
             v-if="calendar"
@@ -460,61 +441,5 @@ onUnmounted(() => (activeChatAtBottom.value = true));
     // Фон (сетка + свечение) вынесен на общий контейнер .chat-view__body, чтобы
     // непрерывно тянуться под сообщениями и редактором — здесь прозрачно.
     background: transparent;
-
-    &__to-latest {
-        position: absolute;
-        right: 16px;
-        bottom: 16px;
-        z-index: 20;
-        width: 40px;
-        height: 40px;
-        font-size: 20px;
-        line-height: 1;
-        color: var(--mc-bg-window);
-        background: var(--mc-acid);
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-
-        &_pulse {
-            animation: mc-to-latest-pulse 1.4s ease-out infinite;
-        }
-    }
-}
-
-@keyframes mc-to-latest-pulse {
-    0% {
-        box-shadow:
-            0 4px 14px rgba(0, 0, 0, 0.4),
-            0 0 0 0 var(--mc-acid);
-    }
-    70% {
-        box-shadow:
-            0 4px 14px rgba(0, 0, 0, 0.4),
-            0 0 0 12px transparent;
-    }
-    100% {
-        box-shadow:
-            0 4px 14px rgba(0, 0, 0, 0.4),
-            0 0 0 0 transparent;
-    }
-}
-
-.mc-del {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-
-    &__text {
-        font-family: var(--mc-mono);
-        color: var(--mc-fg);
-    }
-
-    &__actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-    }
 }
 </style>
