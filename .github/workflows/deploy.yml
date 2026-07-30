@@ -55,6 +55,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /var/www/monster-chat
-            git pull origin master
+            git fetch origin master
+            git reset --hard origin/master
             npm install --workspace=server --omit=optional
             pm2 restart monster-chat
