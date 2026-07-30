@@ -339,13 +339,31 @@ export interface FileAttachment {
     mimeType: string;
 }
 
-export type MessageAction = "edit_message" | "delete_message" | "read_message";
+export type MessageAction =
+    | "edit_message"
+    | "delete_message"
+    | "read_message"
+    | "reaction";
+
+// Ссылка на цитируемое сообщение (reply): nonce для перехода, автор/текст/время
+// для превью (шифруется вместе с контентом).
+export interface ReplyRef {
+    nonce: string;
+    from: string;
+    text: string;
+    ts: number;
+}
 
 export interface MessageContent {
     text?: string;
     files?: FileAttachment[];
     action?: MessageAction;
     targetNonce?: string;
+    // Реакция (action === "reaction"): emoji + флаг снятия.
+    emoji?: string;
+    remove?: boolean;
+    // Ответ/цитата на другое сообщение.
+    replyTo?: ReplyRef;
 }
 
 export interface ChatEnvelope {

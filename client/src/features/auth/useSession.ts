@@ -30,7 +30,9 @@ export function useSession() {
 
     async function restore(): Promise<boolean> {
         const [ep, eu, sp, su] = KEYS.map((k) => sessionStorage.getItem(k));
-        if (!ep || !eu || !sp || !su) return false;
+        if (!ep || !eu || !sp || !su) {
+            return false;
+        }
         try {
             const [ecdhPrivate, ecdhPublic, signPrivate, signPublic] =
                 await Promise.all([

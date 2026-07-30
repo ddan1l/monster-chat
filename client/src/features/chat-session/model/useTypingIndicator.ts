@@ -1,7 +1,7 @@
 import { computed } from "vue";
 
-import { useWs } from "@shared/transport/useWs";
 import { useDebounce } from "@shared/lib/useDebounce";
+import { useWs } from "@shared/transport/useWs";
 
 import { peers, typingStatus } from "@entities/peer/usePeers";
 
@@ -30,7 +30,9 @@ export function useTypingIndicator(chatId: string) {
     }
 
     function sendStopTyping(): void {
-        if (!isTypingSent) return;
+        if (!isTypingSent) {
+            return;
+        }
         autoStopTyping.cancel();
         wsSend({ type: "stop_typing", payload: { to: peerKeys() } });
         isTypingSent = false;

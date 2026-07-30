@@ -68,3 +68,15 @@ textarea {
   background: color-mix(in srgb, currentColor 20%, transparent);
   border-radius: 3px;
 }
+
+// Firefox не поддерживает ::-webkit-scrollbar — задаём стандартные (наследуемые)
+// свойства. ТОЛЬКО для Firefox: в Chrome эти свойства отключают ::-webkit-scrollbar
+// выше и дают менее аккуратный скроллбар, поэтому прячем их за Firefox-only
+// @supports (-moz-appearance — мозилловский префикс, в Chrome его нет).
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, currentColor 20%, transparent)
+      transparent;
+  }
+}

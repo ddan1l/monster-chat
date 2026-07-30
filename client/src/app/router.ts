@@ -51,9 +51,13 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-    if (to.path === "/" && isTauri) return "/app";
+    if (to.path === "/" && isTauri) {
+        return "/app";
+    }
 
-    if (!to.path.startsWith("/app")) return true;
+    if (!to.path.startsWith("/app")) {
+        return true;
+    }
 
     const { canInstallApp, isForceWeb } = await import("@shared/lib/useTauri");
     if (canInstallApp && !isTauri && !isForceWeb()) {

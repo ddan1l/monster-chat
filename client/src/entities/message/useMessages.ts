@@ -15,6 +15,10 @@ export interface DecryptedMessage extends ChatMessage, MessageContent {
     isOwn?: boolean;
     // Статус доставки исходящего сообщения: pending — ждёт ACK сервера.
     status?: "pending" | "sent";
+    // Закреплено локально (только на этом устройстве, без серверных событий).
+    pinned?: boolean;
+    // Реакции: emoji → ключи отреагировавших (мой и/или собеседника).
+    reactions?: Record<string, string[]>;
     // Провал расшифровки/подписи (возможно транзитный) — такое сообщение НЕ
     // персистим, показываем транзитно и повторяем при следующей синхронизации.
     decryptError?: boolean;
@@ -63,13 +67,25 @@ export function useChatMessages() {
         const hasContent =
             msg.text !== undefined ||
             msg.files !== undefined ||
-            msg.action !== undefined;
+            msg.action !== undefined ||
+            msg.replyTo !== undefined;
         if (hasContent && storageKey.value) {
             const content: MessageContent = {};
-            if (msg.text !== undefined) content.text = msg.text;
-            if (msg.files) content.files = msg.files;
-            if (msg.action) content.action = msg.action;
-            if (msg.targetNonce) content.targetNonce = msg.targetNonce;
+            if (msg.text !== undefined) {
+                content.text = msg.text;
+            }
+            if (msg.files) {
+                content.files = msg.files;
+            }
+            if (msg.action) {
+                content.action = msg.action;
+            }
+            if (msg.targetNonce) {
+                content.targetNonce = msg.targetNonce;
+            }
+            if (msg.replyTo) {
+                content.replyTo = msg.replyTo;
+            }
             const enc = await encrypt(
                 storageKey.value,
                 JSON.stringify(content)
@@ -81,6 +97,7 @@ export function useChatMessages() {
         delete stored.files;
         delete stored.action;
         delete stored.targetNonce;
+        delete stored.replyTo;
         delete stored.payload;
         delete stored.iv;
         await write(JSON.parse(JSON.stringify(stored)));
@@ -96,7 +113,9 @@ export function useChatMessages() {
     async function decryptStored(
         msg: DecryptedMessage
     ): Promise<DecryptedMessage> {
-        if (!storageKey.value || !msg.store || !msg.storeIv) return msg;
+        if (!storageKey.value || !msg.store || !msg.storeIv) {
+            return msg;
+        }
         const raw = await decrypt(
             storageKey.value,
             fromBase64(msg.store),
@@ -108,8 +127,21 @@ export function useChatMessages() {
     // Помечает исходящее сообщение доставленным на сервер (пришёл ACK).
     async function markSent(nonce: string, seq: number): Promise<void> {
         const stored = await read<DecryptedMessage>(nonce);
-        if (!stored) return;
+        if (!stored) {
+            return;
+        }
         const updated: DecryptedMessage = { ...stored, seq, status: "sent" };
+        await saveChatMessage(updated);
+    }
+
+    // Локальное закрепление: читаем запись из IDB (store с контентом остаётся) и
+    // перезаписываем флаг. Работает и для сообщений вне загруженного окна.
+    async function setPinned(nonce: string, pinned: boolean): Promise<void> {
+        const stored = await read<DecryptedMessage>(nonce);
+        if (!stored) {
+            return;
+        }
+        const updated: DecryptedMessage = { ...stored, pinned };
         await saveChatMessage(updated);
     }
 
@@ -119,6 +151,14 @@ export function useChatMessages() {
             [chatId, Number.MAX_SAFE_INTEGER]
         );
         return readByIndex<ChatMessage>(INDEX_CHAT_ID, range);
+    }
+
+    // Все закреплённые сообщения чата (локально), расшифрованные для превью,
+    // по возрастанию времени. Полный проход по чату — только при открытии/тоггле.
+    async function getPinned(chatId: string): Promise<DecryptedMessage[]> {
+        const rows = (await getByChat(chatId)) as DecryptedMessage[];
+        const pinned = rows.filter((m) => m.pinned);
+        return Promise.all(pinned.map((m) => decryptStored(m)));
     }
 
     async function getLastPage(chatId: string): Promise<ChatMessage[]> {
@@ -199,14 +239,20 @@ export function useChatMessages() {
         chatId: string
     ): Promise<{ days: Set<string>; min: number; max: number } | null> {
         const msgs = await getByChat(chatId);
-        if (msgs.length === 0) return null;
+        if (msgs.length === 0) {
+            return null;
+        }
         const days = new Set<string>();
         let min = Infinity;
         let max = -Infinity;
         for (const m of msgs) {
             days.add(dateKey(m.timestamp));
-            if (m.timestamp < min) min = m.timestamp;
-            if (m.timestamp > max) max = m.timestamp;
+            if (m.timestamp < min) {
+                min = m.timestamp;
+            }
+            if (m.timestamp > max) {
+                max = m.timestamp;
+            }
         }
         return { days, min, max };
     }
@@ -232,7 +278,9 @@ export function useChatMessages() {
         saveChatMessage,
         decryptStored,
         markSent,
+        setPinned,
         getByChat,
+        getPinned,
         getLastPage,
         getPageBefore,
         getPageFromDate,

@@ -38,7 +38,9 @@ const editor = useEditor({
     autofocus: props.autofocus,
     onUpdate({ editor, transaction }) {
         emit("update:modelValue", editor.getHTML());
-        if (!skipUpdate && transaction.docChanged) emit("input");
+        if (!skipUpdate && transaction.docChanged) {
+            emit("input");
+        }
     },
     editorProps: {
         handleKeyDown(_, event) {
@@ -54,7 +56,9 @@ const editor = useEditor({
 
 // Обновляем содержимое когда родитель меняет modelValue извне (режим редактирования).
 function setContent(html: string) {
-    if (!editor.value) return;
+    if (!editor.value) {
+        return;
+    }
     if (editor.value.getHTML() !== html) {
         editor.value.commands.setContent(html);
     }
@@ -94,7 +98,7 @@ defineExpose({ setContent, clear, focus });
     &__content {
         .tiptap {
             outline: none;
-            font-size: 0.875em;
+            font-size: 1em;
             font-weight: 550;
             line-height: 1.5;
             min-height: 30px;

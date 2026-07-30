@@ -10,9 +10,10 @@ withDefaults(
         online?: boolean;
         variant: "large" | "normal" | "small";
         verified?: boolean | null;
+        onClickVerified?: (() => void) | null;
         showAvatar?: boolean;
     }>(),
-    { verified: null, peer: undefined, showAvatar: true }
+    { verified: null, peer: undefined, showAvatar: true, onClickVerified: null }
 );
 
 const useAvatarSize = {
@@ -36,6 +37,7 @@ const useAvatarSize = {
                 {{ peer?.name ?? "Безымянный" }}
                 <UserVerifiedTag
                     v-if="verified !== null"
+                    :on-click-verified="onClickVerified"
                     :verified="verified"
                 />
                 <span v-if="$slots.time" class="mc-user-card-time">

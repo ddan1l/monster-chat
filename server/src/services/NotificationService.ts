@@ -57,7 +57,9 @@ export class NotificationService {
     // без очереди: протухшее присутствие бесполезно, при реконнекте пересчитается.
     fanLive(accountKey: string, event: ServerMessage): void {
         for (const conn of this.connectionRepository.getDevices(accountKey)) {
-            if (conn.readyState === WebSocket.OPEN) this.sendEvent(conn, event);
+            if (conn.readyState === WebSocket.OPEN) {
+                this.sendEvent(conn, event);
+            }
         }
     }
 
@@ -87,7 +89,9 @@ export class NotificationService {
 
     private sendWebPush(signPubKey: string, chatId: string): void {
         const subs = this.pushSubscriptions.findAll(signPubKey);
-        if (!subs.length) return;
+        if (!subs.length) {
+            return;
+        }
 
         const payload = JSON.stringify({
             title: "Monster Chat",

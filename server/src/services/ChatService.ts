@@ -178,7 +178,9 @@ export class ChatService {
     // Удаление для всех: сносим членства и сообщения, остальным шлём
     // chat_destroyed (или кладём в очередь, если оффлайн).
     deleteChatForAll(chatId: string, signPubKey: string): void {
-        if (!this.chatMemberRepository.isMember(chatId, signPubKey)) return;
+        if (!this.chatMemberRepository.isMember(chatId, signPubKey)) {
+            return;
+        }
 
         const members = this.chatMemberRepository.getMembers(chatId);
         const event: ServerChatDestroyed = {
@@ -187,7 +189,9 @@ export class ChatService {
         };
 
         for (const member of members) {
-            if (member === signPubKey) continue;
+            if (member === signPubKey) {
+                continue;
+            }
             this.notificationService.deliverToAccount(member, event);
         }
 

@@ -128,7 +128,9 @@ export function useAuth() {
 
             const output =
                 assertion.getClientExtensionResults().prf?.results?.first;
-            if (!output) throw new Error("PRF output not returned");
+            if (!output) {
+                throw new Error("PRF output not returned");
+            }
             prfOutput = output;
         }
 
@@ -200,7 +202,9 @@ export function useAuth() {
 
     async function authenticate(): Promise<void> {
         const credentialId = await storage.getCredentialId();
-        if (!credentialId) throw new Error("No WebAuthn credential stored");
+        if (!credentialId) {
+            throw new Error("No WebAuthn credential stored");
+        }
 
         const assertion = (await navigator.credentials.get({
             publicKey: {
@@ -213,7 +217,9 @@ export function useAuth() {
 
         const prfOutput =
             assertion.getClientExtensionResults().prf?.results?.first;
-        if (!prfOutput) throw new Error("PRF output not returned");
+        if (!prfOutput) {
+            throw new Error("PRF output not returned");
+        }
 
         const wrappingKey = await importAesGcm(prfOutput);
         const { ecdh, sign } = await storage.loadKeys(wrappingKey, "prf");
@@ -225,7 +231,9 @@ export function useAuth() {
     async function authenticateWithPassword(password: string): Promise<void> {
         checkLockout();
         const salt = await storage.getPinSalt();
-        if (!salt) throw new Error("No password salt stored");
+        if (!salt) {
+            throw new Error("No password salt stored");
+        }
         const wrappingKey = await deriveFromPin(password, salt);
         try {
             const { ecdh, sign } = await storage.loadKeys(wrappingKey, "pin");
@@ -234,7 +242,9 @@ export function useAuth() {
             const sk = await loadOrMigrateStorageKey(wrappingKey, "pin");
             await session.save(ecdh, sign, sk);
         } catch (e) {
-            if (e instanceof Error && e.message.startsWith("LOCKED:")) throw e;
+            if (e instanceof Error && e.message.startsWith("LOCKED:")) {
+                throw e;
+            }
             recordFailure();
             throw e;
         }

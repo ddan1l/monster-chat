@@ -30,7 +30,9 @@ export class PendingChatInMemoryRepository {
         knockerPeer: Peer
     ): boolean {
         const existing = this.pending.get(chatId);
-        if (!existing) return false;
+        if (!existing) {
+            return false;
+        }
         existing.knock = { knockerKey, peerInfo, peer: knockerPeer };
         return true;
     }

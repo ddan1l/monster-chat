@@ -75,7 +75,9 @@ export class MessageSQLiteRepository implements MessageRepository {
                 .get(message.nonce, targetDeviceId) as
                 | { seq: number }
                 | undefined;
-            if (row) message.seq = row.seq;
+            if (row) {
+                message.seq = row.seq;
+            }
         }
     }
 

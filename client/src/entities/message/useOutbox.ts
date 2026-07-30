@@ -42,7 +42,9 @@ export function useOutbox() {
         });
 
         watch(connected, (isConnected, was) => {
-            if (isConnected && was === false) flush();
+            if (isConnected && was === false) {
+                flush();
+            }
         });
     }
 

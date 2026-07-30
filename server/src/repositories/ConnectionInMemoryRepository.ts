@@ -18,7 +18,9 @@ export class ConnectionInMemoryRepository {
     // Любое живое соединение аккаунта — для одно-целевой доставки (до веера/Ф3).
     get(signPubKey: string): Peer | undefined {
         const devices = this.connections.get(signPubKey);
-        if (!devices) return undefined;
+        if (!devices) {
+            return undefined;
+        }
         const peers = [...devices.values()];
         return peers[peers.length - 1];
     }
@@ -35,9 +37,13 @@ export class ConnectionInMemoryRepository {
 
     delete(signPubKey: string, deviceId: string): void {
         const devices = this.connections.get(signPubKey);
-        if (!devices) return;
+        if (!devices) {
+            return;
+        }
         devices.delete(deviceId);
-        if (devices.size === 0) this.connections.delete(signPubKey);
+        if (devices.size === 0) {
+            this.connections.delete(signPubKey);
+        }
     }
 
     getAll(): Peer[] {

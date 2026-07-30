@@ -12,8 +12,12 @@ export function useDate() {
     return {
         formatMessageTime: (ts: number): string => {
             const d = new Date(ts);
-            if (isToday(d)) return format(d, "HH:mm");
-            if (isYesterday(d)) return "вчера";
+            if (isToday(d)) {
+                return format(d, "HH:mm");
+            }
+            if (isYesterday(d)) {
+                return "вчера";
+            }
             return format(d, "d MMM", { locale: ru });
         },
         formatLastSeen: (ts: number): string => {

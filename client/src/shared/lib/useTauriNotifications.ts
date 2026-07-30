@@ -7,7 +7,9 @@ import {
 
 export async function requestTauriNotificationPermission(): Promise<void> {
     const granted = await isPermissionGranted();
-    if (!granted) await requestPermission();
+    if (!granted) {
+        await requestPermission();
+    }
 }
 
 export function useTauriNotifications() {
@@ -15,7 +17,9 @@ export function useTauriNotifications() {
         title: string,
         options?: { body?: string; icon?: string; data?: unknown }
     ): Promise<void> {
-        if (!(await isPermissionGranted())) return;
+        if (!(await isPermissionGranted())) {
+            return;
+        }
 
         const iconPath = options?.icon ? `file://${options.icon}` : undefined;
 

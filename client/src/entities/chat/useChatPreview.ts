@@ -14,7 +14,9 @@ export function useChatPreview(chatId: string, isActive: Ref<boolean>) {
     const isTyping = computed(() => typingStatus.value[chatId] ?? false);
 
     const displayText = computed(() => {
-        if (isTyping.value && !isActive.value) return "печатает…";
+        if (isTyping.value && !isActive.value) {
+            return "печатает…";
+        }
 
         if (unreadCount.value) {
             if (unreadCount.value > 1) {

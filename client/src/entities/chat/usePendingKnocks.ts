@@ -2,8 +2,8 @@ import { ref } from "vue";
 
 import { PendingKnockInfo } from "shared";
 
-import { useWs } from "@shared/transport/useWs";
 import { STORES, useIndexedDb } from "@shared/storage/useIndexedDb";
+import { useWs } from "@shared/transport/useWs";
 
 export const pendingKnocks = ref<PendingKnockInfo[]>([]);
 

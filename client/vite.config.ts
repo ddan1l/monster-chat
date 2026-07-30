@@ -19,7 +19,9 @@ function prodCsp(): Plugin {
         name: "harden-prod-csp",
         apply: "build",
         transformIndexHtml(html) {
-            if (process.env.TAURI_ENV_PLATFORM) return html;
+            if (process.env.TAURI_ENV_PLATFORM) {
+                return html;
+            }
             return html.replace(
                 "script-src 'self' 'unsafe-inline'",
                 "script-src 'self'"

@@ -1,34 +1,19 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-import { useDragScroll } from "@shared/lib/useDragScroll";
-import { useScreenSize } from "@shared/lib/useScreenSize";
 import { useWsStats } from "@shared/transport/useWsStats";
 import AppModal from "@shared/ui/components/AppModal.vue";
-
-import { usePwa } from "@features/pwa/usePwa";
 
 declare const __APP_VERSION__: string;
 const name = import.meta.env.VITE_APP_NAME as string;
 const version = __APP_VERSION__;
 const isLocal = import.meta.env.DEV;
 
-const { isPwa } = usePwa();
-const { isMobile } = useScreenSize();
-
 const open = ref(false);
-const {
-    elRef: statsRow,
-    hasOverflow,
-    onMouseDown,
-    onMouseMove,
-    onMouseUp,
-} = useDragScroll();
 
 const {
     connected,
     reconnectCount,
-    pingLabel,
     sessionLabel,
     txLabel,
     rxLabel,
@@ -39,80 +24,36 @@ const {
 
 <template>
     <header class="mc-app-header">
-        <div v-if="!isPwa && !isMobile" class="mc-app-header__title-row">
+        <div class="mc-app-header__title-row">
+            <span class="mc-stat">
+                <span
+                    class="mc-stat__dot"
+                    :class="connected ? 'mc-stat__dot_on' : 'mc-stat__dot_off'"
+                />
+                <span class="mc-stat__key">WS</span>
+                <span class="mc-stat__val">{{
+                    connected ? "OPEN" : "CLOSED"
+                }}</span>
+            </span>
+
             <button class="mc-app-header__title" @click="open = true">
                 {{ name }}{{ isLocal ? " · LOCAL" : "" }} · VERSION({{
                     version
                 }})
             </button>
-        </div>
 
-        <div
-            ref="statsRow"
-            class="mc-app-header__stats-row"
-            :class="{ 'mc-app-header__stats-row_scrollable': hasOverflow }"
-            @wheel.prevent="(e) => (statsRow!.scrollLeft += e.deltaY)"
-            @mousedown="onMouseDown"
-            @mousemove="onMouseMove"
-            @mouseup="onMouseUp"
-            @mouseleave="onMouseUp"
-        >
-            <div class="mc-app-header__stats-left">
-                <span class="mc-stat">
+            <span class="mc-stat">
+                <span class="mc-stat__key mc-stat__key_sig">SIG</span>
+                <span class="mc-stat__bars">
                     <span
-                        class="mc-stat__dot"
-                        :class="
-                            connected ? 'mc-stat__dot_on' : 'mc-stat__dot_off'
-                        "
+                        v-for="i in 3"
+                        :key="i"
+                        class="mc-stat__bar"
+                        :class="{ 'mc-stat__bar_on': i <= signalBars }"
+                        :style="{ height: `${2 + i * 3}px` }"
                     />
-                    <span class="mc-stat__key">WS</span>
-                    <span class="mc-stat__val">{{
-                        connected ? "OPEN" : "CLOSED"
-                    }}</span>
                 </span>
-
-                <span class="mc-stat">
-                    <span class="mc-stat__key">ENDPOINT</span>
-                    <span class="mc-stat__val">{{ endpointLabel }}</span>
-                </span>
-
-                <span class="mc-stat">
-                    <span class="mc-stat__key">PING</span>
-                    <span class="mc-stat__val">{{ pingLabel }}</span>
-                </span>
-
-                <span class="mc-stat">
-                    <span class="mc-stat__key">SESSION</span>
-                    <span class="mc-stat__val">{{ sessionLabel }}</span>
-                </span>
-
-                <span class="mc-stat">
-                    <span class="mc-stat__key">RECONN</span>
-                    <span class="mc-stat__val">{{ reconnectCount }}</span>
-                </span>
-
-                <span class="mc-stat">
-                    <span class="mc-stat__key">TX</span>
-                    <span class="mc-stat__val">{{ txLabel }}</span>
-                    <span class="mc-stat__key">RX</span>
-                    <span class="mc-stat__val">{{ rxLabel }}</span>
-                </span>
-            </div>
-
-            <div class="mc-app-header__stats-right">
-                <span class="mc-stat">
-                    <span class="mc-stat__key mc-stat__key_sig">SIG</span>
-                    <span class="mc-stat__bars">
-                        <span
-                            v-for="i in 3"
-                            :key="i"
-                            class="mc-stat__bar"
-                            :class="{ 'mc-stat__bar_on': i <= signalBars }"
-                            :style="{ height: `${2 + i * 3}px` }"
-                        />
-                    </span>
-                </span>
-            </div>
+            </span>
         </div>
     </header>
 
@@ -125,6 +66,26 @@ const {
             <div class="mc-about__row">
                 <span class="mc-about__label">Транспорт</span>
                 <span class="mc-about__value">WebSocket</span>
+            </div>
+
+            <div class="mc-about__row">
+                <span class="mc-about__label">ENDPOINT</span>
+                <span class="mc-about__value">{{ endpointLabel }}</span>
+            </div>
+
+            <span class="mc-about__row">
+                <span class="mc-about__label">SESSION</span>
+                <span class="mc-about__value">{{ sessionLabel }}</span>
+            </span>
+
+            <div class="mc-about__row">
+                <span class="mc-about__label">RECONN</span>
+                <span class="mc-about__value">{{ reconnectCount }}</span>
+            </div>
+
+            <div class="mc-about__row">
+                <span class="mc-about__label">TX/RX</span>
+                <span class="mc-about__value">{{ txLabel }}/{{ rxLabel }}</span>
             </div>
         </div>
     </AppModal>
@@ -147,6 +108,7 @@ const {
         font-weight: 600;
         letter-spacing: 0.1em;
         font-family: var(--mc-mono);
+        position: absolute;
 
         &:hover {
             color: var(--mc-fg-mute);
@@ -198,11 +160,14 @@ const {
     font-family: var(--mc-mono);
     letter-spacing: 0.05em;
     font-weight: 600;
-    padding: 8px 16px;
-    border-right: 1px solid var(--mc-line-hard);
+    padding: 0px;
 
-    &:only-child {
-        border-right: none;
+    &:first-child {
+        margin-right: auto;
+    }
+
+    &:last-child {
+        margin-left: auto;
     }
 
     &__key {

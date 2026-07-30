@@ -6,13 +6,15 @@ import QrCode from "@shared/ui/components/QrCode.vue";
 
 import {
     useSettings,
+    chatWallpapers,
     type Theme,
     type Language,
 } from "@entities/settings/useSettings";
 
 import { useLinking } from "@features/auth/useLinking";
 
-const { settings, setTheme, setLanguage, setNotifications } = useSettings();
+const { settings, setTheme, setLanguage, setNotifications, setChatWallpaper } =
+    useSettings();
 const { exportBundle } = useLinking();
 
 const confirmDelete = ref(false);
@@ -42,7 +44,9 @@ async function deleteAllData() {
 const autostartEnabled = ref(false);
 
 onMounted(async () => {
-    if (!isTauri) return;
+    if (!isTauri) {
+        return;
+    }
     const { isEnabled } = await import("@tauri-apps/plugin-autostart");
     autostartEnabled.value = await isEnabled();
 });
@@ -107,6 +111,42 @@ const languages: { value: Language; label: string }[] = [
                     @click="setTheme(t.value)"
                 >
                     {{ t.label }}
+                </button>
+            </div>
+        </section>
+
+        <!-- Chat wallpaper -->
+        <section style="display: flex; flex-direction: column; gap: 12px">
+            <h2 style="margin: 0; font-size: 15px">Обои чата</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <button
+                    v-for="w in chatWallpapers"
+                    :key="w.id"
+                    :style="{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        padding: '6px',
+                        border:
+                            settings.chatWallpaper === w.id
+                                ? '2px solid var(--mc-acid)'
+                                : '2px solid var(--mc-line)',
+                        background: 'var(--mc-bg-card)',
+                        cursor: 'pointer',
+                    }"
+                    @click="setChatWallpaper(w.id)"
+                >
+                    <span
+                        :style="{
+                            width: '72px',
+                            height: '48px',
+                            background: w.css,
+                            border: '1px solid var(--mc-line)',
+                        }"
+                    />
+                    <span style="font-size: 12px; color: var(--mc-fg)">{{
+                        w.label
+                    }}</span>
                 </button>
             </div>
         </section>

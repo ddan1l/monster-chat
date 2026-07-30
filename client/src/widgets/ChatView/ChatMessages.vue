@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
 import { VList } from "virtua/vue";
+
+import { useDebounce } from "@shared/lib/useDebounce";
+import AppButton from "@shared/ui/components/AppButton.vue";
+import AppCheckbox from "@shared/ui/components/AppCheckbox.vue";
+import AppModal from "@shared/ui/components/AppModal.vue";
 
 import { activeChatAtBottom } from "@entities/chat/useChats";
 
@@ -11,7 +16,7 @@ import type {
 } from "@features/chat-session/model/useChatSession";
 
 import ChatDateCalendar from "./ChatDateCalendar.vue";
-import ChatDateDivider from "./ChatDateDivider.vue";
+import ChatDatePill from "./ChatDatePill.vue";
 import ChatMessage from "./ChatMessage.vue";
 import ChatTypingIndicator from "./ChatTypingIndicator.vue";
 import MessageContextMenu from "./MessageContextMenu.vue";
@@ -46,6 +51,10 @@ const emit = defineEmits<{
     editStart: [nonce: string, text: string];
     deleteForMe: [nonce: string];
     deleteForAll: [nonce: string];
+    togglePin: [nonce: string];
+    reaction: [nonce: string, emoji: string];
+    reply: [msg: DecryptedMessage];
+    jumpReply: [nonce: string, ts: number];
     read: [nonce: string];
 }>();
 
@@ -54,20 +63,55 @@ const vlist = ref<VListHandle | null>(null);
 // Контроллер включает его только на время подгрузки вверх.
 const shiftMode = ref(false);
 
-const { items } = useChatItems(() => props.messages);
+const { items } = useChatItems(
+    () => props.messages,
+    () => props.isPeerTyping
+);
 
 // Одно контекстное меню на весь список (вместо floating-ui на каждую строку).
 const ctxMenu = ref<InstanceType<typeof MessageContextMenu> | null>(null);
 const ctxTarget = ref<DecryptedMessage | null>(null);
 const ctxIsSelf = ref(false);
+// Пузырь, к которому привязано меню (слева для чужих / справа для своих).
+const ctxAnchor = ref<HTMLElement | null>(null);
+// nonce сообщения, на котором открыто меню (для подсветки); null — меню закрыто.
+const activeMenuNonce = ref<string | null>(null);
 function onMessageContext(
-    e: MouseEvent,
+    anchor: HTMLElement,
     msg: DecryptedMessage,
     isSelf: boolean
 ) {
+    ctxAnchor.value = anchor;
     ctxTarget.value = msg;
     ctxIsSelf.value = isSelf;
-    ctxMenu.value?.openAt(e);
+    activeMenuNonce.value = msg.nonce;
+    ctxMenu.value?.open();
+}
+
+// Подтверждение удаления: «Удалить у меня» или (для своих) «также у собеседника».
+const deleteOpen = ref(false);
+const deleteNonce = ref<string | null>(null);
+const deleteIsSelf = ref(false);
+const deleteAlsoPeer = ref(false);
+function onDeleteRequest() {
+    if (!ctxTarget.value) {
+        return;
+    }
+    deleteNonce.value = ctxTarget.value.nonce;
+    deleteIsSelf.value = ctxIsSelf.value;
+    deleteAlsoPeer.value = false;
+    deleteOpen.value = true;
+}
+function confirmDelete() {
+    const nonce = deleteNonce.value;
+    if (nonce) {
+        if (deleteAlsoPeer.value && deleteIsSelf.value) {
+            emit("deleteForAll", nonce);
+        } else {
+            emit("deleteForMe", nonce);
+        }
+    }
+    deleteOpen.value = false;
 }
 
 // Календарь прыжка по дате: границы диапазона + дни с сообщениями грузим при
@@ -76,38 +120,167 @@ const calendar = ref<{ days: Set<string>; min: number; max: number } | null>(
     null
 );
 async function openCalendar() {
+    cancelHidePill();
+    datePillVisible.value = true;
     calendar.value = await props.messageDays();
+}
+
+// Плашка даты появляется на скролле и гаснет через паузу бездействия. Пока
+// открыт календарь — держим её видимой (отмена авто-скрытия).
+const datePillVisible = ref(false);
+const { schedule: scheduleHidePill, cancel: cancelHidePill } = useDebounce(
+    () => {
+        datePillVisible.value = false;
+    },
+    1500
+);
+function bumpDatePill(): void {
+    datePillVisible.value = true;
+    scheduleHidePill();
+}
+// Под курсором плашка не должна пропадать: держим видимой, на уходе — снова таймер.
+function onDatePillHover(over: boolean): void {
+    if (over) {
+        cancelHidePill();
+        datePillVisible.value = true;
+    } else {
+        scheduleHidePill();
+    }
 }
 function onPick(ts: number) {
     calendar.value = null;
+    scheduleHidePill();
     props.onJumpToDate(ts);
 }
+function closeCalendar() {
+    calendar.value = null;
+    scheduleHidePill();
+}
 
-const { onScroll, onScrollEnd, atBottom, topIndex } = useChatScroll(
-    vlist,
-    () => items.value,
-    () => props.peer,
-    (nonce) => emit("read", nonce),
-    props.onLoadMore,
-    props.onLoadMoreBelow,
-    () => props.hasMoreBelow,
-    () => props.scrollTarget,
-    props.onScrollHandled,
-    shiftMode
+// --- Кастомный overlay-скроллбар (нативный скрыт, чтобы не резервировать место).
+// Позицию/размер thumb считаем из метрик virtua; перетаскивание — через scrollTo.
+const thumbTop = ref(0);
+const thumbHeight = ref(0);
+// barActive — тянем thumb (держим видимым и вне hover).
+const barActive = ref(false);
+const MIN_THUMB = 28;
+
+// Скролл списка: обновляем плашку даты и overlay-скроллбар, отдаём офсет контроллеру.
+function onListScroll(offset: number): void {
+    bumpDatePill();
+    updateScrollbar();
+    onScroll(offset);
+}
+function onListScrollEnd(): void {
+    onScrollEnd();
+    updateScrollbar();
+}
+
+const { onScroll, onScrollEnd, atBottom, topIndex, highlightNonce } =
+    useChatScroll(
+        vlist,
+        () => items.value,
+        () => props.peer,
+        (nonce) => emit("read", nonce),
+        props.onLoadMore,
+        props.onLoadMoreBelow,
+        () => props.hasMoreBelow,
+        () => props.scrollTarget,
+        props.onScrollHandled,
+        shiftMode
+    );
+
+function updateScrollbar(): void {
+    const h = vlist.value;
+    if (!h) {
+        thumbHeight.value = 0;
+        return;
+    }
+    const { scrollOffset, scrollSize, viewportSize } = h;
+    // Нет переполнения — бара нет.
+    if (scrollSize <= viewportSize + 1) {
+        thumbHeight.value = 0;
+        return;
+    }
+    const th = Math.max(MIN_THUMB, (viewportSize / scrollSize) * viewportSize);
+    const maxTop = viewportSize - th;
+    const ratio = scrollOffset / (scrollSize - viewportSize);
+    thumbHeight.value = th;
+    thumbTop.value = Math.min(maxTop, Math.max(0, ratio * maxTop));
+}
+
+function onThumbDown(e: PointerEvent): void {
+    e.preventDefault();
+    if (!vlist.value) {
+        return;
+    }
+    barActive.value = true;
+    // Относительный drag: скроллим по дельте движения от ТЕКУЩЕГО offset (не по
+    // абсолютной позиции курсора). Так после prepend позиция, которую shift сдвинул
+    // вниз (thumb уехал к середине), сохраняется — offset уходит из зоны EDGE и
+    // подгрузка не триггерится повторно.
+    let lastY = e.clientY;
+    function move(ev: PointerEvent): void {
+        const hh = vlist.value;
+        if (!hh) {
+            return;
+        }
+        const { scrollOffset, scrollSize, viewportSize } = hh;
+        const scrollable = scrollSize - viewportSize;
+        const maxTop = viewportSize - thumbHeight.value;
+        if (scrollable <= 0 || maxTop <= 0) {
+            return;
+        }
+        const dy = ev.clientY - lastY;
+        lastY = ev.clientY;
+        const next = scrollOffset + (dy / maxTop) * scrollable;
+        hh.scrollTo(Math.min(scrollable, Math.max(0, next)));
+        updateScrollbar();
+    }
+    function up(): void {
+        barActive.value = false;
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+}
+
+// Пересчёт при изменении контента (новые сообщения / подгрузка) и размера окна.
+watch(
+    () => props.messages.length,
+    () => nextTick(updateScrollbar)
 );
+function onWinResize(): void {
+    updateScrollbar();
+}
+onMounted(() => {
+    window.addEventListener("resize", onWinResize);
+    nextTick(updateScrollbar);
+});
+onUnmounted(() => window.removeEventListener("resize", onWinResize));
 
 // Плавающая плашка текущей даты (sticky-заголовок): virtua ломает CSS position:
 // sticky у строк, поэтому показываем дату верхнего видимого элемента поверх списка.
-const currentDayLabel = computed(() => {
+const currentDayTs = computed(() => {
     const it = items.value[topIndex.value];
-    if (!it) return "";
-    const ts = it.type === "divider" ? it.ts : it.msg.timestamp;
-    return new Date(ts).toLocaleDateString("ru-RU", {
+    return it && it.type === "message" ? it.msg.timestamp : null;
+});
+
+const currentDayLabel = computed(() => {
+    if (currentDayTs.value == null) {
+        return "";
+    }
+    return new Date(currentDayTs.value).toLocaleDateString("ru-RU", {
         day: "numeric",
         month: "long",
         year: "numeric",
     });
 });
+
+const showDatePill = computed(
+    () => props.messages.length > 0 && !!currentDayLabel.value
+);
 
 // «Вниз»: возврат к последним. Идём через jumpToLatest всегда — он и позиционирует
 // в конец, и помечает видимое прочитанным (через контроллер), гася пульс/бейдж.
@@ -123,14 +296,12 @@ onUnmounted(() => (activeChatAtBottom.value = true));
 
 <template>
     <div class="mc-chat-messages-wrap">
-        <button
-            v-if="messages.length && currentDayLabel"
-            class="mc-chat-messages__date-pill"
-            title="Перейти к дате"
-            @click="openCalendar"
-        >
-            {{ currentDayLabel }}
-        </button>
+        <ChatDatePill
+            :label="currentDayLabel"
+            :visible="showDatePill && (datePillVisible || calendar != null)"
+            @open="openCalendar"
+            @hover="onDatePillHover"
+        />
 
         <VList
             ref="vlist"
@@ -138,15 +309,13 @@ onUnmounted(() => (activeChatAtBottom.value = true));
             class="mc-chat-messages"
             :data="items"
             :shift="shiftMode"
-            @scroll="onScroll"
-            @scroll-end="onScrollEnd"
+            @scroll="onListScroll"
+            @scroll-end="onListScrollEnd"
         >
-            <ChatDateDivider
-                v-if="item.type === 'divider'"
-                :key="item.key"
-                :timestamp="item.ts"
-                :data-date="item.key"
-                @open="openCalendar"
+            <ChatTypingIndicator
+                v-if="item.type === 'typing'"
+                key="typing"
+                :peer="peer"
             />
             <ChatMessage
                 v-else
@@ -162,20 +331,27 @@ onUnmounted(() => (activeChatAtBottom.value = true));
                     item.index > 0 &&
                     messages[item.index - 1]?.from === item.msg.from
                 "
-                @contextmenu="onMessageContext"
+                :active="item.msg.nonce === activeMenuNonce"
+                :highlighted="item.msg.nonce === highlightNonce"
+                @open-menu="onMessageContext"
+                @react="(nonce, emoji) => emit('reaction', nonce, emoji)"
+                @jump-reply="(nonce, ts) => emit('jumpReply', nonce, ts)"
             />
         </VList>
 
-        <ChatTypingIndicator
-            v-if="isPeerTyping"
-            :peer="peer"
-            class="mc-chat-messages__typing"
+        <!-- Кастомный overlay-скроллбар: абсолютом поверх ленты, не влияет на layout. -->
+        <div
+            v-if="thumbHeight"
+            class="mc-scrollbar"
+            :class="{ 'mc-scrollbar_active': barActive }"
+            :style="{ top: thumbTop + 'px', height: thumbHeight + 'px' }"
+            @pointerdown="onThumbDown"
         />
 
         <button
             v-if="hasMoreBelow || !atBottom"
             class="mc-chat-messages__to-latest"
-            :class="{ 'mc-chat-messages__to-latest--pulse': hasNewBelow }"
+            :class="{ 'mc-chat-messages__to-latest_pulse': hasNewBelow }"
             title="К последним сообщениям"
             @click="onToLatest"
         >
@@ -184,26 +360,52 @@ onUnmounted(() => (activeChatAtBottom.value = true));
 
         <MessageContextMenu
             ref="ctxMenu"
-            :anchor="null"
+            :anchor="ctxAnchor"
             :is-self="ctxIsSelf"
             :text="ctxTarget?.text ?? ''"
             :editing-nonce="editingNonce"
+            :pinned="ctxTarget?.pinned ?? false"
             :placement="ctxIsSelf ? 'top-end' : 'top-start'"
             @edit-start="
                 ctxTarget &&
                 emit('editStart', ctxTarget.nonce, ctxTarget.text ?? '')
             "
-            @delete-for-me="ctxTarget && emit('deleteForMe', ctxTarget.nonce)"
-            @delete-for-all="ctxTarget && emit('deleteForAll', ctxTarget.nonce)"
+            @delete="onDeleteRequest"
+            @toggle-pin="ctxTarget && emit('togglePin', ctxTarget.nonce)"
+            @reply="ctxTarget && emit('reply', ctxTarget)"
+            @reaction="
+                (emoji) => ctxTarget && emit('reaction', ctxTarget.nonce, emoji)
+            "
+            @close="activeMenuNonce = null"
         />
+
+        <AppModal
+            :is-visible="deleteOpen"
+            title="Удалить сообщение"
+            :max-width="360"
+            @close="deleteOpen = false"
+        >
+            <div class="mc-del">
+                <!-- <p class="mc-del__text">Удалить это сообщение?</p> -->
+                <AppCheckbox v-if="deleteIsSelf" v-model="deleteAlsoPeer">
+                    Удалить также у собеседника
+                </AppCheckbox>
+                <div class="mc-del__actions">
+                    <AppButton variant="danger" @click="confirmDelete">
+                        Удалить
+                    </AppButton>
+                </div>
+            </div>
+        </AppModal>
 
         <ChatDateCalendar
             v-if="calendar"
             :min="calendar.min"
             :max="calendar.max"
             :days="calendar.days"
+            :selected="currentDayTs ?? undefined"
             @pick="onPick"
-            @close="calendar = null"
+            @close="closeCalendar"
         />
     </div>
 </template>
@@ -216,49 +418,48 @@ onUnmounted(() => (activeChatAtBottom.value = true));
     display: flex;
 }
 
+// Overlay-скроллбар: тонкий thumb у правого края, поверх контента (position:
+// absolute — layout не трогает). Появляется при наведении на ленту или при
+// перетаскивании.
+.mc-scrollbar {
+    position: absolute;
+    right: 3px;
+    width: 5px;
+    z-index: 19;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--mc-fg) 22%, transparent);
+    opacity: 0;
+    transition: opacity 0.15s;
+    cursor: pointer;
+
+    &:hover,
+    &_active {
+        background: color-mix(in srgb, var(--mc-fg) 38%, transparent);
+    }
+}
+.mc-chat-messages-wrap:hover .mc-scrollbar,
+.mc-scrollbar_active {
+    opacity: 1;
+}
+
 .mc-chat-messages {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+
+    // Нативный скроллбар убран из потока — нулевой gutter, поэтому отступы
+    // остаются ровно заданными и одинаковыми во всех браузерах. Полосу рисуем
+    // сами (overlay-бар абсолютом, см. .mc-scrollbar) — она не влияет на layout.
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
     overflow-anchor: none;
     padding: 0;
     margin: 0;
-    background:
-        radial-gradient(
-            60% 40% at 100% 0%,
-            var(--mc-acid-subtle),
-            transparent 55%
-        ),
-        var(--mc-bg-chat);
-
-    &__date-pill {
-        position: absolute;
-        top: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 18;
-        padding: 6px 12px;
-        font-size: 11px;
-        font-weight: 700;
-        line-height: 130%;
-        color: var(--mc-fg-mute);
-        text-transform: uppercase;
-        background: var(--mc-bg-window);
-        border: 1px solid var(--mc-line-hard);
-        cursor: pointer;
-
-        &:hover {
-            color: var(--mc-fg);
-            border-color: var(--mc-acid);
-        }
-    }
-
-    &__typing {
-        position: absolute;
-        left: 0;
-        bottom: 0;
-        z-index: 15;
-    }
+    // Фон (сетка + свечение) вынесен на общий контейнер .chat-view__body, чтобы
+    // непрерывно тянуться под сообщениями и редактором — здесь прозрачно.
+    background: transparent;
 
     &__to-latest {
         position: absolute;
@@ -276,7 +477,7 @@ onUnmounted(() => (activeChatAtBottom.value = true));
         cursor: pointer;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 
-        &--pulse {
+        &_pulse {
             animation: mc-to-latest-pulse 1.4s ease-out infinite;
         }
     }
@@ -297,6 +498,23 @@ onUnmounted(() => (activeChatAtBottom.value = true));
         box-shadow:
             0 4px 14px rgba(0, 0, 0, 0.4),
             0 0 0 0 transparent;
+    }
+}
+
+.mc-del {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &__text {
+        font-family: var(--mc-mono);
+        color: var(--mc-fg);
+    }
+
+    &__actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
     }
 }
 </style>

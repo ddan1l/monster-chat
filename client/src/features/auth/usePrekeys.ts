@@ -13,7 +13,9 @@ export function usePrekeys() {
         return new Promise((resolve) => {
             let done = false;
             const finish = (devices: DevicePrekey[]) => {
-                if (done) return;
+                if (done) {
+                    return;
+                }
                 done = true;
                 unsub();
                 resolve(devices);

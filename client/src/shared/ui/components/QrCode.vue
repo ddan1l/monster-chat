@@ -12,7 +12,9 @@ const error = ref<string | null>(null);
 // (бандл линковки бывает крупным). Если всё равно не влезло — QRCode бросает.
 async function render(): Promise<void> {
     error.value = null;
-    if (!canvas.value || !props.data) return;
+    if (!canvas.value || !props.data) {
+        return;
+    }
     try {
         await QRCode.toCanvas(canvas.value, props.data, {
             width: props.size ?? 240,

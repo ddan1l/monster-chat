@@ -29,7 +29,9 @@ export function usePeers() {
     const { subscribe, send } = useWs();
 
     async function getMyPeerInfo() {
-        if (!user.value) await loadUser();
+        if (!user.value) {
+            await loadUser();
+        }
         const [signPubKey, ecdhPubKey] = await Promise.all([
             exportSignPublicKey(),
             exportEncryptionPublicKey(),
@@ -83,7 +85,9 @@ export function usePeers() {
     async function reshareOwnPeers(): Promise<void> {
         const mySignPubKey = await exportSignPublicKey();
         for (const stored of Object.values(peers.value)) {
-            if (!stored.signPubKey) continue;
+            if (!stored.signPubKey) {
+                continue;
+            }
             send({
                 type: "peer_info",
                 payload: {
@@ -116,22 +120,30 @@ export function usePeers() {
 
             // Пришла верификация (синк со своего устройства) — переобъявляемся,
             // чтобы сервер узнал, что мы наблюдаем этого пира, и отдал его статус.
-            if (updated.verified && !stored?.verified) announceOnline();
+            if (updated.verified && !stored?.verified) {
+                announceOnline();
+            }
         });
 
         subscribe("peer_online", (msg) => {
             const chatId = chatIdByKey(msg.payload.signPubKey);
-            if (!chatId || !peers.value[chatId]?.verified) return;
+            if (!chatId || !peers.value[chatId]?.verified) {
+                return;
+            }
             const wasOnline = onlineStatus.value[chatId];
             onlineStatus.value[chatId] = true;
             // Отвечаем своим онлайном только на переход offline→online,
             // чтобы собеседник узнал о нас, не зациклив обмен.
-            if (!wasOnline) announceOnline();
+            if (!wasOnline) {
+                announceOnline();
+            }
         });
 
         subscribe("peer_offline", (msg) => {
             const chatId = chatIdByKey(msg.payload.signPubKey);
-            if (!chatId) return;
+            if (!chatId) {
+                return;
+            }
             onlineStatus.value[chatId] = false;
             const ts = msg.payload.lastSeen ?? Date.now();
             const updated = { ...peers.value[chatId], lastSeen: ts };
@@ -141,7 +153,9 @@ export function usePeers() {
 
         subscribe("peer_typing", (msg) => {
             const chatId = chatIdByKey(msg.payload.signPubKey);
-            if (!chatId || !peers.value[chatId]?.verified) return;
+            if (!chatId || !peers.value[chatId]?.verified) {
+                return;
+            }
             typingStatus.value[chatId] = true;
             if (!typingDebouncers.has(chatId)) {
                 typingDebouncers.set(
@@ -156,7 +170,9 @@ export function usePeers() {
 
         subscribe("peer_stop_typing", (msg) => {
             const chatId = chatIdByKey(msg.payload.signPubKey);
-            if (!chatId) return;
+            if (!chatId) {
+                return;
+            }
             typingStatus.value[chatId] = false;
             typingDebouncers.get(chatId)?.cancel();
         });

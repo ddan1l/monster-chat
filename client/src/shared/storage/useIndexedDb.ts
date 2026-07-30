@@ -37,7 +37,9 @@ export async function deleteDb(): Promise<void> {
 }
 
 export function openDb(): Promise<IDBDatabase> {
-    if (dbPromise) return dbPromise;
+    if (dbPromise) {
+        return dbPromise;
+    }
     dbPromise = new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = (event) => {

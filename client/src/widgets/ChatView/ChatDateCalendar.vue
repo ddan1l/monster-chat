@@ -8,7 +8,13 @@ const props = defineProps<{
     min: number;
     max: number;
     days: Set<string>;
+    // Текущая (открытая) дата — подсвечиваем её в сетке.
+    selected?: number;
 }>();
+
+const selectedKey = computed(() =>
+    props.selected != null ? dateKey(props.selected) : null
+);
 
 const emit = defineEmits<{
     pick: [ts: number];
@@ -60,6 +66,7 @@ interface Cell {
     ts: number;
     key: string;
     hasMessages: boolean;
+    selected: boolean;
 }
 const cells = computed<(Cell | null)[]>(() => {
     const year = view.value.getFullYear();
@@ -72,13 +79,21 @@ const cells = computed<(Cell | null)[]>(() => {
     for (let day = 1; day <= daysInMonth; day++) {
         const ts = new Date(year, month, day).getTime();
         const key = dateKey(ts);
-        result.push({ day, ts, key, hasMessages: props.days.has(key) });
+        result.push({
+            day,
+            ts,
+            key,
+            hasMessages: props.days.has(key),
+            selected: key === selectedKey.value,
+        });
     }
     return result;
 });
 
 function prev() {
-    if (!canPrev.value) return;
+    if (!canPrev.value) {
+        return;
+    }
     view.value = new Date(
         view.value.getFullYear(),
         view.value.getMonth() - 1,
@@ -86,7 +101,9 @@ function prev() {
     );
 }
 function next() {
-    if (!canNext.value) return;
+    if (!canNext.value) {
+        return;
+    }
     view.value = new Date(
         view.value.getFullYear(),
         view.value.getMonth() + 1,
@@ -94,7 +111,9 @@ function next() {
     );
 }
 function pick(cell: Cell) {
-    if (!cell.hasMessages) return;
+    if (!cell.hasMessages) {
+        return;
+    }
     emit("pick", startOfDay(cell.ts));
 }
 </script>
@@ -109,7 +128,18 @@ function pick(cell: Cell) {
                     aria-label="Предыдущий месяц"
                     @click="prev"
                 >
-                    ‹
+                    <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M15 6l-6 6 6 6" />
+                    </svg>
                 </button>
                 <span class="mc-cal__title">{{ title }}</span>
                 <button
@@ -118,7 +148,18 @@ function pick(cell: Cell) {
                     aria-label="Следующий месяц"
                     @click="next"
                 >
-                    ›
+                    <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M9 6l6 6-6 6" />
+                    </svg>
                 </button>
             </header>
 
@@ -130,12 +171,15 @@ function pick(cell: Cell) {
                 <template v-for="(cell, i) in cells" :key="i">
                     <span
                         v-if="!cell"
-                        class="mc-cal__cell mc-cal__cell--empty"
+                        class="mc-cal__cell mc-cal__cell_empty"
                     />
                     <button
                         v-else
                         class="mc-cal__cell"
-                        :class="{ 'mc-cal__cell--has': cell.hasMessages }"
+                        :class="{
+                            'mc-cal__cell_has': cell.hasMessages,
+                            'mc-cal__cell_selected': cell.selected,
+                        }"
                         :disabled="!cell.hasMessages"
                         @click="pick(cell)"
                     >
@@ -160,36 +204,48 @@ function pick(cell: Cell) {
 }
 
 .mc-cal {
-    width: 280px;
-    padding: 12px;
+    width: 300px;
+    padding: 16px;
+    font-family: var(--mc-mono);
     background: var(--mc-bg-window);
-    border: 1px solid var(--mc-line-hard);
-    border-radius: 10px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--mc-line);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 
     &__head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 10px;
+        margin-bottom: 16px;
     }
 
     &__title {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--mc-fg);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--mc-acid);
     }
 
     &__nav {
-        width: 28px;
-        height: 28px;
-        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
         line-height: 1;
         color: var(--mc-fg);
         background: none;
         border: 1px solid var(--mc-line-hard);
-        border-radius: 6px;
         cursor: pointer;
+        transition:
+            color 0.1s,
+            border-color 0.1s;
+
+        &:hover:not(:disabled) {
+            color: var(--mc-acid);
+            border-color: var(--mc-acid);
+        }
 
         &:disabled {
             opacity: 0.3;
@@ -200,13 +256,15 @@ function pick(cell: Cell) {
     &__weekdays {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 2px;
-        margin-bottom: 4px;
+        gap: 4px;
+        margin-bottom: 8px;
 
         span {
             text-align: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
             color: var(--mc-fg-mute);
         }
     }
@@ -214,7 +272,7 @@ function pick(cell: Cell) {
     &__grid {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 2px;
+        gap: 4px;
     }
 
     &__cell {
@@ -222,30 +280,40 @@ function pick(cell: Cell) {
         display: flex;
         align-items: center;
         justify-content: center;
+        font-family: var(--mc-mono);
         font-size: 13px;
+        font-weight: 700;
         color: var(--mc-fg-dim);
         background: none;
-        border: none;
-        border-radius: 6px;
+        border: 1px solid transparent;
 
-        &--empty {
+        &_empty {
             pointer-events: none;
         }
 
-        &--has {
-            color: var(--mc-acid);
-            font-weight: 700;
+        // День с сообщениями — светлый, кликабельный.
+        &_has {
+            color: var(--mc-fg);
             cursor: pointer;
-            border: 1px solid var(--mc-line-hard);
 
             &:hover {
-                background: var(--mc-acid);
-                color: var(--mc-bg-window);
+                border-color: var(--mc-acid);
             }
         }
 
-        &:disabled:not(&--has) {
-            opacity: 0.35;
+        // Текущая (открытая) дата — залита acid.
+        &_selected {
+            color: var(--mc-bg-window);
+            background: var(--mc-acid);
+            border-color: var(--mc-acid);
+
+            &:hover {
+                background: var(--mc-acid);
+            }
+        }
+
+        &:disabled:not(&_has) {
+            opacity: 0.4;
             cursor: default;
         }
     }

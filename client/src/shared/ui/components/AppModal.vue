@@ -31,7 +31,9 @@ const onKey = (e: KeyboardEvent) => {
 };
 
 const close = () => {
-    if (!localVisible.value) return;
+    if (!localVisible.value) {
+        return;
+    }
     closeModal();
 };
 

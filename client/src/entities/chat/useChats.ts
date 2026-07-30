@@ -81,8 +81,11 @@ export function useChats() {
                     const updated = { ...existing, established: true, lefted };
                     await saveChat(updated);
                     const idx = chats.value.findIndex((c) => c.id === chatId);
-                    if (idx !== -1) chats.value[idx] = updated;
-                    else chats.value.push(updated);
+                    if (idx !== -1) {
+                        chats.value[idx] = updated;
+                    } else {
+                        chats.value.push(updated);
+                    }
                 }
             }
         });
@@ -162,11 +165,15 @@ export function useChats() {
     // Собеседник покинул чат (удалил у себя): чат остаётся, но становится read-only.
     async function markChatLefted(chatId: string): Promise<void> {
         const existing = await readChat<Chat>(chatId);
-        if (!existing) return;
+        if (!existing) {
+            return;
+        }
         const updated: Chat = { ...existing, lefted: true };
         await saveChat(updated);
         const idx = chats.value.findIndex((c) => c.id === chatId);
-        if (idx !== -1) chats.value[idx] = updated;
+        if (idx !== -1) {
+            chats.value[idx] = updated;
+        }
     }
 
     async function cancelPendingChat(chatId: string): Promise<void> {

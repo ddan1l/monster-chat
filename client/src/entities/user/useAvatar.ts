@@ -33,7 +33,9 @@ function renderAvatarCanvas(key: string): Promise<string | undefined> {
         .trim();
 
     const svgText = rawModules[key] as string | undefined;
-    if (!svgText) return Promise.resolve(undefined);
+    if (!svgText) {
+        return Promise.resolve(undefined);
+    }
 
     const colored = svgText
         .replace(/var\(--mc-acid\)/g, acid || "#c6ff3a")
@@ -69,7 +71,9 @@ function renderAvatarCanvas(key: string): Promise<string | undefined> {
 
 async function saveAvatarToTemp(key: string): Promise<string | undefined> {
     const dataUrl = await renderAvatarCanvas(key);
-    if (!dataUrl) return undefined;
+    if (!dataUrl) {
+        return undefined;
+    }
 
     const base64 = dataUrl.split(",")[1];
     const { tempDir } = await import("@tauri-apps/api/path");

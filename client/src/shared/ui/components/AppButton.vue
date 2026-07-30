@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-    variant?: "primary" | "ghost" | "danger";
+    variant?: "primary" | "ghost" | "danger" | "danger-solid";
     size?: "sm" | "md";
     disabled?: boolean;
 }>();
@@ -74,6 +74,18 @@ const emit = defineEmits<{ click: [] }>();
         &:hover {
             color: var(--mc-danger);
             border-color: var(--mc-danger);
+        }
+    }
+
+    // По умолчанию как обычный danger (приглушённый контур), на ховере заливается
+    // красным.
+    &_danger-solid {
+        color: var(--mc-danger);
+        border: 1px solid var(--mc-danger);
+
+        &:hover {
+            background: var(--mc-danger);
+            color: var(--mc-bg-sel);
         }
     }
 }

@@ -25,8 +25,11 @@ export function useWsStats() {
     });
 
     watch(connected, (val) => {
-        if (val) sendPing();
-        else ping.value = null;
+        if (val) {
+            sendPing();
+        } else {
+            ping.value = null;
+        }
     });
 
     function sendPing() {
@@ -57,8 +60,12 @@ export function useWsStats() {
 
     onUnmounted(() => {
         unsub();
-        if (pingTimer) clearInterval(pingTimer);
-        if (sessionTimer) clearInterval(sessionTimer);
+        if (pingTimer) {
+            clearInterval(pingTimer);
+        }
+        if (sessionTimer) {
+            clearInterval(sessionTimer);
+        }
     });
 
     const pingLabel = computed(() =>
@@ -67,8 +74,12 @@ export function useWsStats() {
 
     const sessionLabel = computed(() => {
         const m = Math.floor(sessionSeconds.value / 60);
-        if (m === 0) return "<1min";
-        if (m < 60) return `${m}m`;
+        if (m === 0) {
+            return "<1min";
+        }
+        if (m < 60) {
+            return `${m}m`;
+        }
         const h = Math.floor(m / 60);
         return `${h}h ${m % 60}m`;
     });
@@ -78,9 +89,15 @@ export function useWsStats() {
 
     const signalBars = computed(() => {
         const p = ping.value;
-        if (p === null) return 0;
-        if (p < 80) return 3;
-        if (p < 200) return 2;
+        if (p === null) {
+            return 0;
+        }
+        if (p < 80) {
+            return 3;
+        }
+        if (p < 200) {
+            return 2;
+        }
         return 1;
     });
 
@@ -101,6 +118,8 @@ export function useWsStats() {
 }
 
 function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes}b`;
+    if (bytes < 1024) {
+        return `${bytes}b`;
+    }
     return `${(bytes / 1024).toFixed(1)}kb`;
 }

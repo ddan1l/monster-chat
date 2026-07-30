@@ -54,7 +54,9 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-    if (timer) clearInterval(timer);
+    if (timer) {
+        clearInterval(timer);
+    }
 });
 
 async function unlockWithPrf() {
@@ -72,7 +74,9 @@ async function unlockWithPrf() {
 }
 
 async function unlockWithPassword() {
-    if (isLocked.value) return;
+    if (isLocked.value) {
+        return;
+    }
     passwordLoading.value = true;
     passwordError.value = null;
     try {

@@ -2,28 +2,29 @@ import { computed } from "vue";
 
 import type { DecryptedMessage } from "@features/chat-session/model/useChatSession";
 
+// Элемент списка чата: сообщение либо «печатает…». Дату дня показывает
+// единственная плавающая плашка (см. ChatMessages) — строчных дивайдеров нет,
+// чтобы не дублировать её и не рассинхронить центр под virtua.
 export type ChatItem =
-    | { type: "divider"; ts: number; key: string }
-    | { type: "message"; msg: DecryptedMessage; index: number };
+    | { type: "message"; msg: DecryptedMessage; index: number }
+    | { type: "typing" };
 
-function dayKey(ts: number) {
-    const d = new Date(ts);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-export function useChatItems(messages: () => DecryptedMessage[]) {
+export function useChatItems(
+    messages: () => DecryptedMessage[],
+    isTyping: () => boolean
+) {
     const items = computed<ChatItem[]>(() => {
-        const result: ChatItem[] = [];
-        let lastDay = "";
-        messages().forEach((msg, index) => {
-            const day = dayKey(msg.timestamp);
-            if (day !== lastDay) {
-                lastDay = day;
-                result.push({ type: "divider", ts: msg.timestamp, key: day });
-            }
-            result.push({ type: "message", msg, index });
-        });
-        return result;
+        const list: ChatItem[] = messages().map((msg, index) => ({
+            type: "message",
+            msg,
+            index,
+        }));
+        // «Печатает…» — обычный элемент в конце потока (а не absolute-оверлей),
+        // чтобы он шёл ПОД последним сообщением, а не накрывал его.
+        if (isTyping()) {
+            list.push({ type: "typing" });
+        }
+        return list;
     });
 
     return { items };

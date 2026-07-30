@@ -22,13 +22,17 @@ interface PendingFile {
 const pending = ref<PendingFile[]>([]);
 
 function formatSize(bytes: number): string {
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(0)} KB`;
+    }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 async function onFileChange(e: Event) {
     const input = e.target as HTMLInputElement;
-    if (!input.files) return;
+    if (!input.files) {
+        return;
+    }
     const files = Array.from(input.files);
     input.value = "";
 

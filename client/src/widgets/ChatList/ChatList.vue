@@ -29,7 +29,9 @@ onMounted(async () => {
     await Promise.all(
         chats.value.map(async (c) => {
             const last = await getLastMessage(c.id);
-            if (last) lastMessageByChat.value[c.id] = await decryptStored(last);
+            if (last) {
+                lastMessageByChat.value[c.id] = await decryptStored(last);
+            }
         })
     );
 
@@ -70,7 +72,7 @@ const activeChats = computed(() => chats.value.filter((c) => c.established));
 <style lang="scss" scoped>
 .mc-chat-list {
     background-color: var(--mc-bg-list);
-    border-right: 1px solid var(--mc-line-hard);
+    border-right: 1px solid var(--mc-line);
     display: flex;
     flex-direction: column;
 

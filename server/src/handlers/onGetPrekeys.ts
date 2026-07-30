@@ -14,7 +14,9 @@ function sharesChat(a: string, b: string): boolean {
 // сообщение под каждый. Только для себя или со-участника чата (иначе — утечка
 // числа устройств произвольного аккаунта, энумерация).
 export function onGetPrekeys(ws: Peer, data: GetPrekeysMessage): void {
-    if (!ws.signPubKey) return;
+    if (!ws.signPubKey) {
+        return;
+    }
     const { signPubKey } = data.payload;
     if (
         signPubKey !== ws.signPubKey &&

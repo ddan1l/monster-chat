@@ -14,12 +14,14 @@ const props = defineProps<{
     chatId: string;
     editingNonce: string | null;
     editingText: string;
+    replyPreview: { author?: string; text: string } | null;
 }>();
 
 const emit = defineEmits<{
     send: [text: string, files?: FileAttachment[]];
     editSubmit: [nonce: string, newText: string];
     editCancel: [];
+    cancelReply: [];
     typing: [];
     stopTyping: [];
 }>();
@@ -44,7 +46,9 @@ watch(
 function send() {
     const html = sendText.value;
     const stripped = html.replace(/<[^>]*>/g, "").trim();
-    if (!stripped && !attachments.value.length) return;
+    if (!stripped && !attachments.value.length) {
+        return;
+    }
     emit("stopTyping");
     emit(
         "send",
@@ -58,7 +62,9 @@ function send() {
 }
 
 function submitEdit() {
-    if (!props.editingNonce) return;
+    if (!props.editingNonce) {
+        return;
+    }
     const html = editText.value;
     const stripped = html.replace(/<[^>]*>/g, "").trim();
     if (stripped && html !== props.editingText) {
@@ -90,6 +96,24 @@ function submitEdit() {
         </template>
 
         <template v-else>
+            <div v-if="replyPreview" class="chat-editor__reply">
+                <span class="chat-editor__reply-bar" />
+                <div class="chat-editor__reply-body">
+                    <span class="chat-editor__reply-author">
+                        Ответ · {{ replyPreview.author }}
+                    </span>
+                    <span class="chat-editor__reply-text">
+                        {{ replyPreview.text }}
+                    </span>
+                </div>
+                <button
+                    class="chat-editor__reply-cancel"
+                    @click="emit('cancelReply')"
+                >
+                    ✕
+                </button>
+            </div>
+
             <div class="chat-editor__wrap">
                 <div class="chat-editor__row">
                     <FileUploader
@@ -123,14 +147,69 @@ function submitEdit() {
 
 <style lang="scss" scoped>
 .chat-editor {
-    padding: 14px 18px 14px;
-    background-color: var(--mc-bg-rail);
-    border-top: 1px solid var(--mc-line);
+    padding: 0 22px 22px;
+    // Фон общий с лентой сообщений (задан на .chat-view__body) — здесь прозрачно,
+    // без своей заливки и без верхней границы.
+    background: transparent;
     margin-top: 10px;
     &__wrap {
         display: flex;
         align-items: flex-end;
         gap: 8px;
+    }
+
+    &__reply {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding: 6px 8px;
+        background: var(--mc-bg-rail);
+        border: 1px solid var(--mc-line);
+    }
+
+    &__reply-bar {
+        flex-shrink: 0;
+        width: 2px;
+        align-self: stretch;
+        min-height: 26px;
+        background: var(--mc-acid);
+    }
+
+    &__reply-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+    }
+
+    &__reply-author {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--mc-acid);
+    }
+
+    &__reply-text {
+        overflow: hidden;
+        font-size: 13px;
+        color: var(--mc-fg-mute);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    &__reply-cancel {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        color: var(--mc-fg-mute);
+        background: none;
+        border: none;
+        cursor: pointer;
+
+        &:hover {
+            color: var(--mc-fg);
+        }
     }
 
     &__row {

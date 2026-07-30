@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
     autoUpdate,
     flip,
-    offset,
+    offset as offsetMiddleware,
     shift,
     useFloating,
     type Placement,
@@ -24,6 +24,8 @@ const props = withDefaults(
     }
 );
 
+const emit = defineEmits<{ close: [] }>();
+
 const isOpen = ref(false);
 const trigger = ref<HTMLElement | null>(null);
 const floating = ref<HTMLElement | null>(null);
@@ -31,7 +33,9 @@ const point = ref<{ x: number; y: number } | null>(null);
 
 const virtualEl = computed<VirtualElement | null>(() => {
     const p = point.value;
-    if (!p) return null;
+    if (!p) {
+        return null;
+    }
     return { getBoundingClientRect: () => new DOMRect(p.x, p.y, 0, 0) };
 });
 
@@ -41,7 +45,7 @@ const reference = computed(
 
 const { floatingStyles } = useFloating(reference, floating, {
     placement: props.placement,
-    middleware: [offset(props.offset), flip(), shift({ padding: 8 })],
+    middleware: [offsetMiddleware(props.offset), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
     strategy: "fixed",
     transform: false,
@@ -63,7 +67,11 @@ function close(): void {
 }
 
 function toggle(): void {
-    isOpen.value ? close() : open();
+    if (isOpen.value) {
+        close();
+    } else {
+        open();
+    }
 }
 
 function onPointerDown(e: PointerEvent): void {
@@ -76,7 +84,9 @@ function onPointerDown(e: PointerEvent): void {
 }
 
 function onKey(e: KeyboardEvent): void {
-    if (e.key === "Escape") close();
+    if (e.key === "Escape") {
+        close();
+    }
 }
 
 watch(isOpen, (value) => {
@@ -86,6 +96,7 @@ watch(isOpen, (value) => {
     } else {
         document.removeEventListener("pointerdown", onPointerDown, true);
         document.removeEventListener("keydown", onKey);
+        emit("close");
     }
 });
 
@@ -133,9 +144,12 @@ defineExpose({ open, openAt, close, toggle });
 .mc-menu {
     z-index: 200;
     min-width: 180px;
-    padding: 4px;
     background: var(--mc-bg-window);
     border: 1px solid var(--mc-line-hard);
+    box-shadow:
+        rgba(0, 0, 0, 0.6) 0px 18px 50px,
+        color-mix(in srgb, var(--mc-bg-message) 6%, transparent) 0px 0px 0px 1px,
+        color-mix(in srgb, var(--mc-bg-message) 10%, transparent) 0px 0px 36px;
     display: flex;
     flex-direction: column;
 

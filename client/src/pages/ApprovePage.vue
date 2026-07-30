@@ -18,7 +18,9 @@ const error = ref<string | null>(null);
 watch(
     () => chats.value.find((c) => c.id === chatId)?.established,
     (established) => {
-        if (established) router.push(`/app/chat/${chatId}`);
+        if (established) {
+            router.push(`/app/chat/${chatId}`);
+        }
     }
 );
 

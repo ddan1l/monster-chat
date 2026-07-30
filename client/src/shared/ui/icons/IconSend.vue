@@ -1,16 +1,14 @@
 <template>
     <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="18"
-        height="18"
+        width="20"
+        height="20"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        stroke-width="2"
+        stroke-width="2.1"
         stroke-linecap="round"
         stroke-linejoin="round"
     >
-        <path d="M22 2L11 13" />
-        <path d="M22 2l-7 20-4-9-9-4z" />
+        <path d="M4 12h15M13 6l6 6-6 6"></path>
     </svg>
 </template>

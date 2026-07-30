@@ -1,148 +1,82 @@
-import { ref, watch, onUnmounted, toRaw, nextTick } from "vue";
+import { ref, watch, nextTick } from "vue";
 
 import { useIndexedDb, STORES } from "@shared/storage/useIndexedDb";
-import { useWs } from "@shared/transport/useWs";
+import { useWsChannel } from "@shared/transport/useWsChannel";
 
 import { chats } from "@entities/chat/useChats";
-import {
-    useChatMessages,
-    PAGE_SIZE,
-    startOfDay,
-    type DecryptedMessage,
-} from "@entities/message/useMessages";
+import { type DecryptedMessage } from "@entities/message/useMessages";
 import { useOutbox } from "@entities/message/useOutbox";
 import { usePeerPresence } from "@entities/peer/usePeerPresence";
 import { peers } from "@entities/peer/usePeers";
 import { useUser } from "@entities/user/useUser";
 
 import { useChatCrypto } from "./useChatCrypto";
+import { useMessageWindow } from "./useMessageWindow";
 import { useTypingIndicator } from "./useTypingIndicator";
 
 import type {
     Chat,
-    ChatMessage,
     MessageContent,
     MessageAction,
     FileAttachment,
     PeerInfo,
-    ServerMessage,
+    ReplyRef,
 } from "shared";
 
 export type { DecryptedMessage };
+export type { ScrollTarget } from "./useMessageWindow";
 
-// Куда прокрутить список после смены окна сообщений: к конкретному сообщению
-// (прыжок по дате) или в самый низ (возврат к настоящему).
-export type ScrollTarget = { nonce: string } | "bottom" | null;
-
+// Оркестратор сессии чата: связывает окно сообщений (useMessageWindow), крипту
+// (useChatCrypto), typing/presence и WS-события. Сам почти не держит состояния —
+// доменная логика окна и отправки живёт в специализированных композаблах.
 export function useChatSession(chatId: string) {
     const { read } = useIndexedDb(STORES.CHATS);
     const { read: readPeer } = useIndexedDb(STORES.PEERS);
-    const {
-        saveChatMessage,
-        decryptStored,
-        getLastPage,
-        getPageBefore,
-        getPageFromDate,
-        getPageAfter,
-        getMessageDays,
-        removeChatMessage,
-    } = useChatMessages();
     const { enqueue: enqueueOutbox } = useOutbox();
     const { user, load: loadUser } = useUser();
-    const { send: wsSend, subscribe, connected } = useWs();
+    const { send: wsSend, connected, on, track } = useWsChannel();
 
-    const { initPeer, loadMyKey, ready, decryptV2, buildBundle } =
+    const { initPeer, loadMyKey, getMyKey, ready, decryptV2, buildBundle } =
         useChatCrypto(chatId);
-
     const { isPeerTyping, sendTyping, sendStopTyping } =
         useTypingIndicator(chatId);
     const { isPeerOnline, peerLastSeen } = usePeerPresence(chatId);
 
+    const mw = useMessageWindow(chatId);
+    const { messages, hasMoreMessages, hasMoreBelow, scrollTarget, pinned } =
+        mw;
+
     const chat = ref<Chat | null>(null);
     const peer = ref<PeerInfo | null>(null);
-    const messages = ref<DecryptedMessage[]>([]);
-    const hasMoreMessages = ref(false);
-    // Виден ли исторический срез (есть сообщения новее загруженного окна). В этом
-    // режиме входящие не подклеиваются в конец — они «внизу», за окном.
-    const hasMoreBelow = ref(false);
-    const scrollTarget = ref<ScrollTarget>(null);
     const error = ref<string | null>(null);
 
-    const seenNonces = new Set<string>();
-
-    const unsubs: (() => void)[] = [];
-    function on<T extends ServerMessage["type"]>(
-        type: T,
-        handler: (msg: Extract<ServerMessage, { type: T }>) => void
-    ) {
-        const unsub = subscribe(type, handler);
-        unsubs.push(unsub);
-        return unsub;
-    }
-
-    onUnmounted(() => unsubs.forEach((fn) => fn()));
-
-    function addMessage(msg: DecryptedMessage): void {
-        // Свои сообщения сервер вернёт и нам (getAfter по sender OR recipient) —
-        // помечаем nonce, чтобы повторная загрузка не создала дубль.
-        seenNonces.add(msg.nonce);
-        saveChatMessage(msg);
-        // В историческом срезе новое сообщение не показываем в конце окна —
-        // оно за пределами загруженного диапазона (кнопка «к последним» вернёт).
-        if (!hasMoreBelow.value) messages.value.push(msg);
-    }
-
-    function updateMessage(
-        nonce: string,
-        updates: Partial<DecryptedMessage>
-    ): void {
-        const idx = messages.value.findIndex((m) => m.nonce === nonce);
-        if (idx === -1) return;
-        const updated: DecryptedMessage = {
-            ...toRaw(messages.value[idx]),
-            ...updates,
-        };
-        messages.value[idx] = updated;
-        saveChatMessage(updated);
-    }
-
-    function applyEdit(edit: DecryptedMessage): void {
-        if (!edit.targetNonce) return;
-        const idx = messages.value.findIndex(
-            (m) => m.nonce === edit.targetNonce
-        );
-        if (idx === -1) return;
-        const updated: DecryptedMessage = {
-            ...toRaw(messages.value[idx]),
-            text: edit.text,
-            editedAt: edit.timestamp,
-        };
-        messages.value[idx] = updated;
-        saveChatMessage(updated);
-    }
+    // --- Отправка / действия ---
 
     async function sendMessage(
         text: string,
         files?: FileAttachment[],
-        originalNonce?: string
+        originalNonce?: string,
+        replyTo?: ReplyRef
     ): Promise<void> {
-        if (!user.value || !peer.value || !ready()) return;
-
+        if (!user.value || !peer.value || !ready()) {
+            return;
+        }
         const content: MessageContent = {
             text,
             ...(files?.length ? { files: files.map((f) => ({ ...f })) } : {}),
             ...(originalNonce
                 ? { action: "edit_message", targetNonce: originalNonce }
                 : {}),
+            ...(replyTo ? { replyTo } : {}),
         };
         // v2 (FS): бандл с per-device копиями (ECIES под prekey каждого).
         const bundle = await buildBundle(content, !!originalNonce);
         if (!content.action) {
-            // Кладём в outbox до ACK и оптимистично показываем как pending.
-            // Свою копию храним локально: транспортных iv/payload у бандла нет,
-            // контент уходит в store под ключом устройства (см. saveChatMessage).
+            // Кладём в outbox до ACK и оптимистично показываем как pending. Свою
+            // копию храним локально: транспортных iv/payload у бандла нет, контент
+            // уходит в store под ключом устройства (см. saveChatMessage).
             await enqueueOutbox(chatId, bundle);
-            addMessage({
+            mw.addMessage({
                 chatId: bundle.chatId,
                 from: bundle.from,
                 to: bundle.to,
@@ -164,55 +98,67 @@ export function useChatSession(chatId: string) {
         await sendMessage(newText, undefined, nonce);
         // Контент под ключом устройства пересобирается в saveChatMessage —
         // достаточно обновить text.
-        updateMessage(nonce, { text: newText, editedAt: Date.now() });
-    }
-
-    async function markAsRead(nonce: string): Promise<void> {
-        // Квитанция о прочтении идёт по зашифрованному и подписанному
-        // каналу action'ов — сервер её содержимое не видит.
-        await sendAction("read_message", nonce);
-        updateMessage(nonce, { isRead: true });
-    }
-
-    function removeMessageFromUI(nonce: string): void {
-        const idx = messages.value.findIndex((m) => m.nonce === nonce);
-        if (idx !== -1) messages.value.splice(idx, 1);
-    }
-
-    async function deleteMessageForMe(nonce: string): Promise<void> {
-        await removeChatMessage(nonce);
-        removeMessageFromUI(nonce);
+        mw.updateMessage(nonce, { text: newText, editedAt: Date.now() });
     }
 
     async function sendAction(
         action: MessageAction,
-        targetNonce?: string
+        targetNonce?: string,
+        extra?: Partial<MessageContent>
     ): Promise<void> {
-        if (!peer.value || !ready()) return;
+        if (!peer.value || !ready()) {
+            return;
+        }
         const content: MessageContent = {
             action,
             ...(targetNonce ? { targetNonce } : {}),
+            ...extra,
         };
-        // Действия (read/edit/delete) тоже v2: веером на все устройства.
+        // Действия (read/edit/delete/reaction) тоже v2: веером на все устройства.
         const bundle = await buildBundle(content, true);
         wsSend({ type: "message_bundle", payload: bundle });
     }
 
+    // Тоггл эмодзи-реакции: применяем локально и шлём silent-экшен собеседнику
+    // (и на свои устройства). Реакции — по тому же зашифрованному каналу.
+    async function toggleReaction(nonce: string, emoji: string): Promise<void> {
+        const myKey = getMyKey();
+        if (!myKey || !peer.value || !ready()) {
+            return;
+        }
+        const removed = mw.toggleReaction(nonce, emoji, myKey);
+        await sendAction("reaction", nonce, {
+            emoji,
+            ...(removed ? { remove: true } : {}),
+        });
+    }
+
+    async function markAsRead(nonce: string): Promise<void> {
+        // Квитанция о прочтении идёт по зашифрованному и подписанному каналу
+        // action'ов — сервер её содержимое не видит.
+        await sendAction("read_message", nonce);
+        mw.updateMessage(nonce, { isRead: true });
+    }
+
+    async function deleteMessageForMe(nonce: string): Promise<void> {
+        await mw.removeMessage(nonce);
+    }
+
     async function deleteMessageForAll(nonce: string): Promise<void> {
         await sendAction("delete_message", nonce);
-        await removeChatMessage(nonce);
-        removeMessageFromUI(nonce);
+        await mw.removeMessage(nonce);
     }
+
+    // --- WS-проводка ---
 
     async function connect(): Promise<void> {
         on("error", (msg) => {
             error.value = msg.message;
         });
 
-        // ACK сервера — помечаем исходящее доставленным (реактивно в открытом
-        // чате; outbox глобально дочищает и обновляет IDB).
+        // ACK сервера — помечаем исходящее доставленным.
         on("ack", (msg) => {
-            updateMessage(msg.payload.nonce, {
+            mw.updateMessage(msg.payload.nonce, {
                 status: "sent",
                 seq: msg.payload.seq,
             });
@@ -221,47 +167,63 @@ export function useChatSession(chatId: string) {
         on("message", async (msg) => {
             // Replay-защита: отбрасываем уже виденные nonce.
             const { nonce } = msg.payload;
-            if (seenNonces.has(nonce)) return;
-            seenNonces.add(nonce);
+            if (mw.hasSeen(nonce)) {
+                return;
+            }
+            mw.markSeen(nonce);
 
             // Расшифровываем копию эпохальным ключом устройства.
             const decrypted = await decryptV2(msg.payload);
             if (decrypted.decryptError) {
                 // Провал подписи/расшифровки в стор НЕ пишем — показываем
                 // транзитно; при следующей синхронизации попробуем снова.
-                if (!hasMoreBelow.value) messages.value.push(decrypted);
+                mw.pushTransient(decrypted);
                 return;
             }
             if (decrypted.action === "edit_message" && decrypted.targetNonce) {
-                applyEdit(decrypted);
+                mw.applyEdit(decrypted);
             } else if (
                 decrypted.action === "delete_message" &&
                 decrypted.targetNonce
             ) {
-                await removeChatMessage(decrypted.targetNonce);
-                removeMessageFromUI(decrypted.targetNonce);
+                await mw.removeMessage(decrypted.targetNonce);
             } else if (
                 decrypted.action === "read_message" &&
                 decrypted.targetNonce
             ) {
-                updateMessage(decrypted.targetNonce, { isRead: true });
+                mw.updateMessage(decrypted.targetNonce, { isRead: true });
+            } else if (
+                decrypted.action === "reaction" &&
+                decrypted.targetNonce &&
+                decrypted.emoji
+            ) {
+                mw.applyReaction(
+                    decrypted.from,
+                    decrypted.targetNonce,
+                    decrypted.emoji,
+                    !!decrypted.remove
+                );
             } else {
-                addMessage(decrypted);
+                mw.addMessage(decrypted);
             }
         });
 
-        unsubs.push(
+        track(
             watch(
                 () => peers.value[chatId],
                 async (peerInfo) => {
-                    if (!peerInfo) return;
+                    if (!peerInfo) {
+                        return;
+                    }
                     peer.value = peerInfo;
                     await initPeer(peerInfo);
                 }
             )
         );
 
-        if (!user.value) await loadUser();
+        if (!user.value) {
+            await loadUser();
+        }
 
         await loadMyKey();
 
@@ -276,17 +238,19 @@ export function useChatSession(chatId: string) {
             chats.value.push(loadedChat);
         }
 
-        unsubs.push(
+        track(
             watch(
                 () => chats.value.find((c) => c.id === chatId)?.established,
                 (established) => {
-                    if (established) loadChat();
+                    if (established) {
+                        loadChat();
+                    }
                 },
                 { immediate: true }
             )
         );
 
-        unsubs.push(
+        track(
             watch(connected, async (isConnected, wasConnected) => {
                 if (isConnected && wasConnected === false) {
                     await nextTick();
@@ -296,92 +260,21 @@ export function useChatSession(chatId: string) {
         );
     }
 
+    // Открывает чат: подтягивает собеседника/крипту, грузит окно из IDB и синкает
+    // пропущенное с сервера по seq-курсору.
     async function loadChat(): Promise<void> {
-        // Всегда открываем на последних — сбрасываем исторический режим.
-        hasMoreBelow.value = false;
-        const [cached, activePeer] = await Promise.all([
-            getLastPage(chatId),
-            readPeer<PeerInfo>(chatId),
-        ]);
+        const activePeer = await readPeer<PeerInfo>(chatId);
         chat.value = chats.value.find((c) => c.id === chatId) ?? null;
         peer.value = activePeer;
-        if (activePeer) await initPeer(activePeer);
-
-        // Локальный стор читаем через decryptStored (ключ устройства) — без
-        // per-chat sharedKey и без проверки подписи (данные уже доверенные).
-        messages.value = await Promise.all(cached.map((m) => decryptStored(m)));
-        cached.forEach((m) => seenNonces.add(m.nonce));
-        hasMoreMessages.value = cached.length >= PAGE_SIZE;
-
+        if (activePeer) {
+            await initPeer(activePeer);
+        }
+        const afterSeq = await mw.loadLastPage();
         if (connected.value) {
             // Курсор — серверный монотонный seq, а не клиентский timestamp.
-            const afterSeq = cached.reduce(
-                (max, m) => Math.max(max, m.seq ?? 0),
-                0
-            );
-            wsSend({
-                type: "open_chat",
-                payload: { chatId, afterSeq },
-            });
+            wsSend({ type: "open_chat", payload: { chatId, afterSeq } });
         }
-    }
-
-    async function loadMoreMessages(): Promise<void> {
-        if (!hasMoreMessages.value || messages.value.length === 0) return;
-        // Локальный стор — дом истории: страницу вверх берём из IDB, не с сервера.
-        const oldestTimestamp = messages.value[0].timestamp;
-        const older = await getPageBefore(chatId, oldestTimestamp);
-        if (older.length < PAGE_SIZE) hasMoreMessages.value = false;
-        if (older.length === 0) return;
-        const decrypted = await Promise.all(older.map((m) => decryptStored(m)));
-        // Виртуализация (virtua) рендерит только видимые строки — полное окно
-        // держать в DOM не нужно, поэтому prepend без обрезки хвоста.
-        messages.value = [...decrypted, ...messages.value];
-    }
-
-    // Подгрузка вниз (новее последнего в окне) — при скролле из истории к концу.
-    async function loadMoreBelow(): Promise<void> {
-        if (!hasMoreBelow.value || messages.value.length === 0) return;
-        const lastTs = messages.value[messages.value.length - 1].timestamp;
-        const newer = await getPageAfter(chatId, lastTs);
-        // Меньше полной страницы ⇒ достигли конца (без лишнего getLastMessage).
-        if (newer.length < PAGE_SIZE) hasMoreBelow.value = false;
-        if (newer.length === 0) return;
-        const decrypted = await Promise.all(newer.map((m) => decryptStored(m)));
-        messages.value = [...messages.value, ...decrypted];
-    }
-
-    // Прыжок по дате: заменяем окно на срез, начинающийся с этого дня, и скроллим
-    // к первому сообщению дня. Всё локально из IDB (история живёт на клиенте).
-    async function jumpToDate(ts: number): Promise<void> {
-        const page = await getPageFromDate(chatId, startOfDay(ts));
-        if (page.length === 0) return jumpToLatest();
-
-        const decrypted = await Promise.all(page.map((m) => decryptStored(m)));
-        messages.value = decrypted;
-        page.forEach((m) => seenNonces.add(m.nonce));
-
-        // Полная страница ⇒ вероятно есть новее (иначе — окно достаёт до конца).
-        hasMoreBelow.value = page.length === PAGE_SIZE;
-        const earlier = await getPageBefore(chatId, page[0].timestamp);
-        hasMoreMessages.value = earlier.length > 0;
-
-        scrollTarget.value = { nonce: decrypted[0].nonce };
-    }
-
-    // Возврат к настоящему: перезагружаем последнюю страницу и скроллим вниз.
-    async function jumpToLatest(): Promise<void> {
-        const page = await getLastPage(chatId);
-        const decrypted = await Promise.all(page.map((m) => decryptStored(m)));
-        messages.value = decrypted;
-        page.forEach((m) => seenNonces.add(m.nonce));
-        hasMoreMessages.value = page.length >= PAGE_SIZE;
-        hasMoreBelow.value = false;
-        scrollTarget.value = "bottom";
-    }
-
-    function messageDays() {
-        return getMessageDays(chatId);
+        mw.loadPinned();
     }
 
     return {
@@ -394,13 +287,17 @@ export function useChatSession(chatId: string) {
         hasMoreMessages,
         hasMoreBelow,
         scrollTarget,
+        pinned,
         error,
         connect,
-        loadMoreMessages,
-        loadMoreBelow,
-        jumpToDate,
-        jumpToLatest,
-        messageDays,
+        loadMoreMessages: mw.loadMoreMessages,
+        loadMoreBelow: mw.loadMoreBelow,
+        jumpToDate: mw.jumpToDate,
+        jumpToLatest: mw.jumpToLatest,
+        jumpToMessage: mw.jumpToMessage,
+        togglePin: mw.togglePin,
+        toggleReaction,
+        messageDays: mw.messageDays,
         sendMessage,
         editMessage,
         markAsRead,

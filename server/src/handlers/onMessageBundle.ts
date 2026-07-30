@@ -7,10 +7,14 @@ import type { SendBundleMessage, Peer } from "../types.js";
 // как у v1; дальше ChatService разворачивает и доставляет по устройствам.
 export function onMessageBundle(ws: Peer, data: SendBundleMessage): void {
     const { payload } = data;
-    if (payload.from !== ws.signPubKey) return;
+    if (payload.from !== ws.signPubKey) {
+        return;
+    }
 
     ws.msgBucket ??= { tokens: BURST, lastRefill: Date.now() };
-    if (!allowMessage(ws.msgBucket)) return;
+    if (!allowMessage(ws.msgBucket)) {
+        return;
+    }
 
     chatService.deliverBundle(payload, ws.deviceId);
 }

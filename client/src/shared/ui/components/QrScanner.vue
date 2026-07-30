@@ -17,7 +17,9 @@ async function start(): Promise<void> {
         stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" },
         });
-        if (!video.value) return;
+        if (!video.value) {
+            return;
+        }
         video.value.srcObject = stream;
         await video.value.play();
         scan();
@@ -36,7 +38,9 @@ function scan(): void {
     canvas.width = v.videoWidth;
     canvas.height = v.videoHeight;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+        return;
+    }
     ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(img.data, img.width, img.height);

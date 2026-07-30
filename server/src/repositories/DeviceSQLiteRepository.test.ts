@@ -38,7 +38,9 @@ test("remove drops one device, keeps the rest", () => {
 
 test("add caps devices per account at the limit (anti-amplification)", () => {
     const repo = setup();
-    for (let i = 0; i < 25; i++) repo.add("A", "d" + i);
+    for (let i = 0; i < 25; i++) {
+        repo.add("A", "d" + i);
+    }
     assert.equal(repo.getDevices("A").length, 20); // MAX_DEVICES_PER_ACCOUNT
     repo.add("B", "x");
     assert.equal(repo.getDevices("B").length, 1); // другой аккаунт не задет

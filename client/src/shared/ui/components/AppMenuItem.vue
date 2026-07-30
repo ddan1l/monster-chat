@@ -23,16 +23,25 @@ const emit = defineEmits<{ click: [] }>();
 .mc-menu-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     width: 100%;
-    padding: 8px 10px;
-    font-size: 13px;
+    padding: 9px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-align: left;
-    color: var(--mc-fg-mute);
+    line-height: 120%;
+    color: var(--mc-fg);
+    font-family: var(--mc-mono);
     transition: 0.1s;
+    text-transform: uppercase;
+
+    :deep(svg) {
+        color: var(--mc-fg-mute);
+    }
 
     &:hover {
-        color: var(--mc-fg);
+        color: var(--mc-acid);
         background: var(--mc-bg-sel);
     }
 
@@ -41,8 +50,15 @@ const emit = defineEmits<{ click: [] }>();
         pointer-events: none;
     }
 
-    &_danger:hover {
+    &_danger {
         color: var(--mc-danger);
+        :deep(svg) {
+            color: var(--mc-danger);
+        }
+        &:hover {
+            color: var(--mc-danger);
+            background: var(--mc-danger-hover);
+        }
     }
 }
 </style>

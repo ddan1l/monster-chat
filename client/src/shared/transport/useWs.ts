@@ -47,7 +47,9 @@ const { sign, exportSignPublicKey } = useCrypto();
 let authed = false;
 
 function rawSend(payload: ClientMessage | { type: string; payload?: unknown }) {
-    if (ws.value?.readyState !== WebSocket.OPEN) return;
+    if (ws.value?.readyState !== WebSocket.OPEN) {
+        return;
+    }
     const str = JSON.stringify(payload);
     txBytes.value += str.length;
     ws.value.send(str);
@@ -68,7 +70,9 @@ async function answerChallenge(nonce: string): Promise<void> {
 
 export function useWs(): UseWs {
     function connect(): void {
-        if (ws.value) return;
+        if (ws.value) {
+            return;
+        }
 
         log.info("connecting...");
         ws.value = new WebSocket(endpoint);
@@ -81,7 +85,9 @@ export function useWs(): UseWs {
         ws.value.onmessage = ({ data }) => {
             rxBytes.value += (data as string).length;
             const msg: ServerMessage = JSON.parse(data);
-            if (msg.type !== "pong") log.info("←", msg.type, msg);
+            if (msg.type !== "pong") {
+                log.info("←", msg.type, msg);
+            }
 
             // Рукопожатие обрабатываем внутри транспорта, наружу не отдаём.
             if (msg.type === "challenge") {
@@ -92,7 +98,9 @@ export function useWs(): UseWs {
                 authed = true;
                 connected.value = true;
                 connectedAt.value = Date.now();
-                while (sendQueue.length) send(sendQueue.shift()!);
+                while (sendQueue.length) {
+                    send(sendQueue.shift()!);
+                }
                 return;
             }
 
@@ -133,7 +141,9 @@ export function useWs(): UseWs {
         }
         const str = JSON.stringify(payload);
         txBytes.value += str.length;
-        if (payload.type !== "ping") log.info("→", payload.type, payload);
+        if (payload.type !== "ping") {
+            log.info("→", payload.type, payload);
+        }
         ws.value.send(str);
     }
 

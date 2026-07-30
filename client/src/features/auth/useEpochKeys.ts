@@ -30,7 +30,9 @@ export function useEpochKeys() {
         epochId: number,
         keyPair: CryptoKeyPair
     ): Promise<void> {
-        if (!storageKey.value) throw new Error("Storage key not loaded");
+        if (!storageKey.value) {
+            throw new Error("Storage key not loaded");
+        }
         const [pkcs8, rawPub] = await Promise.all([
             crypto.subtle.exportKey("pkcs8", keyPair.privateKey),
             crypto.subtle.exportKey("raw", keyPair.publicKey),
@@ -48,13 +50,17 @@ export function useEpochKeys() {
     }
 
     async function loadEpoch(epochId: number): Promise<CryptoKeyPair> {
-        if (!storageKey.value) throw new Error("Storage key not loaded");
+        if (!storageKey.value) {
+            throw new Error("Storage key not loaded");
+        }
         const [priv, iv, pub] = await Promise.all([
             read<string>(`epoch_${epochId}_priv`),
             read<string>(`epoch_${epochId}_iv`),
             read<string>(`epoch_${epochId}_pub`),
         ]);
-        if (!priv || !iv || !pub) throw new Error("Epoch key missing");
+        if (!priv || !iv || !pub) {
+            throw new Error("Epoch key missing");
+        }
         const pkcs8B64 = await decrypt(
             storageKey.value,
             fromBase64(priv),
@@ -92,7 +98,9 @@ export function useEpochKeys() {
     // Уничтожает приватник эпохи и её метаданные — после этого сообщения,
     // зашифрованные под неё, нерасшифровываемы. Ядро forward secrecy.
     async function destroyEpoch(epochId: number): Promise<void> {
-        if (epochId < 1) return;
+        if (epochId < 1) {
+            return;
+        }
         await Promise.all([
             remove(`epoch_${epochId}_priv`),
             remove(`epoch_${epochId}_iv`),
@@ -108,7 +116,9 @@ export function useEpochKeys() {
         keyPair: CryptoKeyPair;
     }> {
         const existing = await read<number>(CURRENT_KEY);
-        if (existing === null) return createEpoch(1);
+        if (existing === null) {
+            return createEpoch(1);
+        }
 
         const created = (await read<number>(`epoch_${existing}_created`)) ?? 0;
         if (Date.now() - created > ROTATION_INTERVAL_MS) {

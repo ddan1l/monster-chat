@@ -78,7 +78,9 @@ export function useKeyStorage() {
             read<ArrayBuffer>(`storage_enc_${method}`),
             read<ArrayBuffer>(`storage_iv_${method}`),
         ]);
-        if (!data || !iv) return null;
+        if (!data || !iv) {
+            return null;
+        }
         return decryptRawKey(data, iv, wrappingKey);
     }
 

@@ -28,9 +28,6 @@ const label = computed(() =>
 
 <style scoped lang="scss">
 .mc-date-divider {
-    position: sticky;
-    top: 8px;
-    z-index: 10;
     display: flex;
     justify-content: center;
     margin: 8px 0;

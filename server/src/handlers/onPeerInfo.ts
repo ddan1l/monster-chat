@@ -9,6 +9,8 @@ export function onPeerInfo(ws: Peer, data: PeerInfoMessage): void {
     // делят identity-ключ, новых рисков нет.
     const toOwnAccount = peerSignPubKey === ws.signPubKey;
     // Обычный relay наружу: пересылать можно только СВОЮ личность.
-    if (!toOwnAccount && peerInfo.signPubKey !== ws.signPubKey) return;
+    if (!toOwnAccount && peerInfo.signPubKey !== ws.signPubKey) {
+        return;
+    }
     chatService.relayPeerInfo(chatId, peerInfo, peerSignPubKey);
 }

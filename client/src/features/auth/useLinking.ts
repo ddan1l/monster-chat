@@ -169,7 +169,9 @@ export function useLinking() {
 
     // Пишет профиль/чаты/peer-инфо нового устройства в IDB.
     async function storeImported(bundle: LinkBundle): Promise<void> {
-        if (bundle.user) await userDb.write(bundle.user, USER_ID);
+        if (bundle.user) {
+            await userDb.write(bundle.user, USER_ID);
+        }
         await Promise.all(bundle.chats.map((c) => chatsDb.write(c)));
         await Promise.all(bundle.peers.map((p) => peersDb.write(p, p.chatId)));
     }

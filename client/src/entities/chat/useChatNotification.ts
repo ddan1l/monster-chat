@@ -50,7 +50,9 @@ export function useChatNotification() {
         subscribe("unread", async (msg) => {
             const { counts } = msg.payload;
             for (const chatId of Object.keys(unreadChatNotifications.value)) {
-                if (!(chatId in counts)) await setUnread(chatId, 0);
+                if (!(chatId in counts)) {
+                    await setUnread(chatId, 0);
+                }
             }
             for (const [chatId, count] of Object.entries(counts)) {
                 // Открытый чат считается прочитанным (mark_read мог ещё не дойти).
@@ -68,8 +70,9 @@ export function useChatNotification() {
             // обнулён) — только гасим бейдж. НЕ отвечаем mark_read, иначе с
             // серверным fanLive выйдет пинг-понг.
             if (msg.payload.silent) {
-                if (unreadCount !== undefined)
+                if (unreadCount !== undefined) {
                     await setUnread(chatId, unreadCount);
+                }
                 return;
             }
 
@@ -88,7 +91,9 @@ export function useChatNotification() {
             }
 
             // Не видно сейчас: обновляем бейдж (сайдбар + пульс кнопки «вниз»).
-            if (unreadCount !== undefined) await setUnread(chatId, unreadCount);
+            if (unreadCount !== undefined) {
+                await setUnread(chatId, unreadCount);
+            }
 
             // Уведомление шлём всегда, когда сообщение не увидено сразу: окно
             // скрыто, открыт другой чат, ИЛИ активный чат прокручен вверх.

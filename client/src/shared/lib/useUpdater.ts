@@ -6,7 +6,9 @@ const updateAvailable = ref(false);
 let pendingUpdate: { downloadAndInstall: () => Promise<void> } | null = null;
 
 export async function checkForUpdates(): Promise<void> {
-    if (!isTauri) return;
+    if (!isTauri) {
+        return;
+    }
     try {
         const { check } = await import("@tauri-apps/plugin-updater");
         const update = await check();
@@ -20,7 +22,9 @@ export async function checkForUpdates(): Promise<void> {
 }
 
 export async function installUpdate(): Promise<void> {
-    if (!pendingUpdate) return;
+    if (!pendingUpdate) {
+        return;
+    }
     await pendingUpdate.downloadAndInstall();
 }
 

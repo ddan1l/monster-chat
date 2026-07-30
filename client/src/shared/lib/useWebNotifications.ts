@@ -9,7 +9,9 @@ export function useWebNotifications() {
         title: string,
         options?: { body?: string; icon?: string; data?: unknown }
     ): Promise<void> {
-        if (Notification.permission !== "granted") return;
+        if (Notification.permission !== "granted") {
+            return;
+        }
         const reg = await navigator.serviceWorker?.ready;
         await reg?.showNotification(title, {
             body: options?.body,

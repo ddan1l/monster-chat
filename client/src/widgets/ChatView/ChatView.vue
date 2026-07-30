@@ -3,20 +3,31 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 import { useDebounce } from "@shared/lib/useDebounce";
 import { useWs } from "@shared/transport/useWs";
+import AppModal from "@shared/ui/components/AppModal.vue";
 
 import {
     useChatNotification,
     unreadChatNotifications,
 } from "@entities/chat/useChatNotification";
 import { activeChatId, chats, useChats } from "@entities/chat/useChats";
+import { useSettings, wallpaperCss } from "@entities/settings/useSettings";
 
-import { useChatSession } from "@features/chat-session/model/useChatSession";
+import {
+    useChatSession,
+    type DecryptedMessage,
+} from "@features/chat-session/model/useChatSession";
 import SafetyNumbers from "@features/verify-identity/SafetyNumbers.vue";
 import { useSafetyNumbers } from "@features/verify-identity/useSafetyNumbers";
 
 import ChatEditor from "./ChatEditor.vue";
 import ChatHeader from "./ChatHeader.vue";
+import ChatKeyChangedNotice from "./ChatKeyChangedNotice.vue";
+import ChatLeftedNotice from "./ChatLeftedNotice.vue";
 import ChatMessages from "./ChatMessages.vue";
+import ChatPinnedBar from "./ChatPinnedBar.vue";
+import ChatSafetyNotice from "./ChatSafetyNotice.vue";
+
+import type { FileAttachment } from "shared";
 
 const props = defineProps<{ chatId: string }>();
 
@@ -36,11 +47,13 @@ const {
     isPeerTyping,
     hasMoreBelow,
     scrollTarget,
+    pinned,
     connect,
     loadMoreMessages,
     loadMoreBelow,
     jumpToDate,
     jumpToLatest,
+    jumpToMessage,
     messageDays,
     sendMessage,
     editMessage,
@@ -49,6 +62,8 @@ const {
     sendStopTyping,
     deleteMessageForMe,
     deleteMessageForAll,
+    togglePin,
+    toggleReaction,
 } = useChatSession(props.chatId);
 
 const {
@@ -61,6 +76,12 @@ const {
 } = useSafetyNumbers(props.chatId);
 
 const { deleteChat, deleteChatForAll } = useChats();
+
+// Обои чата из настроек — фон общего контейнера сообщений+редактора.
+const { settings } = useSettings();
+const bodyBackground = computed(() =>
+    wallpaperCss(settings.value.chatWallpaper)
+);
 
 // Read-only состояние берём из реактивного стора, а не из локального chat —
 // событие chat_deleted обновляет именно массив chats.
@@ -76,7 +97,9 @@ const hasNewBelow = computed(
 watch(
     peer,
     (p) => {
-        if (p) loadSafety(p);
+        if (p) {
+            loadSafety(p);
+        }
     },
     { immediate: true }
 );
@@ -111,6 +134,39 @@ async function handleEditSubmit(nonce: string, newText: string) {
     await editMessage(nonce, newText);
     handleEditCancel();
 }
+
+// Ответ/цитата.
+const replyingTo = ref<DecryptedMessage | null>(null);
+const replyPreview = computed(() => {
+    const r = replyingTo.value;
+    if (!r) {
+        return null;
+    }
+    return {
+        author: r.from === peer.value?.signPubKey ? peer.value?.name : "Вы",
+        text: (r.text ?? "").replace(/<[^>]*>/g, "").trim() || "Вложение",
+    };
+});
+function handleReply(msg: DecryptedMessage) {
+    replyingTo.value = msg;
+}
+function handleSend(text: string, files?: FileAttachment[]) {
+    const r = replyingTo.value;
+    sendMessage(
+        text,
+        files,
+        undefined,
+        r
+            ? {
+                  nonce: r.nonce,
+                  from: r.from,
+                  text: r.text ?? "",
+                  ts: r.timestamp,
+              }
+            : undefined
+    );
+    replyingTo.value = null;
+}
 </script>
 
 <template>
@@ -124,78 +180,104 @@ async function handleEditSubmit(nonce: string, newText: string) {
                 :is-online="isPeerOnline"
                 :last-seen="peerLastSeen"
                 :verified="verified"
-                :key-changed="keyChanged"
-                @open-panel="safetyPanelOpen = true"
+                @open-safety="safetyPanelOpen = true"
                 @delete-chat="deleteChat(props.chatId)"
                 @delete-chat-for-all="deleteChatForAll(props.chatId)"
             />
 
-            <SafetyNumbers
-                v-if="safetyPanelOpen && peer"
-                :verified="verified"
-                :safety-number="safetyNumber"
-                :peer-name="peer.name"
-                @mark-verified="
-                    markVerified();
-                    safetyPanelOpen = false;
-                "
-                @remove-verification="removeVerification"
+            <AppModal
+                v-if="peer"
+                :is-visible="safetyPanelOpen"
+                title="Секретные числа"
                 @close="safetyPanelOpen = false"
-            />
-
-            <ChatMessages
-                :messages="messages"
-                :peer="peer"
-                :is-peer-typing="isPeerTyping"
-                :editing-nonce="editingNonce"
-                :has-more-below="hasMoreBelow"
-                :has-new-below="hasNewBelow"
-                :scroll-target="scrollTarget"
-                :on-load-more="loadMoreMessages"
-                :on-load-more-below="loadMoreBelow"
-                :on-jump-to-date="jumpToDate"
-                :on-jump-to-latest="jumpToLatest"
-                :on-scroll-handled="() => (scrollTarget = null)"
-                :message-days="messageDays"
-                @edit-start="handleEditStart"
-                @delete-for-me="deleteMessageForMe"
-                @delete-for-all="deleteMessageForAll"
-                @read="
-                    (nonce: string) => {
-                        markAsRead(nonce);
-                        debouncedClearUnread();
-                    }
-                "
-            />
-
-            <div v-if="verified === false" class="chat-view__verify-hint">
-                Верифицируйте секретные числа, прежде чем писать сообщения —
-                <button
-                    class="chat-view__verify-link"
-                    @click="safetyPanelOpen = true"
-                >
-                    Верифицировать
-                </button>
-            </div>
-
-            <div v-if="isLefted" class="chat-view__lefted">
-                Собеседник покинул чат
-            </div>
-            <template v-else>
-                <ChatEditor
-                    v-if="connected"
-                    :disabled="!!error || verified !== true"
-                    :chat-id="props.chatId"
-                    :editing-nonce="editingNonce"
-                    :editing-text="editingText"
-                    @send="sendMessage"
-                    @edit-submit="handleEditSubmit"
-                    @edit-cancel="handleEditCancel"
-                    @typing="sendTyping"
-                    @stop-typing="sendStopTyping"
+            >
+                <SafetyNumbers
+                    :verified="verified"
+                    :safety-number="safetyNumber"
+                    :peer-name="peer.name"
+                    @mark-verified="
+                        markVerified();
+                        safetyPanelOpen = false;
+                    "
+                    @remove-verification="
+                        removeVerification();
+                        safetyPanelOpen = false;
+                    "
                 />
-                <div v-else class="chat-view__offline">Оффлайн режим</div>
-            </template>
+            </AppModal>
+
+            <ChatPinnedBar
+                v-if="pinned.length"
+                :pinned="pinned"
+                @jump="jumpToMessage"
+                @unpin="togglePin"
+            />
+
+            <div
+                class="chat-view__body"
+                :style="{ background: bodyBackground }"
+            >
+                <ChatMessages
+                    :messages="messages"
+                    :peer="peer"
+                    :is-peer-typing="isPeerTyping"
+                    :editing-nonce="editingNonce"
+                    :has-more-below="hasMoreBelow"
+                    :has-new-below="hasNewBelow"
+                    :scroll-target="scrollTarget"
+                    :on-load-more="loadMoreMessages"
+                    :on-load-more-below="loadMoreBelow"
+                    :on-jump-to-date="jumpToDate"
+                    :on-jump-to-latest="jumpToLatest"
+                    :on-scroll-handled="() => (scrollTarget = null)"
+                    :message-days="messageDays"
+                    @edit-start="handleEditStart"
+                    @delete-for-me="deleteMessageForMe"
+                    @delete-for-all="deleteMessageForAll"
+                    @toggle-pin="togglePin"
+                    @reaction="toggleReaction"
+                    @reply="handleReply"
+                    @jump-reply="
+                        (nonce, ts) => jumpToMessage({ nonce, timestamp: ts })
+                    "
+                    @read="
+                        (nonce: string) => {
+                            markAsRead(nonce);
+                            debouncedClearUnread();
+                        }
+                    "
+                />
+
+                <ChatKeyChangedNotice
+                    v-if="keyChanged"
+                    @open-safety="safetyPanelOpen = true"
+                />
+
+                <ChatSafetyNotice
+                    v-if="verified === false"
+                    @open-safety="safetyPanelOpen = true"
+                />
+
+                <ChatLeftedNotice v-if="isLefted" />
+
+                <template v-else>
+                    <ChatEditor
+                        v-if="connected"
+                        :disabled="!!error || verified !== true"
+                        :chat-id="props.chatId"
+                        :editing-nonce="editingNonce"
+                        :editing-text="editingText"
+                        :reply-preview="replyPreview"
+                        @send="handleSend"
+                        @edit-submit="handleEditSubmit"
+                        @edit-cancel="handleEditCancel"
+                        @cancel-reply="replyingTo = null"
+                        @typing="sendTyping"
+                        @stop-typing="sendStopTyping"
+                    />
+                    <div v-else class="chat-view__offline">Оффлайн режим</div>
+                </template>
+            </div>
         </template>
     </div>
 </template>
@@ -208,39 +290,23 @@ async function handleEditSubmit(nonce: string, newText: string) {
     height: 100%;
     overflow: hidden;
 
+    // Общий контейнер сообщений и редактора — чтобы редактор сливался с лентой
+    // без шва. Фон (обои чата) задаётся инлайн из настроек (см. bodyBackground).
+    &__body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
     &__error {
         color: red;
-    }
-
-    &__verify-hint {
-        padding: 10px 0 4px;
-        font-size: 13px;
-        color: #888;
-        text-align: center;
-    }
-
-    &__verify-link {
-        background: none;
-        border: none;
-        color: #a78bfa;
-        cursor: pointer;
-        padding: 0;
-        font-size: 13px;
-        text-decoration: underline;
     }
 
     &__offline {
         padding: 12px 16px;
         font-size: 13px;
         color: var(--mc-fg-dim);
-        text-align: center;
-        border-top: 1px solid var(--mc-line-hard);
-    }
-
-    &__lefted {
-        padding: 14px 16px;
-        font-size: 13px;
-        color: var(--mc-fg-mute);
         text-align: center;
         border-top: 1px solid var(--mc-line-hard);
     }

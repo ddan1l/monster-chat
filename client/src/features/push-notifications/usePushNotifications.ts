@@ -7,13 +7,19 @@ export function usePushNotifications() {
 }
 
 export async function subscribePush(): Promise<void> {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        return;
+    }
 
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
+    if (permission !== "granted") {
+        return;
+    }
 
     const res = await fetch("/api/push/vapid-public-key");
-    if (!res.ok) return;
+    if (!res.ok) {
+        return;
+    }
     const { key } = (await res.json()) as { key: string };
 
     const reg = await navigator.serviceWorker.ready;
@@ -42,6 +48,8 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
         .replace(/_/g, "/");
     const rawData = atob(base64);
     const arr = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
+    for (let i = 0; i < rawData.length; i++) {
+        arr[i] = rawData.charCodeAt(i);
+    }
     return arr.buffer;
 }

@@ -4,7 +4,9 @@ import { verifySignature, decodeBase64 } from "../crypto.js";
 import type { AuthMessage, Peer } from "../types.js";
 
 export async function onAuth(ws: Peer, data: AuthMessage): Promise<void> {
-    if (ws.authed || !ws.authNonce) return;
+    if (ws.authed || !ws.authNonce) {
+        return;
+    }
 
     const { signPubKey, signature, deviceId } = data.payload;
     const ok = await verifySignature(

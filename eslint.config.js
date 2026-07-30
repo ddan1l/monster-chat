@@ -29,6 +29,8 @@ export default ts.config(
             },
         },
         rules: {
+            // Всегда блочная форма if/else/for/while — без однострочников.
+            curly: ["error", "all"],
             "import/order": [
                 "error",
                 {

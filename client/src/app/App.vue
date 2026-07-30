@@ -70,7 +70,9 @@ onMounted(async () => {
             router.push(path);
         };
         const current = await getCurrent();
-        if (current) current.forEach(handleUrl);
+        if (current) {
+            current.forEach(handleUrl);
+        }
         onOpenUrl((urls) => urls.forEach(handleUrl));
         listen<string>("deep-link-url", (e) => handleUrl(e.payload));
     }
@@ -109,7 +111,7 @@ watch([connected, signKeyPair], async ([isConnected, keys]) => {
 
 <style lang="scss" scoped>
 .mc-app {
-    padding: 20px;
+    padding: 10px;
     height: 100vh;
     overflow: hidden;
     &_pwa {

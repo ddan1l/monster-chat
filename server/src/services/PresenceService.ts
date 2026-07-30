@@ -45,7 +45,9 @@ export class PresenceService {
         const counts: Record<string, number> = {};
         for (const chatId of chatIds) {
             const n = this.chatMemberRepository.getUnread(chatId, signPubKey);
-            if (n > 0) counts[chatId] = n;
+            if (n > 0) {
+                counts[chatId] = n;
+            }
         }
         this.notificationService.sendEvent(peer, {
             type: "unread",
@@ -77,7 +79,9 @@ export class PresenceService {
     }
 
     unregister(peer: Peer): void {
-        if (!peer.signPubKey) return;
+        if (!peer.signPubKey) {
+            return;
+        }
         const signPubKey = peer.signPubKey;
         const deviceId = peer.deviceId ?? signPubKey;
         // Удаляем только своё соединение — не затираем переподключившийся сокет.
@@ -89,7 +93,9 @@ export class PresenceService {
         this.connectionRepository.delete(signPubKey, deviceId);
 
         // Аккаунт уходит в оффлайн только когда отключилось последнее устройство.
-        if (this.connectionRepository.getDevices(signPubKey).length > 0) return;
+        if (this.connectionRepository.getDevices(signPubKey).length > 0) {
+            return;
+        }
 
         const lastSeen = Date.now();
         // Presence эфемерна: только живым устройствам собеседников, без очереди

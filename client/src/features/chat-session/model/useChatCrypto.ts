@@ -58,6 +58,10 @@ export function useChatCrypto(chatId: string) {
         myKey = await exportSignPublicKey();
     }
 
+    function getMyKey(): string | null {
+        return myKey;
+    }
+
     function ready(): boolean {
         return !!peerKey;
     }
@@ -97,7 +101,9 @@ export function useChatCrypto(chatId: string) {
                 epochPubRaw,
                 fromBase64(p.signature)
             );
-            if (!authentic) continue;
+            if (!authentic) {
+                continue;
+            }
 
             const ephemeral = await crypto.subtle.generateKey(
                 { name: "ECDH", namedCurve: "P-256" },
@@ -218,6 +224,7 @@ export function useChatCrypto(chatId: string) {
     return {
         initPeer,
         loadMyKey,
+        getMyKey,
         ready,
         decryptV2,
         buildBundle,

@@ -57,7 +57,9 @@ async function linkPin(): Promise<void> {
     loading.value = true;
     try {
         const bundle = await importAndStore();
-        if (!bundle) return;
+        if (!bundle) {
+            return;
+        }
         await linkWithPassword(pin.value, bundle.ecdh, bundle.sign);
         router.replace("/app");
     } catch (e) {
@@ -72,7 +74,9 @@ async function linkBiometric(): Promise<void> {
     loading.value = true;
     try {
         const bundle = await importAndStore();
-        if (!bundle) return;
+        if (!bundle) {
+            return;
+        }
         // Регистрируем СВОЙ WebAuthn-credential на этом устройстве.
         await linkWithPrf(
             bundle.user?.name ?? "Monster Chat",
