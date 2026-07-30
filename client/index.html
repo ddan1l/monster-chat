@@ -3,25 +3,13 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ws: wss: http://ipc.localhost https://ipc.localhost ipc:; img-src 'self' data:; object-src 'none'; base-uri 'self';" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ws: wss: http://ipc.localhost https://ipc.localhost ipc:; img-src 'self' data:; object-src 'none'; base-uri 'self';" />
         <title>Monster Chat</title>
         <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="theme-color" content="#0f120f" />
-        <script>
-            try {
-                const settings = JSON.parse(localStorage.getItem("mc_settings") || "{}");
-                const theme = settings.theme || "acid-green";
-                document.documentElement.setAttribute("data-theme", theme);
-            } catch {
-                document.documentElement.setAttribute("data-theme", "acid-green");
-            }
-            document.documentElement.style.opacity = "0";
-
-            setTimeout(() => {
-                document.documentElement.style.opacity = "";
-            }, 500)
-        </script>
+        <!-- Ранний бутстрап темы/анти-флеша — внешним файлом (инлайн блокирует CSP). -->
+        <script src="/theme-init.js"></script>
     </head>
     <body>
         <div id="app"></div>
